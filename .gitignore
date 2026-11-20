@@ -1,0 +1,53 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.*
+
+# Environment files / secrets (keep only the template)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Build output
+.next/
+out/
+build/
+dist/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+
+# Runtime data: user uploads & private celebration recordings
+apps/api/uploads/
+apps/api/creative-uploads/
+apps/api/private/
+uploads/
+private/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.vercel
+
+# Not part of the source code
+postgresql-installer.exe
+*.exe
+.ui-backup/
+BACKEND_SETUP_REQUIRED.md
+IMPLEMENTATION_STATUS.md
+PRODUCTION_SETUP_REQUIRED.md
+PROJECT_STATUS_REPORT.md
+
+# Nested git repositories (we only want one at root)
+**/.git
