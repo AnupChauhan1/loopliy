@@ -6,7 +6,7 @@ A comprehensive Digital Agency Management ERP + CRM + Client Collaboration SaaS 
 
 ### Local Setup
 
-See [SETUP_GUIDE.md](./SETUP_GUIDE.md) for database configuration, demo-account seeding, and local development instructions. Demo account passwords must be supplied through environment variables and are not published in the login page or repository.
+See [SETUP_GUIDE.md](./SETUP_GUIDE.md) for database configuration, demo-account seeding, and local development instructions. Private workspace passwords are supplied through environment variables; only the isolated public sandbox credentials are shown on the login page.
 
 ## ✨ What's New
 
