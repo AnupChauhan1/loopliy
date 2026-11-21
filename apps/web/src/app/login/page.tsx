@@ -26,7 +26,7 @@ const loginCredentials: { role: string; email: string; password: string }[] = SH
   { role: 'Manager', email: 'pm@epatang.com', password: 'Manager@Looply2026' },
   { role: 'HR', email: 'hr@epatang.com', password: 'HR@Looply2026' },
   { role: 'Employee', email: 'employee@epatang.com', password: 'Employee@Looply2026' },
-  { role: 'Client', email: 'client1795252750436@acme-test.com', password: 'Client@Portal2026' },
+  { role: 'Client', email: 'client@acme.com', password: 'Client@Looply2026' },
 ] : [];
 
 export default function LoginPage() {
