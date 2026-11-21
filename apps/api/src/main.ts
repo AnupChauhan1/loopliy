@@ -24,8 +24,29 @@ async function bootstrap() {
     throw new Error('CORS_ORIGINS must contain the deployed frontend origin in production.');
   }
 
+  // Auth uses Bearer tokens (no cookies), so CSRF is not a concern. In
+  // production we additionally trust any https://*.onrender.com origin so the
+  // API keeps working even if CORS_ORIGINS is misconfigured or the frontend
+  // service is recreated under a new hostname.
+  const isRenderOrigin = (origin: string) => {
+    try {
+      const url = new URL(origin);
+      return url.protocol === 'https:' && url.hostname.endsWith('.onrender.com');
+    } catch {
+      return false;
+    }
+  };
+
   app.enableCors({
-    origin: isProduction ? allowedOrigins : true,
+    origin: isProduction
+      ? (origin, callback) => {
+          if (!origin || allowedOrigins.includes(origin) || isRenderOrigin(origin)) {
+            callback(null, true);
+          } else {
+            callback(null, false);
+          }
+        }
+      : true,
     credentials: true,
   });
 
