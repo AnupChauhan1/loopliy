@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Mail, Lock, AlertCircle, CheckCircle2, Loader2, Copy, Check } from 'lucide-react';
+import { Mail, Lock, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { panelRoleOf, homeFor } from '@/lib/roles';
 
@@ -15,42 +15,13 @@ const features = [
   'Real-time collaboration with your team & clients',
 ];
 
-const demoAccounts: { role: string; email: string; password: string }[] =
-  process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_DEMO_ACCESS_ENABLED === 'true'
-  ? [
-      { role: 'Admin', email: 'admin@loopli.com', password: process.env.NEXT_PUBLIC_DEMO_ADMIN_PASSWORD },
-      { role: 'Manager', email: 'manager@loopli.com', password: process.env.NEXT_PUBLIC_DEMO_MANAGER_PASSWORD },
-      { role: 'HR', email: 'hr@loopli.com', password: process.env.NEXT_PUBLIC_DEMO_HR_PASSWORD },
-      { role: 'Employee', email: 'employee@loopli.com', password: process.env.NEXT_PUBLIC_DEMO_EMPLOYEE_PASSWORD },
-      { role: 'Client', email: 'client@loopli.com', password: process.env.NEXT_PUBLIC_DEMO_CLIENT_PASSWORD },
-    ].flatMap((account) => account.email && account.password
-      ? [{ role: account.role, email: account.email, password: account.password }]
-      : [])
-  : [];
-
 export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [copyError, setCopyError] = useState('');
-  const [copied, setCopied] = useState('');
   const [loading, setLoading] = useState(false);
-
-  const copyCredential = async (key: string, value: string) => {
-    setCopyError('');
-    if (!navigator.clipboard?.writeText) {
-      setCopyError('Clipboard access is unavailable in this browser.');
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopied(key);
-    } catch {
-      setCopyError('Could not copy this credential. Please select and copy it manually.');
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -225,57 +196,9 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <div className="mt-8 rounded-xl border border-dashed border-gray-300 bg-gray-50 p-3.5 smooth-transition hover:border-brand-300 hover:bg-brand-50/30">
-            <p className="text-[11px] uppercase tracking-wide font-medium text-gray-400 text-center">Demo Access</p>
-            {demoAccounts.length > 0 ? (
-              <div className="mt-2 divide-y divide-gray-200/80">
-                {demoAccounts.map((account) => (
-                  <div key={account.role} className="flex items-center justify-between gap-2 py-2 first:pt-1 last:pb-1">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[11px] font-semibold text-gray-800">{account.role}</p>
-                      <p className="mt-0.5 break-all text-[10px] leading-4 text-gray-600">Email: {account.email}</p>
-                      <p className="break-all text-[10px] leading-4 text-gray-600">Password: {account.password}</p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1">
-                      <button
-                        type="button"
-                        aria-label={`Copy ${account.role} email`}
-                        title="Copy email"
-                        onClick={() => copyCredential(`${account.role}-email`, account.email)}
-                        className="rounded-md p-1.5 text-gray-500 hover:bg-white hover:text-brand-700"
-                      >
-                        {copied === `${account.role}-email` ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                      </button>
-                      <button
-                        type="button"
-                        aria-label={`Copy ${account.role} password`}
-                        title="Copy password"
-                        onClick={() => copyCredential(`${account.role}-password`, account.password)}
-                        className="rounded-md p-1.5 text-gray-500 hover:bg-white hover:text-brand-700"
-                      >
-                        {copied === `${account.role}-password` ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEmail(account.email);
-                          setPassword(account.password);
-                        }}
-                        className="rounded-md bg-white px-2 py-1 text-[10px] font-semibold text-brand-700 shadow-sm hover:bg-brand-50"
-                      >
-                        Use
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="mt-2 text-center text-[12px] text-gray-700">
-                Demo credentials are not configured for this deployment.
-              </p>
-            )}
-            {copyError && <p role="status" className="mt-2 text-center text-[11px] text-rose-600">{copyError}</p>}
-          </div>
+          <p className="mt-8 text-center text-[12px] text-gray-500">
+            Sign in with the account your administrator created for you.
+          </p>
 
           <p className="mt-6 text-center text-[13px] text-gray-500">
             Don&apos;t have an account?{' '}

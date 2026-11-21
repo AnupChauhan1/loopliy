@@ -4,7 +4,13 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('Starting Epatang seed...');
+  console.log('Starting seed...');
+  // Production mode (default): seeds only the workspace structure — org,
+  // roles, departments, the admin account, org settings and the module
+  // registry. All sample/demo data (fake staff, clients, projects, tasks,
+  // approvals, the public demo org, etc.) is skipped unless
+  // SEED_DEMO_DATA=true is set explicitly.
+  const seedDemo = process.env.SEED_DEMO_DATA === 'true';
   const adminPassword = process.env.ADMIN_PASSWORD;
   const staffPassword = process.env.STAFF_PASSWORD;
   const clientPassword = process.env.CLIENT_PASSWORD;
@@ -14,19 +20,25 @@ async function main() {
   const demoEmployeePassword = process.env.DEMO_EMPLOYEE_PASSWORD;
   const demoClientPassword = process.env.DEMO_CLIENT_PASSWORD;
 
-  if (
-    !adminPassword ||
-    !staffPassword ||
-    !clientPassword ||
-    !demoAdminPassword ||
-    !demoManagerPassword ||
-    !demoHrPassword ||
-    !demoEmployeePassword ||
-    !demoClientPassword
-  ) {
-    throw new Error('Set the private and public-sandbox demo passwords before seeding accounts.');
+  if (!adminPassword) {
+    throw new Error('ADMIN_PASSWORD must be set before seeding the admin account.');
   }
-  if ([adminPassword, staffPassword, clientPassword].some((password) => password.length < 12)) {
+  if (adminPassword.length < 12) {
+    throw new Error('ADMIN_PASSWORD must be at least 12 characters long.');
+  }
+  if (
+    seedDemo &&
+    (!staffPassword ||
+      !clientPassword ||
+      !demoAdminPassword ||
+      !demoManagerPassword ||
+      !demoHrPassword ||
+      !demoEmployeePassword ||
+      !demoClientPassword)
+  ) {
+    throw new Error('Set the private and public-sandbox demo passwords before seeding demo data (SEED_DEMO_DATA=true).');
+  }
+  if (seedDemo && [adminPassword, staffPassword, clientPassword].some((password) => password!.length < 12)) {
     throw new Error('Private workspace passwords must be at least 12 characters long.');
   }
 
@@ -88,13 +100,13 @@ async function main() {
 
   // Users
   const defaultPassword = await bcrypt.hash(adminPassword, 10);
-  const staffPasswordHash = await bcrypt.hash(staffPassword, 10);
-  const clientPasswordHash = await bcrypt.hash(clientPassword, 12);
-  const demoAdminPasswordHash = await bcrypt.hash(demoAdminPassword, 12);
-  const demoManagerPasswordHash = await bcrypt.hash(demoManagerPassword, 12);
-  const demoHrPasswordHash = await bcrypt.hash(demoHrPassword, 12);
-  const demoEmployeePasswordHash = await bcrypt.hash(demoEmployeePassword, 12);
-  const demoClientPasswordHash = await bcrypt.hash(demoClientPassword, 12);
+  const staffPasswordHash = seedDemo ? await bcrypt.hash(staffPassword!, 10) : '';
+  const clientPasswordHash = seedDemo ? await bcrypt.hash(clientPassword!, 12) : '';
+  const demoAdminPasswordHash = seedDemo ? await bcrypt.hash(demoAdminPassword!, 12) : '';
+  const demoManagerPasswordHash = seedDemo ? await bcrypt.hash(demoManagerPassword!, 12) : '';
+  const demoHrPasswordHash = seedDemo ? await bcrypt.hash(demoHrPassword!, 12) : '';
+  const demoEmployeePasswordHash = seedDemo ? await bcrypt.hash(demoEmployeePassword!, 12) : '';
+  const demoClientPasswordHash = seedDemo ? await bcrypt.hash(demoClientPassword!, 12) : '';
 
   const usersData = [
     { email: 'admin@epatang.com', passwordHash: defaultPassword, firstName: 'Admin', lastName: 'User', roles: ['Super Admin'], dept: 'Operations', designation: 'System Administrator', empId: 'DD-001' },
@@ -107,7 +119,8 @@ async function main() {
   ];
 
   const users: Record<string, { id: string }> = {};
-  for (const u of usersData) {
+  const usersToSeed = seedDemo ? usersData : usersData.filter((u) => u.email === 'admin@epatang.com');
+  for (const u of usersToSeed) {
     const { roles: roleNames, dept, designation, empId, ...fields } = u;
     const user = await prisma.user.upsert({
       where: { email: fields.email },
@@ -142,17 +155,19 @@ async function main() {
     console.log('User:', user.email);
   }
 
-  // Department heads
-  await prisma.department.update({ where: { id: departments['IT'].id }, data: { headId: users['pm@epatang.com'].id } });
-  await prisma.department.update({ where: { id: departments['SMM'].id }, data: { headId: users['pm@epatang.com'].id } });
-  await prisma.department.update({ where: { id: departments['Sales'].id }, data: { headId: users['sales@epatang.com'].id } });
-  await prisma.department.update({ where: { id: departments['Operations'].id }, data: { headId: users['admin@epatang.com'].id } });
+  // Department heads (demo staff only exist when SEED_DEMO_DATA=true)
+  if (seedDemo) {
+    await prisma.department.update({ where: { id: departments['IT'].id }, data: { headId: users['pm@epatang.com'].id } });
+    await prisma.department.update({ where: { id: departments['SMM'].id }, data: { headId: users['pm@epatang.com'].id } });
+    await prisma.department.update({ where: { id: departments['Sales'].id }, data: { headId: users['sales@epatang.com'].id } });
+    await prisma.department.update({ where: { id: departments['Operations'].id }, data: { headId: users['admin@epatang.com'].id } });
+  }
 
   // Organization settings
   await prisma.organizationSettings.upsert({
     where: { organizationId: organization.id },
-    update: { brandName: 'EPATANG', soundEnabled: true },
-    create: { organizationId: organization.id, brandName: 'EPATANG', soundEnabled: true, primaryColor: '#10b981' },
+    update: { brandName: 'LOOPLI', soundEnabled: true },
+    create: { organizationId: organization.id, brandName: 'LOOPLI', soundEnabled: true, primaryColor: '#10b981' },
   });
 
   // Default module registry
@@ -176,6 +191,12 @@ async function main() {
     });
   }
   console.log('Modules seeded');
+
+  if (!seedDemo) {
+    console.log('SEED_DEMO_DATA is not "true" — skipping all sample/demo data.');
+    console.log('Core workspace ready: organization, roles, departments, admin account, settings, modules.');
+    return;
+  }
 
   // Demo client + project
   const client = await prisma.client.upsert({

@@ -28,19 +28,7 @@ services:
           property: host
       - key: ADMIN_PASSWORD
         sync: false
-      - key: STAFF_PASSWORD
-        sync: false
-      - key: CLIENT_PASSWORD
-        sync: false
-      - key: DEMO_ADMIN_PASSWORD
-        sync: false
-      - key: DEMO_MANAGER_PASSWORD
-        sync: false
-      - key: DEMO_HR_PASSWORD
-        sync: false
-      - key: DEMO_EMPLOYEE_PASSWORD
-        sync: false
-      - key: DEMO_CLIENT_PASSWORD
+      - key: PURGE_SEED_DATA
         sync: false
 
   - type: web
@@ -61,15 +49,3 @@ services:
         value: https://loopliii-crm-api.onrender.com
       - key: NEXT_PUBLIC_APP_URL
         value: https://loopliii-crm-web.onrender.com
-      - key: NEXT_PUBLIC_DEMO_ACCESS_ENABLED
-        value: true
-      - key: NEXT_PUBLIC_DEMO_ADMIN_PASSWORD
-        sync: false
-      - key: NEXT_PUBLIC_DEMO_MANAGER_PASSWORD
-        sync: false
-      - key: NEXT_PUBLIC_DEMO_HR_PASSWORD
-        sync: false
-      - key: NEXT_PUBLIC_DEMO_EMPLOYEE_PASSWORD
-        sync: false
-      - key: NEXT_PUBLIC_DEMO_CLIENT_PASSWORD
-        sync: false

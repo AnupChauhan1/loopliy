@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
+import { DataHygieneService } from './common/data-hygiene.service';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { TasksModule } from './tasks/tasks.module';
@@ -46,6 +47,6 @@ import { ClientPortalModule } from './client-portal/client-portal.module';
     ClientPortalModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, DataHygieneService],
 })
 export class AppModule {}

@@ -1514,3 +1514,12 @@ model UserPreference {
 
   @@index([userId])
 }
+
+// Tiny key/value store for one-time operational markers (e.g. seed-data purge)
+model SystemState {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
