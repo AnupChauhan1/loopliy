@@ -93,14 +93,15 @@ export async function bootstrapTeamAccounts(prisma: PrismaClient) {
   const entries = resolveBootstrapPasswords();
   if (entries.length === 0) return { configured: 0, ready: [] as string[] };
 
-  // Prefer the canonical org slug, but fall back to the first organization so
-  // the bootstrap still works if production was seeded under a different slug.
+  // Prefer the canonical org slug, but fall back to the first organization;
+  // if the database has no organization at all, create a minimal one so the
+  // bootstrap accounts can always be provisioned (non-destructive).
   const org =
     (await prisma.organization.findUnique({ where: { slug: TEAM_ORG_SLUG } })) ??
-    (await prisma.organization.findFirst({ orderBy: { createdAt: 'asc' } }));
-  if (!org) {
-    throw new Error('No organization found — run prisma migrate deploy + seed first.');
-  }
+    (await prisma.organization.findFirst({ orderBy: { createdAt: 'asc' } })) ??
+    (await prisma.organization.create({
+      data: { name: 'EPATANG Agency', slug: TEAM_ORG_SLUG },
+    }));
 
   const departments = await prisma.department.findMany({
     where: { organizationId: org.id },
