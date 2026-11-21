@@ -55,6 +55,7 @@ function navFor(role: string): NavSection[] {
           title: 'Main',
           items: [
             { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
+            { name: 'Chat', href: '/chat', icon: MessageCircle },
             { name: 'Tasks', href: '/tasks', icon: CheckSquare },
             { name: 'Projects', href: '/projects', icon: FolderKanban },
             { name: 'Client access', href: '/client-accounts', icon: UserRoundCog },
@@ -95,6 +96,7 @@ function navFor(role: string): NavSection[] {
           title: 'Main',
           items: [
             { name: 'Dashboard', href: '/manager', icon: LayoutDashboard },
+            { name: 'Chat', href: '/chat', icon: MessageCircle },
             { name: 'Tasks', href: '/tasks', icon: CheckSquare },
             { name: 'Projects', href: '/projects', icon: FolderKanban },
             { name: 'Client messages', href: '/client-messages', icon: MessageCircle },
@@ -125,6 +127,7 @@ function navFor(role: string): NavSection[] {
           title: 'Main',
           items: [
             { name: 'Dashboard', href: '/hr', icon: LayoutDashboard },
+            { name: 'Chat', href: '/chat', icon: MessageCircle },
             { name: 'Employees', href: '/employees', icon: Users },
             { name: 'Departments', href: '/departments', icon: Network },
           ],
@@ -145,6 +148,7 @@ function navFor(role: string): NavSection[] {
           title: 'My Work',
           items: [
             { name: 'Dashboard', href: '/employee', icon: LayoutDashboard },
+            { name: 'Chat', href: '/chat', icon: MessageCircle },
             { name: 'My Tasks', href: '/tasks', icon: CheckSquare },
             { name: 'Issues', href: '/issues', icon: AlertCircle },
           ],
@@ -249,7 +253,7 @@ export function Sidebar({ isMobileSidebarOpen = false, setIsMobileSidebarOpen, c
           <AnimatePresence initial={false}>
             {!mini && (
               <motion.div initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -8 }} transition={{ duration: 0.2 }}>
-                <h1 className="text-[16px] font-extrabold leading-none tracking-wide text-white">LOOPLI</h1>
+                <h1 className="text-[16px] font-extrabold leading-none tracking-wide text-white">LOOPLY</h1>
                 <p className="mt-1 text-[11.5px] leading-none text-gray-400">{role === 'hr' ? 'HR' : role.charAt(0).toUpperCase() + role.slice(1)} Panel</p>
               </motion.div>
             )}

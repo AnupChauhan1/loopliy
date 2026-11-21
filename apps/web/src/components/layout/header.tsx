@@ -237,7 +237,7 @@ function UserMenu() {
               <button
                 onClick={() => {
                   setOpen(false);
-                  void installApp().catch((error: unknown) => console.error('Could not install LOOPLI.', error));
+                  void installApp().catch((error: unknown) => console.error('Could not install LOOPLY.', error));
                 }}
                 className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-brand-700 transition hover:bg-brand-50 hover:pl-4"
               >

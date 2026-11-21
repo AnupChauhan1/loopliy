@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'motion/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/lib/auth-context';
-import { useDashboardStats, type ChartPeriod, type TrendPoint } from '@/lib/hooks/dashboard';
+import { useDashboardStats, type TrendPoint } from '@/lib/hooks/dashboard';
 import { SectionTitle } from '@/components/ui/card';
 import { StatusBadge, PriorityBadge } from '@/components/ui/badge';
 import { fmtDate, fullName, initials, isOverdue, timeAgo } from '@/lib/format';
@@ -119,8 +119,7 @@ export default function AdminDashboard() {
   const router = useRouter();
   const toast = useToast();
   const queryClient = useQueryClient();
-  const [period, setPeriod] = useState<ChartPeriod>('week');
-  const { data: stats, isLoading, isError, isFetching } = useDashboardStats(period);
+  const { data: stats, isLoading, isError } = useDashboardStats();
 
   const now = new Date();
   const hour = now.getHours();
@@ -243,15 +242,7 @@ export default function AdminDashboard() {
       <div className="grid items-stretch gap-5 xl:grid-cols-[1.55fr_1fr]">
         <Reveal className="flex rounded-2xl border border-gray-200/70 bg-white p-5 shadow-[0_1px_2px_rgba(17,24,39,0.04),0_12px_32px_-18px_rgba(17,24,39,0.22)]">
           <div className="w-full">
-            <DeferredStatusChart
-              byStatus={stats?.tasks?.byStatus}
-              period={period}
-              onPeriodChange={setPeriod}
-              onRefresh={refresh}
-              loading={isLoading}
-              fetching={isFetching}
-              error={isError && !stats}
-            />
+            <DeferredStatusChart />
           </div>
         </Reveal>
 

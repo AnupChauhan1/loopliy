@@ -19,13 +19,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "LOOPLI CRM",
+  title: "LOOPLY CRM",
   description: "Premium Project & Issue Management System",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "LOOPLI",
+    title: "LOOPLY",
   },
   icons: {
     icon: [

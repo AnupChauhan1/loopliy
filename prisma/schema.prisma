@@ -49,6 +49,7 @@ model User {
   isActive          Boolean      @default(true)
   emailVerified     DateTime?
   lastLoginAt       DateTime?
+  lastSeenAt        DateTime?
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
 
@@ -75,6 +76,8 @@ model User {
   meetings          MeetingParticipant[]
   messages          Message[]
   calls             CallParticipant[]
+  callsInitiated    Call[]
+  messageReads      MessageRead[]
   conversationMembers ConversationMember[]
   employeeProfile   EmployeeProfile?
   clientProfile     Client?         @relation("ClientPortalUser")
@@ -329,6 +332,7 @@ model Project {
   files       ProjectFile[]
   issues      Issue[]
   creativeRequests CreativeRequest[]
+  conversations Conversation[]
 
   @@index([organizationId])
   @@index([clientId])
@@ -686,14 +690,18 @@ model Conversation {
   type      String
   clientId  String?
   client    Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   members   ConversationMember[]
   messages  Message[]
+  calls     Call[]
 
   @@index([clientId])
   @@index([type])
+  @@index([projectId])
 }
 
 model ConversationMember {
@@ -719,6 +727,13 @@ model Message {
   content        String
   attachments    Json?
   readAt         DateTime?
+  editedAt       DateTime?
+  deletedAt      DateTime?
+  pinnedAt       DateTime?
+  replyToId      String?
+  replyTo        Message?  @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies        Message[] @relation("MessageReplies")
+  reads          MessageRead[]
   createdAt      DateTime @default(now())
 
   @@index([conversationId])
@@ -726,19 +741,37 @@ model Message {
   @@index([createdAt])
 }
 
-model Call {
+// Per-user read receipts for chat messages
+model MessageRead {
   id        String   @id @default(uuid())
-  type      String
-  status    String   @default("initiated")
-  startedAt DateTime?
-  endedAt   DateTime?
-  duration  Int?
-  createdAt DateTime @default(now())
+  messageId String
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  readAt    DateTime @default(now())
 
-  participants CallParticipant[]
+  @@unique([messageId, userId])
+  @@index([userId])
+}
+
+model Call {
+  id             String         @id @default(uuid())
+  type           String
+  status         String         @default("initiated")
+  conversationId String?
+  conversation   Conversation?  @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  initiatedById  String?
+  initiatedBy    User?          @relation(fields: [initiatedById], references: [id], onDelete: SetNull)
+  startedAt      DateTime?
+  endedAt        DateTime?
+  duration       Int?
+  createdAt      DateTime       @default(now())
+
+  participants   CallParticipant[]
 
   @@index([status])
   @@index([createdAt])
+  @@index([conversationId])
 }
 
 model CallParticipant {

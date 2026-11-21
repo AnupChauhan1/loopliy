@@ -69,7 +69,7 @@ function BootScreen() {
           aria-label="Loading workspace"
         />
         <p className="mt-1 text-lg font-bold tracking-tight text-gray-900">
-          LOOPLI <span className="gradient-text-animated">Workspace</span>
+          LOOPLY <span className="gradient-text-animated">Workspace</span>
         </p>
         <motion.p
           className="mt-1 text-sm text-gray-500"
@@ -121,7 +121,7 @@ export function AuthenticatedLayout({ children }: { children: React.ReactNode })
   useCardSpotlight();
 
   // Check if user is on login page
-  const isLoginPage = pathname === '/login';
+  const isLoginPage = pathname === '/login' || pathname === '/client-login';
 
   useEffect(() => {
     setCollapsed(localStorage.getItem(COLLAPSE_KEY) === '1');
@@ -170,8 +170,10 @@ export function AuthenticatedLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     if (isLoading || !isAuthenticated || isLoginPage) return;
-    if (role === 'client' && pathname !== '/client') router.replace('/client');
-    if (role !== 'client' && pathname === '/client') router.replace('/');
+    const isClientArea = pathname === '/client' || pathname.startsWith('/client/');
+    if (role === 'client' && !isClientArea && !isLoginPage) router.replace('/client');
+    if (role !== 'client' && isClientArea) router.replace('/');
+    if (isAuthenticated && pathname === '/client-login') router.replace(role === 'client' ? '/client' : '/');
   }, [isAuthenticated, isLoading, isLoginPage, pathname, role, router]);
 
   // Show loading state
@@ -188,7 +190,8 @@ export function AuthenticatedLayout({ children }: { children: React.ReactNode })
   }
 
   if (role === 'client') {
-    return pathname === '/client' ? <ClientPortalLayout>{children}</ClientPortalLayout> : null;
+    const isClientArea = pathname === '/client' || pathname.startsWith('/client/');
+    return isClientArea ? <ClientPortalLayout>{children}</ClientPortalLayout> : null;
   }
 
   // If authenticated, show the main layout

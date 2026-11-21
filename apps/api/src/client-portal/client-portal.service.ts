@@ -563,6 +563,47 @@ export class ClientPortalService {
     return message;
   }
 
+  async profile(user: PortalUser) {
+    const client = await this.prisma.client.findFirst({
+      where: { id: user.clientProfile?.id, organizationId: user.organizationId },
+    });
+    if (!client) throw new ForbiddenException('This account is not linked to a client.');
+    const account = await this.prisma.user.findUnique({
+      where: { id: user.id },
+      select: { email: true, firstName: true, lastName: true, avatar: true, createdAt: true },
+    });
+    const projects = await this.prisma.project.findMany({
+      where: { organizationId: user.organizationId, clientId: client.id },
+      select: { id: true, name: true, status: true, progress: true, deadline: true },
+      orderBy: { updatedAt: 'desc' },
+    });
+    return {
+      client: {
+        id: client.id,
+        name: client.name,
+        companyName: client.name,
+        email: client.email,
+        phone: client.phone,
+        address: client.address,
+      },
+      account,
+      projects,
+    };
+  }
+
+  async changePassword(user: PortalUser, currentPassword: string, newPassword: string) {
+    const account = await this.prisma.user.findUnique({ where: { id: user.id } });
+    if (!account) throw new NotFoundException('Account not found.');
+    const valid = await bcrypt.compare(currentPassword, account.passwordHash);
+    if (!valid) throw new BadRequestException('Current password is incorrect.');
+    if (newPassword.length < 8) throw new BadRequestException('New password must be at least 8 characters.');
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash: await bcrypt.hash(newPassword, 12) },
+    });
+    return { success: true };
+  }
+
   private async staffConversation(conversationId: string, user: PortalUser) {
     const conversation = await this.prisma.conversation.findFirst({
       where: { id: conversationId, type: 'client_portal', client: { organizationId: user.organizationId } },

@@ -1,4 +1,8 @@
-import { Body, ConflictException, Controller, Delete, ForbiddenException, Get, Injectable, Module, NotFoundException, Param, Post, Put, Query, Request, UseGuards } from '@nestjs/common';
+import { Body, ConflictException, Controller, Delete, ForbiddenException, Get, Injectable, Module, NotFoundException, Param, Post, Put, Query, Request, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname, join } from 'path';
+import { mkdirSync } from 'fs';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -111,6 +115,7 @@ export class UsersService {
         firstName: data.firstName,
         lastName: data.lastName,
         isActive: data.isActive ?? undefined,
+        avatar: data.avatar !== undefined ? data.avatar : undefined,
         departmentId: data.departmentId !== undefined ? data.departmentId : undefined,
         teamId: data.teamId !== undefined ? data.teamId : undefined,
       },
@@ -171,6 +176,12 @@ export class UsersService {
       data: { organizationId, userId: actorId, action: updated.isActive ? 'reactivate' : 'deactivate', resource: 'user', resourceId: id },
     });
     return { id, isActive: updated.isActive };
+  }
+
+  async updateAvatar(id: string, avatar: string, organizationId: string) {
+    const user = await this.prisma.user.findFirst({ where: { id, organizationId } });
+    if (!user) throw new NotFoundException('User not found');
+    return this.prisma.user.update({ where: { id }, data: { avatar } });
   }
 
   rolesList() {
@@ -241,6 +252,33 @@ export class UsersController {
   @Roles(...HR_ROLES)
   deactivate(@Param('id') id: string, @Request() req: any) {
     return this.users.deactivate(id, req.user.id, req.user.organizationId);
+  }
+
+  @Post(':id/avatar')
+  @Roles(...HR_ROLES)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: (req, file, cb) => {
+          const dir = join(process.cwd(), 'uploads', 'avatars');
+          mkdirSync(dir, { recursive: true });
+          cb(null, dir);
+        },
+        filename: (req, file, cb) => {
+          const safe = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-60);
+          cb(null, `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safe}`);
+        },
+      }),
+      limits: { fileSize: 5 * 1024 * 1024 },
+      fileFilter: (req, file, cb) => cb(/^image\//.test(file.mimetype) ? null : new ForbiddenException('Only image files are allowed'), /^image\//.test(file.mimetype)),
+    }),
+  )
+  async avatar(@Param('id') id: string, @UploadedFile() file: any, @Request() req: any) {
+    if (!file) throw new NotFoundException('No file uploaded');
+    const user = await this.users.findOne(id, req.user.organizationId);
+    const url = `/uploads/avatars/${file.filename}`;
+    await this.users.updateAvatar(id, url, req.user.organizationId);
+    return { id: user.id, avatar: url };
   }
 }
 

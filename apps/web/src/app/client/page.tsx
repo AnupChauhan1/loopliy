@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, Clock3, Download, FileText, FolderKanban, Loader2, MessageCircle, Send, XCircle } from 'lucide-react';
 import api from '@/lib/api-client';
 import { useAuth } from '@/lib/auth-context';
+import { connectSocket } from '@/lib/socket';
 
 interface PortalMilestone {
   id: string;
@@ -112,6 +113,25 @@ export default function ClientDashboardPage() {
       queryClient.invalidateQueries({ queryKey: ['client-portal-messages'] });
     },
   });
+
+  // Real-time delivery of staff replies via the chat gateway.
+  useEffect(() => {
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
+    const socket = connectSocket(token);
+    const onDm = (payload: { message: PortalMessage & { userId: string } }) => {
+      if (!payload?.message?.id) return;
+      queryClient.setQueryData<PortalMessage[]>(['client-portal-messages'], (old) => {
+        const list = old ?? [];
+        if (list.some((m) => m.id === payload.message.id)) return list;
+        return [...list, payload.message];
+      });
+    };
+    socket.on('chat:message:dm', onDm);
+    return () => {
+      socket.off('chat:message:dm', onDm);
+    };
+  }, [queryClient]);
   const review = useMutation({
     mutationFn: (input: { kind: string; id: string; versionId: string; action: 'approve' | 'reject' | 'changes'; feedback?: string }) =>
       api.post(`/client-portal/deliverables/${input.kind}/${input.id}/versions/${input.versionId}/review`, {
@@ -364,12 +384,17 @@ export default function ClientDashboardPage() {
       </section>
 
       <section className="rounded-xl border border-gray-200 bg-white p-5 sm:p-6">
-        <div className="mb-4 flex items-center gap-2">
-          <MessageCircle className="h-5 w-5 text-brand-600" />
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Team messages</h2>
-            <p className="text-sm text-gray-500">Send questions and feedback directly to your project team.</p>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <MessageCircle className="h-5 w-5 text-brand-600" />
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Team messages</h2>
+              <p className="text-sm text-gray-500">Send questions and feedback directly to your project team.</p>
+            </div>
           </div>
+          <a href="/client/chat" className="inline-flex items-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm font-medium text-brand-700 hover:bg-brand-100">
+            Open chat
+          </a>
         </div>
         {messages.isError && <p className="mb-3 text-sm text-rose-600">Messages could not be loaded.</p>}
         <div className="max-h-80 space-y-3 overflow-y-auto rounded-lg bg-gray-50 p-3 sm:p-4">

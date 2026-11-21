@@ -16,12 +16,18 @@ import { ClientMessageDto } from './dto/client-message.dto';
 import { CreateClientDto, CreateClientPortalAccountDto } from './dto/create-client.dto';
 import { ClientReviewDto } from './dto/client-review.dto';
 import { ClientPortalService } from './client-portal.service';
+import { ChatGateway } from '../chat/chat.gateway';
+import { ChatService } from '../chat/chat.service';
 
 @Controller('client-portal')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ClientAccess()
 export class ClientPortalController {
-  constructor(private readonly clientPortal: ClientPortalService) {}
+  constructor(
+    private readonly clientPortal: ClientPortalService,
+    private readonly chatGateway: ChatGateway,
+    private readonly chatService: ChatService,
+  ) {}
 
   @Get('dashboard')
   @Roles('Client')
@@ -37,8 +43,10 @@ export class ClientPortalController {
 
   @Post('messages')
   @Roles('Client')
-  sendMessage(@Body() body: ClientMessageDto, @Request() req: any) {
-    return this.clientPortal.sendClientMessage(body.content, req.user);
+  async sendMessage(@Body() body: ClientMessageDto, @Request() req: any) {
+    const message = await this.clientPortal.sendClientMessage(body.content, req.user);
+    await this.realtime(message);
+    return message;
   }
 
   @Post('deliverables/:kind/:id/versions/:versionId/review')
@@ -51,6 +59,21 @@ export class ClientPortalController {
     @Request() req: any,
   ) {
     return this.clientPortal.reviewDeliverable(kind, id, versionId, body.action, body.feedback, req.user);
+  }
+
+  @Get('profile')
+  @Roles('Client')
+  profile(@Request() req: any) {
+    return this.clientPortal.profile(req.user);
+  }
+
+  @Post('change-password')
+  @Roles('Client')
+  changePassword(
+    @Body() body: { currentPassword: string; newPassword: string },
+    @Request() req: any,
+  ) {
+    return this.clientPortal.changePassword(req.user, body.currentPassword, body.newPassword);
   }
 
   @Get('files/:fileId')
@@ -109,12 +132,23 @@ export class ClientPortalController {
 
   @Post('conversations/:conversationId/messages')
   @Roles(...MANAGER_ROLES)
-  sendStaffMessage(
+  async sendStaffMessage(
     @Param('conversationId') conversationId: string,
     @Body() body: ClientMessageDto,
     @Request() req: any,
   ) {
-    return this.clientPortal.sendStaffMessage(conversationId, body.content, req.user);
+    const message = await this.clientPortal.sendStaffMessage(conversationId, body.content, req.user);
+    await this.realtime(message);
+    return message;
+  }
+
+  private async realtime(message: any) {
+    try {
+      const memberIds = await this.chatService.memberIds(message.conversationId);
+      await this.chatGateway.dispatchMessage(message.conversationId, message, memberIds, message.userId);
+    } catch {
+      // realtime fan-out is best-effort; the message is already persisted
+    }
   }
 
   private sendFile(file: any, response: Response) {

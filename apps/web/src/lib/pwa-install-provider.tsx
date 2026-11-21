@@ -39,7 +39,7 @@ export function PwaInstallProvider({ children }: { children: React.ReactNode }) 
 
     if (process.env.NODE_ENV === 'production' && 'serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch((error: unknown) => {
-        console.error('Could not register the LOOPLI service worker.', error);
+        console.error('Could not register the LOOPLY service worker.', error);
       });
     }
 

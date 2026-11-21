@@ -1,7 +1,7 @@
 {
   "name": "worker",
   "version": "1.0.0",
-  "description": "Background job worker for LOOPLI CRM",
+  "description": "Background job worker for LOOPLY CRM",
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",

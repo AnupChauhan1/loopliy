@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { DataHygieneService } from './common/data-hygiene.service';
+import { AccountBootstrapService } from './common/account-bootstrap.service';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { TasksModule } from './tasks/tasks.module';
@@ -22,6 +23,7 @@ import { IssuesModule } from './issues/issues.module';
 import { TemplatesModule } from './templates/templates.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { ClientPortalModule } from './client-portal/client-portal.module';
+import { ChatModule } from './chat/chat.module';
 
 @Module({
   imports: [
@@ -45,8 +47,9 @@ import { ClientPortalModule } from './client-portal/client-portal.module';
     TemplatesModule,
     AttendanceModule,
     ClientPortalModule,
+    ChatModule,
   ],
   controllers: [AppController],
-  providers: [AppService, DataHygieneService],
+  providers: [AppService, DataHygieneService, AccountBootstrapService],
 })
 export class AppModule {}

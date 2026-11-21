@@ -1,7 +1,28 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import api from '@/lib/api-client';
 
-export type ChartPeriod = 'week' | 'month' | 'year';
+export type ChartPeriod = 'week' | 'month' | 'year' | 'all' | 'custom';
+
+export interface TaskStatusData {
+  byStatus: Record<string, number>;
+  total: number;
+  period: string;
+}
+
+/** Lightweight task-status aggregation — one GROUP BY query, safe to poll. */
+export function useTaskStatus(period: ChartPeriod, from?: string, to?: string) {
+  return useQuery({
+    queryKey: ['dashboard', 'task-status', period, from ?? '', to ?? ''],
+    queryFn: () =>
+      api
+        .get<TaskStatusData>('/dashboard/task-status', {
+          params: { period, ...(from ? { from } : {}), ...(to ? { to } : {}) },
+        })
+        .then((r) => r.data),
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+  });
+}
 
 export interface TrendPoint {
   date: string;

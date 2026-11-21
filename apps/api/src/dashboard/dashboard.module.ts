@@ -7,6 +7,52 @@ import { hasAnyRole, MANAGER_ROLES, HR_ROLES, PRIVILEGED_ROLES } from '../common
 export class DashboardService {
   constructor(private prisma: PrismaService) {}
 
+  /** Lightweight task-status aggregation for the dashboard chart.
+   *  Single GROUP BY query — no record hydration. */
+  async taskStatus(user: any, period?: string, from?: string, to?: string) {
+    const organizationId = user.organizationId;
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const taskBase: any = { OR: [{ project: { organizationId } }, { projectId: null }] };
+
+    let periodStart: Date | null = null;
+    let periodEnd: Date | null = null;
+    if (period === 'week') {
+      periodStart = new Date(todayStart);
+      periodStart.setDate(periodStart.getDate() - ((now.getDay() + 6) % 7));
+    } else if (period === 'month') {
+      periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    } else if (period === 'year') {
+      periodStart = new Date(now.getFullYear(), 0, 1);
+    } else if (period === 'custom' && from) {
+      periodStart = new Date(from);
+      if (Number.isNaN(periodStart.getTime())) periodStart = null;
+      if (to) {
+        periodEnd = new Date(to);
+        if (Number.isNaN(periodEnd.getTime())) periodEnd = null;
+      }
+    }
+
+    const where: any = periodStart
+      ? {
+          AND: [
+            taskBase,
+            {
+              OR: [
+                { status: { notIn: ['completed', 'cancelled', 'approved'] } },
+                { completedAt: { gte: periodStart, ...(periodEnd ? { lt: periodEnd } : {}) } },
+                { updatedAt: { gte: periodStart, ...(periodEnd ? { lt: periodEnd } : {}) } },
+              ],
+            },
+          ],
+        }
+      : taskBase;
+
+    const grouped = await this.prisma.task.groupBy({ by: ['status'], where, _count: { _all: true } });
+    const byStatus = Object.fromEntries(grouped.map((g) => [g.status, g._count._all]));
+    return { byStatus, total: grouped.reduce((s, g) => s + g._count._all, 0), period: period ?? 'all' };
+  }
+
   async stats(user: any, period?: string) {
     const organizationId = user.organizationId;
     const now = new Date();
@@ -276,6 +322,11 @@ export class DashboardController {
   @Get('stats')
   stats(@Request() req: any, @Query('period') period?: string) {
     return this.dashboard.stats(req.user, period);
+  }
+
+  @Get('task-status')
+  taskStatus(@Request() req: any, @Query('period') period?: string, @Query('from') from?: string, @Query('to') to?: string) {
+    return this.dashboard.taskStatus(req.user, period, from, to);
   }
 
   @Get('nav-stats')

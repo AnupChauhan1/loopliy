@@ -166,8 +166,8 @@ async function main() {
   // Organization settings
   await prisma.organizationSettings.upsert({
     where: { organizationId: organization.id },
-    update: { brandName: 'LOOPLI', soundEnabled: true },
-    create: { organizationId: organization.id, brandName: 'LOOPLI', soundEnabled: true, primaryColor: '#10b981' },
+    update: { brandName: 'LOOPLY', soundEnabled: true },
+    create: { organizationId: organization.id, brandName: 'LOOPLY', soundEnabled: true, primaryColor: '#10b981' },
   });
 
   // Default module registry
@@ -536,8 +536,8 @@ async function main() {
   // Public demo users live in an isolated organization with synthetic records only.
   const demoOrganization = await prisma.organization.upsert({
     where: { slug: 'loopli-public-demo' },
-    update: { name: 'LOOPLI Public Demo' },
-    create: { name: 'LOOPLI Public Demo', slug: 'loopli-public-demo' },
+    update: { name: 'LOOPLY Public Demo' },
+    create: { name: 'LOOPLY Public Demo', slug: 'loopli-public-demo' },
   });
   const demoDepartmentData = [
     { name: 'Operations', code: 'DEMO-OPS', description: 'Public demo operations', color: '#10b981' },
@@ -553,8 +553,8 @@ async function main() {
   }
   await prisma.organizationSettings.upsert({
     where: { organizationId: demoOrganization.id },
-    update: { brandName: 'LOOPLI DEMO' },
-    create: { organizationId: demoOrganization.id, brandName: 'LOOPLI DEMO' },
+    update: { brandName: 'LOOPLY DEMO' },
+    create: { organizationId: demoOrganization.id, brandName: 'LOOPLY DEMO' },
   });
 
   const publicDemoUsersData = [
