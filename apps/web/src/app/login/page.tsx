@@ -40,6 +40,103 @@ export default function LoginPage() {
   const [copyError, setCopyError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // In-place auth views — no routing, no redirects
+  const [authMode, setAuthMode] = useState<'login' | 'signup' | 'forgot'>('login');
+  const [su, setSu] = useState({ fullName: '', email: '', accountType: 'employee', password: '', confirm: '' });
+  const [suMsg, setSuMsg] = useState('');
+  const [suErr, setSuErr] = useState('');
+  const [suLoading, setSuLoading] = useState(false);
+  const [suDevToken, setSuDevToken] = useState('');
+  const [suDoneEmail, setSuDoneEmail] = useState('');
+  const [extraCreds, setExtraCreds] = useState<{ role: string; email: string; password: string }[]>(() => {
+    try { return JSON.parse(localStorage.getItem('looply_extra_creds') || '[]'); } catch { return []; }
+  });
+  const [fpEmail, setFpEmail] = useState('');
+  const [fpStep, setFpStep] = useState<1 | 2>(1);
+  const [fpToken, setFpToken] = useState('');
+  const [fpPw, setFpPw] = useState('');
+  const [fpConfirm, setFpConfirm] = useState('');
+  const [fpMsg, setFpMsg] = useState('');
+  const [fpErr, setFpErr] = useState('');
+  const [fpLoading, setFpLoading] = useState(false);
+
+  const allCredentials = [...loginCredentials, ...extraCreds];
+
+  const submitSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSuErr(''); setSuMsg('');
+    const parts = su.fullName.trim().split(/\s+/);
+    if (parts.length < 2) { setSuErr('Please enter your full name (first and last name)'); return; }
+    if (su.password !== su.confirm) { setSuErr('Passwords do not match'); return; }
+    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(su.password)) { setSuErr('Password needs 8+ chars with upper, lower case and a number'); return; }
+    setSuLoading(true);
+    try {
+      const fd = new FormData();
+      fd.append('firstName', parts[0]);
+      fd.append('lastName', parts.slice(1).join(' '));
+      fd.append('email', su.email);
+      fd.append('password', su.password);
+      fd.append('phone', '');
+      fd.append('accountType', su.accountType);
+      const res = await fetch(`${API_URL}/api/v1/auth/signup`, { method: 'POST', body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(Array.isArray(data.message) ? data.message[0] : data.message || 'Registration failed');
+      // Store the new account in the demo credentials list (localStorage)
+      const roleLabel = { employee: 'Employee', client: 'Client', hr: 'HR', manager: 'Manager' }[su.accountType as 'employee'];
+      const cred = { role: roleLabel, email: su.email, password: su.password };
+      const next = [...extraCreds.filter((c) => c.email !== su.email), cred];
+      setExtraCreds(next);
+      localStorage.setItem('looply_extra_creds', JSON.stringify(next));
+      setSuDevToken(data.devVerifyToken ?? '');
+      setSuDoneEmail(su.email);
+      setSuMsg(data.message || 'Registration submitted.');
+      setSu({ fullName: '', email: '', accountType: 'employee', password: '', confirm: '' });
+    } catch (err: any) {
+      setSuErr(err.message || 'Registration failed. Please try again.');
+    } finally {
+      setSuLoading(false);
+    }
+  };
+
+  const submitForgot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFpErr(''); setFpMsg('');
+    setFpLoading(true);
+    try {
+      if (fpStep === 1) {
+        const res = await fetch(`${API_URL}/api/v1/auth/forgot-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: fpEmail }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Request failed');
+        if (data.devResetToken) {
+          setFpToken(data.devResetToken);
+          setFpStep(2);
+        } else {
+          setFpMsg('If an account exists for that email, a reset link has been sent.');
+        }
+      } else {
+        if (fpPw !== fpConfirm) { setFpErr('Passwords do not match'); return; }
+        if (fpPw.length < 8) { setFpErr('Password must be at least 8 characters'); return; }
+        const res = await fetch(`${API_URL}/api/v1/auth/reset-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: fpToken, newPassword: fpPw }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Reset failed');
+        setFpMsg('Password updated — sign in with your new password.');
+        setTimeout(() => { setAuthMode('login'); setFpStep(1); setFpMsg(''); setFpPw(''); setFpConfirm(''); }, 1200);
+      }
+    } catch (err: any) {
+      setFpErr(err.message || 'Something went wrong');
+    } finally {
+      setFpLoading(false);
+    }
+  };
+
   const copyCredential = async (key: string, value: string) => {
     setCopyError('');
     if (!navigator.clipboard?.writeText) {
@@ -154,6 +251,7 @@ export default function LoginPage() {
             <p className="mt-1.5 text-sm text-gray-500">Sign in to your workspace to continue</p>
           </div>
 
+          {authMode === 'login' && (<>
           <form onSubmit={handleSubmit} className="space-y-5">
             {error && (
               <div className="flex items-center gap-2.5 p-3.5 rounded-xl bg-rose-50 border border-rose-200/80 animate-fade-in">
@@ -185,9 +283,13 @@ export default function LoginPage() {
                 <label htmlFor="password" className="text-[13px] font-medium text-gray-700">
                   Password
                 </label>
-                <Link href="/forgot-password" className="text-[13px] font-medium text-brand-600 hover:text-brand-700 smooth-transition hover:underline">
+                <button
+                  type="button"
+                  onClick={() => { setAuthMode('forgot'); setFpErr(''); setFpMsg(''); setFpStep(1); }}
+                  className="text-[13px] font-medium text-brand-600 hover:text-brand-700 smooth-transition hover:underline"
+                >
                   Forgot password?
-                </Link>
+                </button>
               </div>
               <div className="relative">
                 <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 smooth-transition" />
@@ -227,13 +329,13 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          {loginCredentials.length > 0 && (
+          {allCredentials.length > 0 && (
           <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 text-center">
               Login Credentials
             </p>
             <div className="mt-1.5 grid gap-x-4 gap-y-1.5 sm:grid-cols-2">
-              {loginCredentials.map((account) => {
+              {allCredentials.map((account) => {
                 const compact = account.role === 'Client';
                 return (
                 <div key={account.role} className={`rounded-lg bg-white ring-1 ring-gray-100 ${compact ? 'px-2 py-1' : 'px-2 py-1.5'}`}>
@@ -284,22 +386,128 @@ export default function LoginPage() {
           </div>
           )}
 
-          {loginCredentials.length === 0 && (
+          {allCredentials.length === 0 && (
             <p className="mt-6 text-center text-[12px] text-gray-500">
               Sign in with the account your administrator created for you.
             </p>
           )}
 
-          <Link
-            href="/signup"
+          <button
+            type="button"
+            onClick={() => { setAuthMode('signup'); setSuErr(''); setSuMsg(''); }}
             className="mt-4 flex h-11 w-full items-center justify-center rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-700 shadow-sm transition-all hover:border-brand-300 hover:text-brand-700 hover:shadow"
           >
             Create New Account
-          </Link>
+          </button>
 
           <p className="mt-4 text-center text-[12px] text-gray-400">
             Employee, client, HR or manager — create your own account and password above.
           </p>
+          </>)}
+
+          {authMode === 'signup' && (
+            <form onSubmit={submitSignup} className="space-y-4">
+              <div className="mb-2">
+                <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">Create your account</h1>
+                <p className="mt-1.5 text-sm text-gray-500">Your account activates after HR and admin approval</p>
+              </div>
+              {suErr && (
+                <div className="flex items-center gap-2.5 rounded-xl border border-rose-200/80 bg-rose-50 p-3.5">
+                  <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />
+                  <p className="text-[13px] font-medium text-rose-700">{suErr}</p>
+                </div>
+              )}
+              {suMsg && (
+                <div className="rounded-xl border border-brand-200 bg-brand-50 p-3.5 text-[13px] text-brand-800">
+                  {suMsg}
+                  {suDevToken && (
+                    <a href={`/verify-email?email=${encodeURIComponent(suDoneEmail)}&token=${suDevToken}`} className="mt-1 block font-medium text-brand-700 underline">
+                      Verify email now (dev mode)
+                    </a>
+                  )}
+                </div>
+              )}
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-medium text-gray-700">Full name</label>
+                <input required value={su.fullName} onChange={(e) => setSu({ ...su, fullName: e.target.value })} placeholder="First and last name" className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-medium text-gray-700">Work email</label>
+                <input required type="email" value={su.email} onChange={(e) => setSu({ ...su, email: e.target.value })} placeholder="you@company.com" className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-medium text-gray-700">Role</label>
+                <select value={su.accountType} onChange={(e) => setSu({ ...su, accountType: e.target.value })} className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40">
+                  <option value="employee">Employee</option>
+                  <option value="client">Client</option>
+                  <option value="hr">HR Manager</option>
+                  <option value="manager">Manager</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-medium text-gray-700">Password</label>
+                  <input required type="password" minLength={8} value={su.password} onChange={(e) => setSu({ ...su, password: e.target.value })} placeholder="Min. 8 chars" className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-medium text-gray-700">Confirm</label>
+                  <input required type="password" value={su.confirm} onChange={(e) => setSu({ ...su, confirm: e.target.value })} placeholder="Repeat" className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
+                </div>
+              </div>
+              <Button type="submit" disabled={suLoading} className="h-11 w-full gradient-brand-btn rounded-xl border-0 font-medium text-white shadow-md shadow-brand-500/25">
+                {suLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating...</> : 'Create Account'}
+              </Button>
+              <button type="button" onClick={() => setAuthMode('login')} className="w-full text-center text-[13px] font-medium text-brand-600 hover:underline">
+                Already have an account? Sign in
+              </button>
+            </form>
+          )}
+
+          {authMode === 'forgot' && (
+            <form onSubmit={submitForgot} className="space-y-4">
+              <div className="mb-2">
+                <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">Reset password</h1>
+                <p className="mt-1.5 text-sm text-gray-500">
+                  {fpStep === 1 ? 'Enter your email and we\u2019ll send a reset link' : 'Choose a new password'}
+                </p>
+              </div>
+              {fpErr && (
+                <div className="flex items-center gap-2.5 rounded-xl border border-rose-200/80 bg-rose-50 p-3.5">
+                  <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />
+                  <p className="text-[13px] font-medium text-rose-700">{fpErr}</p>
+                </div>
+              )}
+              {fpMsg && (
+                <div className="flex items-center gap-2.5 rounded-xl border border-brand-200 bg-brand-50 p-3.5">
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-brand-600" />
+                  <p className="text-[13px] font-medium text-brand-800">{fpMsg}</p>
+                </div>
+              )}
+              {fpStep === 1 ? (
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-medium text-gray-700">Email address</label>
+                  <input required type="email" value={fpEmail} onChange={(e) => setFpEmail(e.target.value)} placeholder="you@company.com" className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-1.5">
+                    <label className="text-[13px] font-medium text-gray-700">New password</label>
+                    <input required type="password" minLength={8} value={fpPw} onChange={(e) => setFpPw(e.target.value)} className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[13px] font-medium text-gray-700">Confirm new password</label>
+                    <input required type="password" value={fpConfirm} onChange={(e) => setFpConfirm(e.target.value)} className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
+                  </div>
+                </>
+              )}
+              <Button type="submit" disabled={fpLoading} className="h-11 w-full gradient-brand-btn rounded-xl border-0 font-medium text-white shadow-md shadow-brand-500/25">
+                {fpLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{fpStep === 1 ? 'Sending...' : 'Updating...'}</> : fpStep === 1 ? 'Send Reset Link' : 'Update Password'}
+              </Button>
+              <button type="button" onClick={() => { setAuthMode('login'); setFpStep(1); setFpErr(''); setFpMsg(''); }} className="w-full text-center text-[13px] font-medium text-brand-600 hover:underline">
+                Back to Sign in
+              </button>
+            </form>
+          )}
         </div>
       </div>
     </div>
