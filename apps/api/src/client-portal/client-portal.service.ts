@@ -495,6 +495,8 @@ export class ClientPortalService {
         firstName: data.firstName,
         lastName: data.lastName,
         organizationId: client.organizationId,
+        emailVerified: new Date(),
+        approvedAt: new Date(),
       },
     });
     await tx.userRole.create({ data: { userId: account.id, roleId: role.id } });

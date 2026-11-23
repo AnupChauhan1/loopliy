@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Mail, Lock, AlertCircle, CheckCircle2, Loader2, Copy, Check } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { panelRoleOf, homeFor } from '@/lib/roles';
+import Link from 'next/link';
 
 const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/+$/, '');
 
@@ -184,9 +185,9 @@ export default function LoginPage() {
                 <label htmlFor="password" className="text-[13px] font-medium text-gray-700">
                   Password
                 </label>
-                <a href="#" className="text-[13px] font-medium text-brand-600 hover:text-brand-700 smooth-transition hover:underline">
+                <Link href="/forgot-password" className="text-[13px] font-medium text-brand-600 hover:text-brand-700 smooth-transition hover:underline">
                   Forgot password?
-                </a>
+                </Link>
               </div>
               <div className="relative">
                 <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 smooth-transition" />
@@ -291,9 +292,9 @@ export default function LoginPage() {
 
           <p className="mt-6 text-center text-[13px] text-gray-500">
             Don&apos;t have an account?{' '}
-            <a href="#" className="font-medium text-brand-600 hover:text-brand-700 smooth-transition hover:underline">
-              Contact your administrator
-            </a>
+            <Link href="/signup" className="font-medium text-brand-600 hover:text-brand-700 smooth-transition hover:underline">
+              Create one
+            </Link>
           </p>
         </div>
       </div>

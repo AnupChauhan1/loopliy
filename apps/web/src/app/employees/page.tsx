@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { fmtDate, fullName, initials } from '@/lib/format';
 import { useAuth } from '@/lib/auth-context';
-import { Search, Plus, X, Pencil, UserX, UserCheck, Trash2 } from 'lucide-react';
+import { Search, Plus, X, Pencil, UserX, UserCheck, Trash2, CheckCircle2, XCircle } from 'lucide-react';
 import { useDebouncedValue } from '@/lib/hooks/use-debounced-value';
 
 export default function EmployeesPage() {
@@ -17,6 +17,7 @@ export default function EmployeesPage() {
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search);
   const [deptFilter, setDeptFilter] = useState('all');
+  const [pendingOnly, setPendingOnly] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [error, setError] = useState('');
@@ -27,8 +28,8 @@ export default function EmployeesPage() {
   });
 
   const { data: users, isLoading } = useQuery({
-    queryKey: ['users', { search: debouncedSearch, deptFilter }],
-    queryFn: () => api.get('/users', { params: { ...(debouncedSearch ? { search: debouncedSearch } : {}), ...(deptFilter !== 'all' ? { departmentId: deptFilter } : {}) } }).then((r) => r.data),
+    queryKey: ['users', { search: debouncedSearch, deptFilter, pendingOnly }],
+    queryFn: () => api.get('/users', { params: { ...(debouncedSearch ? { search: debouncedSearch } : {}), ...(deptFilter !== 'all' ? { departmentId: deptFilter } : {}), ...(pendingOnly ? { pending: 'true' } : {}) } }).then((r) => r.data),
     placeholderData: keepPreviousData,
   });
   const { data: departments } = useQuery({ queryKey: ['departments'], queryFn: () => api.get('/departments').then((r) => r.data) });
@@ -66,6 +67,16 @@ export default function EmployeesPage() {
     mutationFn: (id: string) => api.delete(`/users/${id}`),
     onSuccess: invalidate,
     onError: (e: any) => setError(e.response?.data?.message || 'Could not delete user'),
+  });
+
+  const approveUser = useMutation({
+    mutationFn: (id: string) => api.post(`/users/${id}/approve`),
+    onSuccess: invalidate,
+  });
+
+  const rejectUser = useMutation({
+    mutationFn: (id: string) => api.post(`/users/${id}/reject`),
+    onSuccess: invalidate,
   });
 
   const confirmDelete = (u: any) => {
@@ -112,6 +123,12 @@ export default function EmployeesPage() {
             <option value="all">All departments</option>
             {(departments ?? []).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
+          <button
+            onClick={() => setPendingOnly((p) => !p)}
+            className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${pendingOnly ? 'border-amber-300 bg-amber-50 text-amber-700' : 'border-gray-200 bg-white text-gray-600 hover:border-amber-300'}`}
+          >
+            Pending approvals
+          </button>
         </CardContent>
       </Card>
 
@@ -147,7 +164,26 @@ export default function EmployeesPage() {
                   {(u.roleNames ?? []).map((r: string) => (
                     <span key={r} className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600">{r}</span>
                   ))}
+                  {!u.approvedAt && (
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Pending approval</span>
+                  )}
                 </div>
+                {!u.approvedAt && canManage && (
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      onClick={() => { if (window.confirm(`Approve ${fullName(u)}? They will be able to sign in.`)) approveUser.mutate(u.id); }}
+                      className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-brand-50 px-2 py-1.5 text-[11px] font-semibold text-brand-700 hover:bg-brand-100"
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Approve
+                    </button>
+                    <button
+                      onClick={() => { if (window.confirm(`Reject ${fullName(u)}'s registration? Their account will be deactivated.`)) rejectUser.mutate(u.id); }}
+                      className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-rose-50 px-2 py-1.5 text-[11px] font-semibold text-rose-600 hover:bg-rose-100"
+                    >
+                      <XCircle className="h-3.5 w-3.5" /> Reject
+                    </button>
+                  </div>
+                )}
                 <div className="mt-3 space-y-1 text-xs text-gray-500">
                   <p>{u.email}</p>
                   <p>{u.department?.name ?? 'No department'} · Joined {fmtDate(u.employeeProfile?.dateOfJoining)}</p>

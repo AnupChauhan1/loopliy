@@ -1,16 +1,129 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
+import { MailService } from '../common/mail.service';
 import * as bcrypt from 'bcrypt';
+import { randomBytes } from 'crypto';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { SignupDto } from './dto/signup.dto';
+
+const DEFAULT_ORG_SLUG = 'epatang-agency';
 
 @Injectable()
 export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    private mail: MailService,
   ) {}
+
+  /** Employee self-registration: creates an unverified, unapproved Employee
+   *  account in the default workspace. Admin approval is required before
+   *  login is allowed. */
+  async signup(dto: SignupDto) {
+    const email = dto.email.trim().toLowerCase();
+    const existing = await this.prisma.user.findUnique({ where: { email } });
+    if (existing) throw new ConflictException('An account with this email already exists');
+
+    const org =
+      (await this.prisma.organization.findUnique({ where: { slug: DEFAULT_ORG_SLUG } })) ??
+      (await this.prisma.organization.findFirst({ orderBy: { createdAt: 'asc' } })) ??
+      (await this.prisma.organization.create({ data: { name: 'LOOPLY', slug: DEFAULT_ORG_SLUG } }));
+
+    const passwordHash = await bcrypt.hash(dto.password, 12);
+    const verifyToken = randomBytes(32).toString('hex');
+
+    const employeeRole = await this.prisma.role.upsert({
+      where: { name: 'Employee' },
+      update: {},
+      create: { name: 'Employee', description: 'Staff member' },
+    });
+
+    const user = await this.prisma.user.create({
+      data: {
+        email,
+        passwordHash,
+        firstName: dto.firstName.trim(),
+        lastName: dto.lastName.trim(),
+        organizationId: org.id,
+        emailVerifyToken: verifyToken,
+        emailVerifyExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        roles: { create: { roleId: employeeRole.id } },
+        preferences: { create: {} },
+        employeeProfile: {
+          create: {
+            employeeId: `EMP-${Date.now().toString(36).toUpperCase()}`,
+            phone: dto.phone,
+            employmentStatus: 'active',
+          },
+        },
+      },
+    });
+
+    const verifyUrl = this.mail.appUrl(`/verify-email?email=${encodeURIComponent(email)}&token=${verifyToken}`);
+    await this.mail.send(
+      email,
+      'Verify your LOOPLY account',
+      `Hi ${user.firstName},\n\nVerify your email to continue your LOOPLY registration:\n${verifyUrl}\n\nThis link expires in 24 hours.`,
+    );
+
+    return {
+      message: 'Account created. Check your email to verify your address — an admin will then approve your access.',
+      // Exposed only outside production so local/dev flows remain testable
+      // without SMTP. Never set this in production.
+      ...(process.env.NODE_ENV !== 'production' ? { devVerifyToken: verifyToken } : {}),
+    };
+  }
+
+  async verifyEmail(email: string, token: string) {
+    const user = await this.prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
+    if (!user || user.emailVerifyToken !== token) throw new BadRequestException('Invalid verification link');
+    if (user.emailVerifyExpiresAt && user.emailVerifyExpiresAt < new Date()) {
+      throw new BadRequestException('Verification link has expired — please sign up again');
+    }
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { emailVerified: new Date(), emailVerifyToken: null, emailVerifyExpiresAt: null },
+    });
+    return { message: 'Email verified. Your account is pending admin approval.' };
+  }
+
+  async forgotPassword(email: string) {
+    const normalized = email.trim().toLowerCase();
+    const user = await this.prisma.user.findUnique({ where: { email: normalized } });
+    // Always return the same response to avoid account enumeration
+    if (user) {
+      const resetToken = randomBytes(32).toString('hex');
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { resetToken, resetTokenExpiresAt: new Date(Date.now() + 60 * 60 * 1000) },
+      });
+      const resetUrl = this.mail.appUrl(`/reset-password?token=${resetToken}`);
+      await this.mail.send(
+        normalized,
+        'Reset your LOOPLY password',
+        `Hi ${user.firstName},\n\nReset your password using this link (valid for 1 hour):\n${resetUrl}\n\nIf you did not request this, ignore this email.`,
+      );
+    }
+    return { message: 'If an account exists for that email, a reset link has been sent.' };
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    const user = await this.prisma.user.findFirst({
+      where: { resetToken: token, resetTokenExpiresAt: { gt: new Date() } },
+    });
+    if (!user) throw new BadRequestException('Invalid or expired reset link');
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash: await bcrypt.hash(newPassword, 12),
+        resetToken: null,
+        resetTokenExpiresAt: null,
+      },
+    });
+    return { message: 'Password updated. You can now sign in.' };
+  }
 
   async register(registerDto: RegisterDto) {
     const { email, password, firstName, lastName, organizationName } = registerDto;
@@ -103,6 +216,12 @@ export class AuthService {
 
     if (!user.isActive) {
       throw new UnauthorizedException('User account is inactive');
+    }
+    if (!user.emailVerified) {
+      throw new UnauthorizedException('Please verify your email address before signing in');
+    }
+    if (!user.approvedAt) {
+      throw new UnauthorizedException('Your account is pending admin approval');
     }
 
     // Update last login

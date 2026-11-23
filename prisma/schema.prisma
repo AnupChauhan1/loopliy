@@ -48,6 +48,11 @@ model User {
   avatar            String?
   isActive          Boolean      @default(true)
   emailVerified     DateTime?
+  approvedAt        DateTime?
+  emailVerifyToken  String?
+  emailVerifyExpiresAt DateTime?
+  resetToken        String?
+  resetTokenExpiresAt DateTime?
   lastLoginAt       DateTime?
   lastSeenAt        DateTime?
   createdAt         DateTime     @default(now())

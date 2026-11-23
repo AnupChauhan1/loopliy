@@ -13,6 +13,7 @@ import { ClientAccess } from '../common/client-access';
 const USER_SELECT = {
   id: true, email: true, firstName: true, lastName: true, isActive: true,
   avatar: true, lastLoginAt: true, createdAt: true, departmentId: true, teamId: true,
+  approvedAt: true, emailVerified: true,
   department: { select: { id: true, name: true, color: true } },
   roles: { include: { role: { select: { id: true, name: true } } } },
   employeeProfile: true,
@@ -26,8 +27,9 @@ export class UsersService {
   ) {}
 
   async findAll(organizationId: string, query: any) {
-    const { departmentId, search, status, role } = query;
+    const { departmentId, search, status, role, pending } = query;
     const where: any = { organizationId };
+    if (pending === 'true') where.approvedAt = null;
     if (departmentId) where.departmentId = departmentId;
     if (status === 'active') where.isActive = true;
     if (status === 'inactive') where.isActive = false;
@@ -72,6 +74,9 @@ export class UsersService {
         organizationId,
         departmentId: data.departmentId || null,
         teamId: data.teamId || null,
+        // Admin-provisioned accounts are pre-verified and pre-approved
+        emailVerified: new Date(),
+        approvedAt: new Date(),
         employeeProfile: {
           create: {
             employeeId,
@@ -166,6 +171,33 @@ export class UsersService {
       data: { organizationId, userId: actorId, action: 'update', resource: 'user', resourceId: id },
     });
     return this.findOne(id, organizationId);
+  }
+
+  /** Approve a self-registered account: grants CRM access. */
+  async approve(id: string, actorId: string, organizationId: string) {
+    const user = await this.prisma.user.findFirst({ where: { id, organizationId } });
+    if (!user) throw new NotFoundException('User not found');
+    if (!user.emailVerified) throw new ForbiddenException('Cannot approve an unverified email');
+    const updated = await this.prisma.user.update({
+      where: { id },
+      data: { approvedAt: user.approvedAt ?? new Date(), isActive: true },
+    });
+    await this.prisma.auditLog.create({
+      data: { organizationId, userId: actorId, action: 'approve', resource: 'user', resourceId: id, changes: { email: user.email } },
+    });
+    return { id, approvedAt: updated.approvedAt, isActive: updated.isActive };
+  }
+
+  /** Reject a pending registration: blocks login until re-approved. */
+  async reject(id: string, actorId: string, organizationId: string) {
+    const user = await this.prisma.user.findFirst({ where: { id, organizationId } });
+    if (!user) throw new NotFoundException('User not found');
+    if (user.approvedAt) throw new ForbiddenException('This account is already approved — deactivate it instead');
+    await this.prisma.user.update({ where: { id }, data: { isActive: false } });
+    await this.prisma.auditLog.create({
+      data: { organizationId, userId: actorId, action: 'reject', resource: 'user', resourceId: id, changes: { email: user.email } },
+    });
+    return { id, isActive: false };
   }
 
   async deactivate(id: string, actorId: string, organizationId: string) {
@@ -278,6 +310,18 @@ export class UsersController {
   @Put(':id')
   update(@Param('id') id: string, @Body() body: any, @Request() req: any) {
     return this.users.update(id, body, req.user.id, req.user, req.user.organizationId);
+  }
+
+  @Post(':id/approve')
+  @Roles(...HR_ROLES)
+  approve(@Param('id') id: string, @Request() req: any) {
+    return this.users.approve(id, req.user.id, req.user.organizationId);
+  }
+
+  @Post(':id/reject')
+  @Roles(...HR_ROLES)
+  reject(@Param('id') id: string, @Request() req: any) {
+    return this.users.reject(id, req.user.id, req.user.organizationId);
   }
 
   @Post(':id/deactivate')
