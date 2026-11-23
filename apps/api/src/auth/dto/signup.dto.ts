@@ -31,4 +31,8 @@ export class SignupDto {
   @IsOptional()
   @IsString()
   otpToken?: string;
+
+  @IsOptional()
+  @IsString()
+  googleIdToken?: string;
 }

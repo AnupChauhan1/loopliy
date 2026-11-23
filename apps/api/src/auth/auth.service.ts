@@ -107,13 +107,26 @@ export class AuthService {
     const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing) throw new ConflictException('An account with this email already exists');
 
-    // Mandatory OTP verification: signup requires a verified otpToken for this email
-    const otpRecord = dto.otpToken
+    // Email proof: either a verified OTP token OR a valid Google ID token for this email
+    let googleVerified = false;
+    if (dto.googleIdToken) {
+      try {
+        const res = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(dto.googleIdToken)}`);
+        if (res.ok) {
+          const payload: any = await res.json();
+          googleVerified = payload.email === email && payload.email_verified === 'true';
+        }
+      } catch {
+        googleVerified = false;
+      }
+      if (!googleVerified) throw new BadRequestException('Google verification failed — please try again');
+    }
+    const otpRecord = !googleVerified && dto.otpToken
       ? await this.prisma.emailOtp.findFirst({
           where: { email, verifiedToken: dto.otpToken, verifiedAt: { not: null } },
         })
       : null;
-    if (!otpRecord) {
+    if (!googleVerified && !otpRecord) {
       throw new BadRequestException('Email verification required — enter the 6-digit code sent to your email');
     }
 
@@ -179,8 +192,8 @@ export class AuthService {
       }
     }
 
-    // OTP already proved email ownership — consume the challenge
-    await this.prisma.emailOtp.delete({ where: { id: otpRecord.id } }).catch(() => {});
+    // Consume the OTP challenge when one was used (Google signups have none)
+    if (otpRecord) await this.prisma.emailOtp.delete({ where: { id: otpRecord.id } }).catch(() => {});
 
     // Notify HR and Admin users about the new registration request
     const reviewerIds = await this.notifications.userIdsWithRoles(org.id, HR_ROLES);

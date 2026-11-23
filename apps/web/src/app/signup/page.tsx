@@ -22,11 +22,36 @@ export default function SignupPage() {
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpMsg, setOtpMsg] = useState('');
   const [fallbackToken, setFallbackToken] = useState('');
+  const [googleToken, setGoogleToken] = useState('');
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [resendIn, setResendIn] = useState(0);
 
   const set = (k: string) => (e: any) => {
     setForm({ ...form, [k]: e.target.value });
     if (k === 'email') { setOtpSent(false); setOtpVerified(false); setOtpToken(''); }
+  };
+
+  const signInWithGoogle = async () => {
+    setError(''); setGoogleLoading(true);
+    try {
+      const { signInWithPopup } = await import('firebase/auth');
+      const { auth, googleProvider } = await import('@/lib/firebase');
+      const cred = await signInWithPopup(auth, googleProvider);
+      const idToken = await cred.user.getIdToken();
+      setGoogleToken(idToken);
+      setForm((f) => ({
+        ...f,
+        email: cred.user.email ?? f.email,
+        fullName: f.fullName || cred.user.displayName || '',
+      }));
+      setOtpSent(true); setOtpVerified(true); setOtpToken(''); setFallbackToken(''); setOtpMsg('');
+    } catch (err: any) {
+      if (err?.code !== 'auth/popup-closed-by-user' && err?.code !== 'auth/cancelled-popup-request') {
+        setError('Google sign-in failed — please try again or use email verification below.');
+      }
+    } finally {
+      setGoogleLoading(false);
+    }
   };
 
   const sendOtp = async () => {
@@ -106,7 +131,7 @@ export default function SignupPage() {
     if (!strong.test(form.password)) { setError('Password must be 8+ characters with upper, lower case and a number'); return; }
     if (!/^\+?[0-9\s\-()]{7,20}$/.test(form.phone)) { setError('Enter a valid phone number'); return; }
     if (form.accountType === 'client' && !form.companyName.trim()) { setError('Company name is required for client accounts'); return; }
-    if (!otpVerified || !otpToken) { setError('Please verify your email with the OTP code first'); return; }
+    if (!googleToken && (!otpVerified || !otpToken)) { setError('Please verify your email with the OTP code first'); return; }
     const nameParts = form.fullName.trim().split(/\s+/);
     if (nameParts.length < 2) { setError('Please enter your full name (first and last name)'); return; }
     const firstName = nameParts[0];
@@ -122,6 +147,7 @@ export default function SignupPage() {
       fd.append('accountType', form.accountType);
       fd.append('companyName', form.accountType === 'client' ? (form.companyName || form.agencyName) : form.agencyName);
       fd.append('otpToken', otpToken);
+      if (googleToken) fd.append('googleIdToken', googleToken);
       if (photo) fd.append('photo', photo);
       const res = await fetch(`${API_URL}/api/v1/auth/signup`, { method: 'POST', body: fd });
       const data = await res.json();
@@ -164,6 +190,25 @@ export default function SignupPage() {
         </div>
 
         <form onSubmit={submit} className="space-y-4">
+          <button
+            type="button"
+            onClick={signInWithGoogle}
+            disabled={googleLoading}
+            className="flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:opacity-60"
+          >
+            {googleLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <svg className="h-4 w-4" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15A11 11 0 0 0 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
+            )}
+            {googleLoading ? 'Connecting to Google...' : 'Verify & Sign up with Google'}
+          </button>
+          <div className="flex items-center gap-3">
+            <span className="h-px flex-1 bg-gray-200" />
+            <span className="text-[11px] font-medium text-gray-400">or use email</span>
+            <span className="h-px flex-1 bg-gray-200" />
+          </div>
+
           {error && (
             <div className="flex items-center gap-2.5 rounded-xl border border-rose-200/80 bg-rose-50 p-3.5">
               <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />
@@ -200,7 +245,7 @@ export default function SignupPage() {
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <Mail className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                <input required type="email" value={form.email} onChange={set('email')} placeholder="you@company.com" className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
+                <input required type="email" value={form.email} onChange={(e) => { if (googleToken) return; set('email')(e); }} readOnly={!!googleToken} placeholder="you@company.com" className={`w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40 ${googleToken ? 'bg-brand-50/50 text-gray-600' : ''}`} />
               </div>
               {!otpVerified ? (
                 <button type="button" onClick={sendOtp} disabled={otpLoading || resendIn > 0} className="shrink-0 rounded-xl border border-brand-200 bg-brand-50 px-3 text-[12px] font-semibold text-brand-700 hover:bg-brand-100 disabled:opacity-50">
