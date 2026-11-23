@@ -290,11 +290,15 @@ export default function LoginPage() {
             </p>
           )}
 
-          <p className="mt-6 text-center text-[13px] text-gray-500">
-            Don&apos;t have an account?{' '}
-            <Link href="/signup" className="font-medium text-brand-600 hover:text-brand-700 smooth-transition hover:underline">
-              Create one
-            </Link>
+          <Link
+            href="/signup"
+            className="mt-4 flex h-11 w-full items-center justify-center rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-700 shadow-sm transition-all hover:border-brand-300 hover:text-brand-700 hover:shadow"
+          >
+            Create New Account
+          </Link>
+
+          <p className="mt-4 text-center text-[12px] text-gray-400">
+            Employee, client, HR or manager — create your own account and password above.
           </p>
         </div>
       </div>

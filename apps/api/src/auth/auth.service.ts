@@ -37,10 +37,17 @@ export class AuthService {
     const passwordHash = await bcrypt.hash(dto.password, 12);
     const verifyToken = randomBytes(32).toString('hex');
 
-    const employeeRole = await this.prisma.role.upsert({
-      where: { name: 'Employee' },
+    const accountType = dto.accountType ?? 'employee';
+    const roleName =
+      accountType === 'client' ? 'Client'
+      : accountType === 'hr' ? 'HR Manager'
+      : accountType === 'manager' ? 'Project Manager'
+      : 'Employee';
+
+    const role = await this.prisma.role.upsert({
+      where: { name: roleName },
       update: {},
-      create: { name: 'Employee', description: 'Staff member' },
+      create: { name: roleName, description: `${roleName} self-registration` },
     });
 
     const user = await this.prisma.user.create({
@@ -53,17 +60,38 @@ export class AuthService {
         avatar: avatarUrl,
         emailVerifyToken: verifyToken,
         emailVerifyExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-        roles: { create: { roleId: employeeRole.id } },
+        roles: { create: { roleId: role.id } },
         preferences: { create: {} },
-        employeeProfile: {
-          create: {
-            employeeId: `EMP-${Date.now().toString(36).toUpperCase()}`,
-            phone: dto.phone,
-            employmentStatus: 'active',
-          },
-        },
+        ...(accountType !== 'client'
+          ? {
+              employeeProfile: {
+                create: {
+                  employeeId: `EMP-${Date.now().toString(36).toUpperCase()}`,
+                  phone: dto.phone,
+                  employmentStatus: 'active',
+                },
+              },
+            }
+          : {}),
       },
     });
+
+    // Client registrations also create the linked Client (portal) record
+    if (accountType === 'client') {
+      const existingClient = await this.prisma.client.findFirst({ where: { organizationId: org.id, email } });
+      if (existingClient) {
+        await this.prisma.client.update({ where: { id: existingClient.id }, data: { portalUserId: user.id } });
+      } else {
+        await this.prisma.client.create({
+          data: {
+            name: dto.companyName?.trim() || `${user.firstName} ${user.lastName}`,
+            email,
+            organizationId: org.id,
+            portalUserId: user.id,
+          },
+        });
+      }
+    }
 
     const verifyUrl = this.mail.appUrl(`/verify-email?email=${encodeURIComponent(email)}&token=${verifyToken}`);
     await this.mail.send(
@@ -77,8 +105,8 @@ export class AuthService {
     await this.notifications.notifyMany(
       reviewerIds,
       'registration_submitted',
-      'New employee registration',
-      `${user.firstName} ${user.lastName} submitted a registration request (${email})`,
+      `New ${roleName} registration`,
+      `${user.firstName} ${user.lastName} submitted a ${roleName} registration request (${email})`,
       '/employees',
     );
 

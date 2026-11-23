@@ -1,4 +1,4 @@
-import { IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsIn, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class SignupDto {
   @IsString()
@@ -19,4 +19,12 @@ export class SignupDto {
   @IsOptional()
   @IsString()
   phone?: string;
+
+  @IsOptional()
+  @IsIn(['employee', 'client', 'hr', 'manager'])
+  accountType?: 'employee' | 'client' | 'hr' | 'manager';
+
+  @IsOptional()
+  @IsString()
+  companyName?: string;
 }
