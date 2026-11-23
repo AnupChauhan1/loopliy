@@ -8,7 +8,7 @@ import { Mail, Lock, User, Phone, AlertCircle, CheckCircle2, Loader2, Camera, Ey
 const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/+$/, '');
 
 export default function SignupPage() {
-  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', password: '', confirm: '', phone: '', accountType: 'employee', companyName: '' });
+  const [form, setForm] = useState({ fullName: '', agencyName: '', email: '', password: '', confirm: '', phone: '', accountType: 'employee', companyName: '' });
   const [showPw, setShowPw] = useState(false);
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState('');
@@ -27,16 +27,20 @@ export default function SignupPage() {
     if (!strong.test(form.password)) { setError('Password must be 8+ characters with upper, lower case and a number'); return; }
     if (!/^\+?[0-9\s\-()]{7,20}$/.test(form.phone)) { setError('Enter a valid phone number'); return; }
     if (form.accountType === 'client' && !form.companyName.trim()) { setError('Company name is required for client accounts'); return; }
+    const nameParts = form.fullName.trim().split(/\s+/);
+    if (nameParts.length < 2) { setError('Please enter your full name (first and last name)'); return; }
+    const firstName = nameParts[0];
+    const lastName = nameParts.slice(1).join(' ');
     setLoading(true);
     try {
       const fd = new FormData();
-      fd.append('firstName', form.firstName);
-      fd.append('lastName', form.lastName);
+      fd.append('firstName', firstName);
+      fd.append('lastName', lastName);
       fd.append('email', form.email);
       fd.append('password', form.password);
       fd.append('phone', form.phone);
       fd.append('accountType', form.accountType);
-      if (form.accountType === 'client') fd.append('companyName', form.companyName);
+      fd.append('companyName', form.accountType === 'client' ? (form.companyName || form.agencyName) : form.agencyName);
       if (photo) fd.append('photo', photo);
       const res = await fetch(`${API_URL}/api/v1/auth/signup`, { method: 'POST', body: fd });
       const data = await res.json();
@@ -95,18 +99,17 @@ export default function SignupPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="text-[13px] font-medium text-gray-700">First name</label>
-              <div className="relative">
-                <User className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                <input required value={form.firstName} onChange={set('firstName')} placeholder="First name" className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
-              </div>
+          <div className="space-y-1.5">
+            <label className="text-[13px] font-medium text-gray-700">Full name</label>
+            <div className="relative">
+              <User className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <input required value={form.fullName} onChange={set('fullName')} placeholder="First and last name" className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
             </div>
-            <div className="space-y-1.5">
-              <label className="text-[13px] font-medium text-gray-700">Last name</label>
-              <input required value={form.lastName} onChange={set('lastName')} placeholder="Last name" className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
-            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[13px] font-medium text-gray-700">Agency / workspace name</label>
+            <input value={form.agencyName} onChange={set('agencyName')} placeholder="e.g. Acme Digital" className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
           </div>
 
           <div className="space-y-1.5">
@@ -115,17 +118,10 @@ export default function SignupPage() {
               <option value="employee">Employee</option>
               <option value="client">Client</option>
               <option value="hr">HR Manager</option>
-              <option value="manager">Manager (Project Manager)</option>
+              <option value="manager">Manager</option>
             </select>
             <p className="text-[11px] text-gray-400">Your account activates after HR and admin approval.</p>
           </div>
-
-          {form.accountType === 'client' && (
-            <div className="space-y-1.5">
-              <label className="text-[13px] font-medium text-gray-700">Company name</label>
-              <input required value={form.companyName} onChange={set('companyName')} placeholder="Your company" className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
-            </div>
-          )}
 
           <div className="space-y-1.5">
             <label className="text-[13px] font-medium text-gray-700">Work email</label>
