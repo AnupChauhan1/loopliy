@@ -135,6 +135,31 @@ export class AuthService {
     };
   }
 
+  /** Resend the email-verification link for an unverified account. */
+  async resendVerification(email: string) {
+    const normalized = email.trim().toLowerCase();
+    const user = await this.prisma.user.findUnique({ where: { email: normalized } });
+    // Same response whether or not the account exists (no enumeration)
+    const generic = { message: 'If an unverified account exists for that email, a new verification link has been sent.' };
+    if (!user || user.emailVerified || user.approvedAt) return generic;
+
+    const verifyToken = randomBytes(32).toString('hex');
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { emailVerifyToken: verifyToken, emailVerifyExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) },
+    });
+    const verifyUrl = this.mail.appUrl(`/verify-email?email=${encodeURIComponent(normalized)}&token=${verifyToken}`);
+    await this.mail.send(
+      normalized,
+      'Verify your LOOPLY account',
+      `Hi ${user.firstName},\n\nVerify your email to continue your LOOPLY registration:\n${verifyUrl}\n\nThis link expires in 24 hours.`,
+    );
+    return {
+      ...generic,
+      ...(process.env.NODE_ENV !== 'production' ? { devVerifyToken: verifyToken } : {}),
+    };
+  }
+
   async forgotPassword(email: string) {
     const normalized = email.trim().toLowerCase();
     const user = await this.prisma.user.findUnique({ where: { email: normalized } });
@@ -263,6 +288,15 @@ export class AuthService {
 
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // Self-heal: accounts approved before email verification existed are treated as verified
+    if (!user.emailVerified && (user.approvedAt || user.adminApprovedAt)) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { emailVerified: new Date(), emailVerifyToken: null, emailVerifyExpiresAt: null },
+      });
+      user.emailVerified = new Date();
     }
 
     if (!user.emailVerified) {

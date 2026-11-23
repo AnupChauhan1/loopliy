@@ -70,6 +70,12 @@ export class AuthController {
     return this.authService.verifyEmail(dto.email, dto.token);
   }
 
+  @Post('resend-verification')
+  @HttpCode(HttpStatus.OK)
+  resendVerification(@Body() body: { email: string }) {
+    return this.authService.resendVerification(body.email);
+  }
+
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   async forgotPassword(@Body() dto: ForgotPasswordDto) {

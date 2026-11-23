@@ -204,7 +204,10 @@ export class UsersService {
     if (approve) {
       if (!user.emailVerified) throw new ForbiddenException('Cannot approve an unverified email');
       if (user.hrApprovedAt) throw new ForbiddenException('HR has already reviewed this registration');
-      await this.prisma.user.update({ where: { id }, data: { hrApprovedAt: new Date() } });
+      await this.prisma.user.update({
+        where: { id },
+        data: { hrApprovedAt: new Date(), emailVerified: user.emailVerified ?? new Date() },
+      });
       // Notify admins that the request now awaits admin approval
       const adminIds = await this.notifications.userIdsWithRoles(organizationId, PRIVILEGED_ROLES);
       await this.notifications.notifyMany(
@@ -240,7 +243,12 @@ export class UsersService {
       if (!user.hrApprovedAt) throw new ForbiddenException('HR must approve this registration before admin approval');
       const updated = await this.prisma.user.update({
         where: { id },
-        data: { adminApprovedAt: new Date(), approvedAt: new Date(), isActive: true },
+        data: {
+          adminApprovedAt: new Date(),
+          approvedAt: new Date(),
+          isActive: true,
+          emailVerified: user.emailVerified ?? new Date(),
+        },
       });
       await this.prisma.auditLog.create({
         data: { organizationId, userId: actorId, action: 'admin_approve', resource: 'user', resourceId: id, changes: { email: user.email } },

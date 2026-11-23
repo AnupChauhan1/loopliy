@@ -61,6 +61,9 @@ export default function LoginPage() {
   const [fpMsg, setFpMsg] = useState('');
   const [fpErr, setFpErr] = useState('');
   const [fpLoading, setFpLoading] = useState(false);
+  const [resendMsg, setResendMsg] = useState('');
+  const [resendToken, setResendToken] = useState('');
+  const [resendLoading, setResendLoading] = useState(false);
 
   const allCredentials = [...loginCredentials, ...extraCreds];
 
@@ -265,9 +268,44 @@ export default function LoginPage() {
           {authMode === 'login' && (<>
           <form onSubmit={handleSubmit} className="space-y-5">
             {error && (
-              <div className="flex items-center gap-2.5 p-3.5 rounded-xl bg-rose-50 border border-rose-200/80 animate-fade-in">
-                <AlertCircle className="h-4 w-4 text-rose-600 shrink-0 animate-icon-pop" />
-                <p className="text-[13px] font-medium text-rose-700">{error}</p>
+              <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200/80 animate-fade-in">
+                <div className="flex items-center gap-2.5">
+                  <AlertCircle className="h-4 w-4 text-rose-600 shrink-0 animate-icon-pop" />
+                  <p className="text-[13px] font-medium text-rose-700">{error}</p>
+                </div>
+                {error.toLowerCase().includes('verify your email') && (
+                  <button
+                    type="button"
+                    disabled={resendLoading}
+                    onClick={async () => {
+                      setResendLoading(true);
+                      setResendMsg('');
+                      try {
+                        const res = await fetch(`${API_URL}/api/v1/auth/resend-verification`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ email }),
+                        });
+                        const data = await res.json();
+                        setResendToken(data.devVerifyToken ?? '');
+                        setResendMsg('Verification email sent — check your inbox.');
+                      } catch {
+                        setResendMsg('Could not send right now — try again.');
+                      } finally {
+                        setResendLoading(false);
+                      }
+                    }}
+                    className="mt-2 text-[12px] font-semibold text-brand-700 underline hover:text-brand-800 disabled:opacity-50"
+                  >
+                    {resendLoading ? 'Sending...' : 'Resend verification email'}
+                  </button>
+                )}
+                {resendMsg && <p className="mt-1 text-[12px] text-gray-600">{resendMsg}</p>}
+                {resendToken && (
+                  <a href={`/verify-email?email=${encodeURIComponent(email)}&token=${resendToken}`} className="mt-1 block text-[12px] font-medium text-brand-700 underline">
+                    Verify now (dev mode)
+                  </a>
+                )}
               </div>
             )}
 
