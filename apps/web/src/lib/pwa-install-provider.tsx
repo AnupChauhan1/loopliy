@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Share, PlusSquare, Download, X, MonitorSmartphone } from 'lucide-react';
+import { Share, PlusSquare, Download, X, MonitorSmartphone, Compass, Copy, Check } from 'lucide-react';
 
 interface InstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -36,6 +36,7 @@ export function PwaInstallProvider({ children }: { children: React.ReactNode }) 
   );
   const [isIos, setIsIos] = useState(false);
   const [modal, setModal] = useState<'ios' | 'generic' | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     setIsIos(detectIos());
@@ -105,6 +106,59 @@ export function PwaInstallProvider({ children }: { children: React.ReactNode }) 
             </button>
 
             {modal === 'ios' ? (
+              isNonSafariIos() ? (
+                <>
+                  <div className="flex items-center gap-3 pr-8">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src="/icons/icon-192.png" alt="LOOPLY" className="h-12 w-12 rounded-2xl shadow-md" />
+                    <div>
+                      <h3 className="text-base font-bold text-gray-900">Open in Safari to Install on iPhone</h3>
+                      <p className="text-xs text-gray-500">iOS only allows installing web apps from Safari</p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(window.location.origin);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2500);
+                      } catch {
+                        setCopied(false);
+                      }
+                    }}
+                    className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl gradient-brand-btn text-sm font-semibold text-white shadow-md shadow-brand-500/25"
+                  >
+                    {copied ? <><Check className="h-4 w-4" /> Copied! Now paste in Safari</> : <><Copy className="h-4 w-4" /> Copy App Link</>}
+                  </button>
+
+                  <div className="mt-4 space-y-3">
+                    <div className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-gray-50/70 p-3">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600 ring-1 ring-sky-100">
+                        <Compass className="h-5 w-5" />
+                      </span>
+                      <p className="text-sm text-gray-700">
+                        <span className="font-semibold">Step 1:</span> Open <span className="font-semibold">Safari</span> (blue compass icon) and paste the copied link
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-gray-50/70 p-3">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 ring-1 ring-brand-100">
+                        <Share className="h-5 w-5" />
+                      </span>
+                      <p className="text-sm text-gray-700">
+                        <span className="font-semibold">Step 2:</span> Tap the <span className="font-semibold">Share</span> icon at the bottom → <span className="font-semibold">&ldquo;Add to Home Screen&rdquo;</span> → <span className="font-semibold">Add</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => setModal(null)}
+                    className="mt-5 h-10 w-full rounded-xl text-sm font-medium text-gray-500 hover:text-gray-700"
+                  >
+                    Close
+                  </button>
+                </>
+              ) : (
               <>
                 <div className="flex items-center gap-3 pr-8">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -121,7 +175,7 @@ export function PwaInstallProvider({ children }: { children: React.ReactNode }) 
                       <Share className="h-5 w-5" />
                     </span>
                     <p className="text-sm text-gray-700">
-                      <span className="font-semibold">Step 1:</span> Tap the <span className="font-semibold">Share</span> icon at the bottom of Safari
+                      <span className="font-semibold">Step 1:</span> Tap the <span className="font-semibold">Share</span> icon <Share className="mx-0.5 inline h-3.5 w-3.5 text-brand-600" /> at the bottom center of Safari
                     </p>
                   </div>
                   <div className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-gray-50/70 p-3">
@@ -129,16 +183,18 @@ export function PwaInstallProvider({ children }: { children: React.ReactNode }) 
                       <PlusSquare className="h-5 w-5" />
                     </span>
                     <p className="text-sm text-gray-700">
-                      <span className="font-semibold">Step 2:</span> Scroll down and tap <span className="font-semibold">&ldquo;Add to Home Screen&rdquo;</span> → <span className="font-semibold">Add</span>
+                      <span className="font-semibold">Step 2:</span> Scroll down and tap <span className="font-semibold">&ldquo;Add to Home Screen&rdquo;</span>
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-gray-50/70 p-3">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 ring-1 ring-brand-100">
+                      <Download className="h-5 w-5" />
+                    </span>
+                    <p className="text-sm text-gray-700">
+                      <span className="font-semibold">Step 3:</span> Tap <span className="font-semibold">Add</span> in the top-right corner to install LOOPLY
                     </p>
                   </div>
                 </div>
-
-                {isNonSafariIos() && (
-                  <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
-                    Open this link in Safari first to install — other browsers on iPhone can&apos;t add apps to the Home Screen.
-                  </p>
-                )}
 
                 <button
                   onClick={() => setModal(null)}
@@ -147,6 +203,7 @@ export function PwaInstallProvider({ children }: { children: React.ReactNode }) 
                   <Download className="h-4 w-4" /> Got it
                 </button>
               </>
+              )
             ) : (
               <>
                 <div className="flex items-center gap-3 pr-8">
