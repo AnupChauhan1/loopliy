@@ -322,20 +322,21 @@ function TasksPageInner() {
 
       {/* Create modal */}
       {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4 animate-fade-in" onClick={closeModal}>
-          <Card className="w-full max-w-lg max-h-[90vh] overflow-y-auto animate-scale-in shadow-2xl" onClick={(e: any) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 pt-5 pb-3">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto bg-black/50 p-3 backdrop-blur-[2px] animate-fade-in sm:p-6" onClick={closeModal}>
+          <Card className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-lg flex-col animate-scale-in shadow-2xl sm:max-h-[calc(100dvh-3rem)]" onClick={(e: any) => e.stopPropagation()}>
+            <div className="flex shrink-0 items-center justify-between px-6 pb-3 pt-5">
               <h2 className="text-lg font-semibold text-gray-900">{editing ? `Edit task — ${editing.taskNumber}` : 'Create task'}</h2>
               <button onClick={closeModal} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-all duration-150 hover:rotate-90"><X className="h-5 w-5" /></button>
             </div>
-            <CardContent>
+            <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden p-6 pt-2">
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
                   saveTask.mutate(buildPayload());
                 }}
-                className="space-y-4"
+                className="flex min-h-0 flex-1 flex-col"
               >
+                <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain pr-1">
                 <input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Task title" className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
                 <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Description / brief" rows={3} className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
                 <div className="grid grid-cols-2 gap-3">
@@ -409,13 +410,16 @@ function TasksPageInner() {
                   <input type="checkbox" checked={form.clientVisible} onChange={(e) => setForm({ ...form, clientVisible: e.target.checked })} className="h-4 w-4 rounded border-gray-300 text-brand-600" />
                   <span className="text-sm text-gray-700">Show task updates in the client portal</span>
                 </label>
-                <div className="flex gap-3 pt-2">
-                  <Button type="button" variant="outline" className="flex-1 rounded-xl" onClick={closeModal}>Cancel</Button>
-                  <Button type="submit" disabled={saveTask.isPending} className="flex-1 gradient-brand-btn text-white border-0 rounded-xl">
-                    {saveTask.isPending ? (editing ? 'Saving...' : 'Creating...') : (editing ? 'Save changes' : 'Create task')}
-                  </Button>
                 </div>
-                {saveTask.isError && <p className="text-xs text-rose-600">{(saveTask.error as any)?.response?.data?.message || `Failed to ${editing ? 'update' : 'create'} task`}</p>}
+                <div className="shrink-0 space-y-2 border-t border-gray-100 pt-3">
+                  <div className="flex gap-3">
+                    <Button type="button" variant="outline" className="flex-1 rounded-xl" onClick={closeModal}>Cancel</Button>
+                    <Button type="submit" disabled={saveTask.isPending} className="flex-1 gradient-brand-btn text-white border-0 rounded-xl">
+                      {saveTask.isPending ? (editing ? 'Saving...' : 'Creating...') : (editing ? 'Save changes' : 'Create task')}
+                    </Button>
+                  </div>
+                  {saveTask.isError && <p className="text-xs text-rose-600">{(saveTask.error as any)?.response?.data?.message || `Failed to ${editing ? 'update' : 'create'} task`}</p>}
+                </div>
               </form>
             </CardContent>
           </Card>
