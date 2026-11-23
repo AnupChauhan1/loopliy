@@ -1,7 +1,8 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState } from 'react';
-import { Share, PlusSquare, Download, X } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Share, PlusSquare, Download, X, MonitorSmartphone } from 'lucide-react';
 
 interface InstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -34,7 +35,7 @@ export function PwaInstallProvider({ children }: { children: React.ReactNode }) 
     () => typeof window !== 'undefined' && window.matchMedia('(display-mode: standalone)').matches,
   );
   const [isIos, setIsIos] = useState(false);
-  const [showIosModal, setShowIosModal] = useState(false);
+  const [modal, setModal] = useState<'ios' | 'generic' | null>(null);
 
   useEffect(() => {
     setIsIos(detectIos());
@@ -69,75 +70,125 @@ export function PwaInstallProvider({ children }: { children: React.ReactNode }) 
 
   const installApp = async () => {
     if (isIos) {
-      setShowIosModal(true);
+      setModal('ios');
       return;
     }
-    if (!installPrompt) return;
+    if (!installPrompt) {
+      setModal('generic');
+      return;
+    }
     await installPrompt.prompt();
     const choice = await installPrompt.userChoice;
     setInstallPrompt(null);
     if (choice.outcome === 'accepted') setIsInstalled(true);
   };
 
-  const canInstall = !isInstalled && (isIos || !!installPrompt);
+  // Always offer install unless the app is already running standalone
+  const canInstall = !isInstalled;
+
+  const modalNode = modal && typeof document !== 'undefined'
+    ? createPortal(
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          onClick={() => setModal(null)}
+        >
+          <div
+            className="relative z-[10000] w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setModal(null)}
+              className="absolute right-4 top-4 rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+              aria-label="Close"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            {modal === 'ios' ? (
+              <>
+                <div className="flex items-center gap-3 pr-8">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/icons/icon-192.png" alt="LOOPLY" className="h-12 w-12 rounded-2xl shadow-md" />
+                  <div>
+                    <h3 className="text-base font-bold text-gray-900">Install LOOPLY on your iPhone</h3>
+                    <p className="text-xs text-gray-500">Add it to your Home Screen for the full app experience</p>
+                  </div>
+                </div>
+
+                <div className="mt-5 space-y-3">
+                  <div className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-gray-50/70 p-3">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 ring-1 ring-brand-100">
+                      <Share className="h-5 w-5" />
+                    </span>
+                    <p className="text-sm text-gray-700">
+                      <span className="font-semibold">Step 1:</span> Tap the <span className="font-semibold">Share</span> icon at the bottom of Safari
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-gray-50/70 p-3">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 ring-1 ring-brand-100">
+                      <PlusSquare className="h-5 w-5" />
+                    </span>
+                    <p className="text-sm text-gray-700">
+                      <span className="font-semibold">Step 2:</span> Scroll down and tap <span className="font-semibold">&ldquo;Add to Home Screen&rdquo;</span> → <span className="font-semibold">Add</span>
+                    </p>
+                  </div>
+                </div>
+
+                {isNonSafariIos() && (
+                  <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+                    Open this link in Safari first to install — other browsers on iPhone can&apos;t add apps to the Home Screen.
+                  </p>
+                )}
+
+                <button
+                  onClick={() => setModal(null)}
+                  className="mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-xl gradient-brand-btn text-sm font-semibold text-white shadow-md shadow-brand-500/25"
+                >
+                  <Download className="h-4 w-4" /> Got it
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-3 pr-8">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 ring-1 ring-brand-100">
+                    <MonitorSmartphone className="h-6 w-6" />
+                  </span>
+                  <div>
+                    <h3 className="text-base font-bold text-gray-900">Install LOOPLY</h3>
+                    <p className="text-xs text-gray-500">Add LOOPLY to your device for quick access</p>
+                  </div>
+                </div>
+                <p className="mt-4 text-sm text-gray-600">
+                  Your browser hasn&apos;t offered the install prompt yet. Look for the{' '}
+                  <span className="font-semibold">install icon in the address bar</span> (desktop) or{' '}
+                  <span className="font-semibold">browser menu → Install app / Add to Home screen</span> (mobile).
+                </p>
+                <div className="mt-5 flex gap-2">
+                  <button
+                    onClick={() => { setModal(null); void installApp(); }}
+                    className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl gradient-brand-btn text-sm font-semibold text-white shadow-md shadow-brand-500/25"
+                  >
+                    <Download className="h-4 w-4" /> Install Now
+                  </button>
+                  <button
+                    onClick={() => setModal(null)}
+                    className="h-11 rounded-xl border border-gray-200 px-4 text-sm font-medium text-gray-600 hover:bg-gray-50"
+                  >
+                    Close
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>,
+        document.body,
+      )
+    : null;
 
   return (
     <PwaInstallContext.Provider value={{ canInstall, isIos, installApp }}>
       {children}
-      {showIosModal && (
-        <div className="fixed inset-0 z-[200] flex items-end justify-center bg-black/50 p-4 backdrop-blur-sm sm:items-center" onClick={() => setShowIosModal(false)}>
-          <div
-            className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/icons/icon-192.png" alt="LOOPLY" className="h-12 w-12 rounded-2xl shadow-md" />
-                <div>
-                  <h3 className="text-base font-bold text-gray-900">Install LOOPLY on your iPhone</h3>
-                  <p className="text-xs text-gray-500">Add it to your Home Screen for the full app experience</p>
-                </div>
-              </div>
-              <button onClick={() => setShowIosModal(false)} className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600" aria-label="Close">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="mt-5 space-y-3">
-              <div className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-gray-50/70 p-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 ring-1 ring-brand-100">
-                  <Share className="h-5 w-5" />
-                </span>
-                <p className="text-sm text-gray-700">
-                  <span className="font-semibold">Step 1:</span> Tap the <span className="font-semibold">Share</span> icon <Share className="mx-0.5 inline h-3.5 w-3.5 text-brand-600" /> in Safari&apos;s toolbar
-                </p>
-              </div>
-              <div className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-gray-50/70 p-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 ring-1 ring-brand-100">
-                  <PlusSquare className="h-5 w-5" />
-                </span>
-                <p className="text-sm text-gray-700">
-                  <span className="font-semibold">Step 2:</span> Scroll down and tap <span className="font-semibold">&ldquo;Add to Home Screen&rdquo;</span>, then tap <span className="font-semibold">Add</span>
-                </p>
-              </div>
-            </div>
-
-            {isNonSafariIos() && (
-              <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
-                Open this link in Safari first to install — other browsers on iPhone can&apos;t add apps to the Home Screen.
-              </p>
-            )}
-
-            <button
-              onClick={() => setShowIosModal(false)}
-              className="mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-xl gradient-brand-btn text-sm font-semibold text-white shadow-md shadow-brand-500/25"
-            >
-              <Download className="h-4 w-4" /> Got it
-            </button>
-          </div>
-        </div>
-      )}
+      {modalNode}
     </PwaInstallContext.Provider>
   );
 }
