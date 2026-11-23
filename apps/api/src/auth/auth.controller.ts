@@ -82,6 +82,12 @@ export class AuthController {
     return this.authService.verifyOtp(body.email, body.code);
   }
 
+  @Post('verify-fallback')
+  @HttpCode(HttpStatus.OK)
+  verifyFallback(@Body() body: { email: string; token: string }) {
+    return this.authService.verifyFallbackToken(body.email, body.token);
+  }
+
   @Post('resend-verification')
   @HttpCode(HttpStatus.OK)
   resendVerification(@Body() body: { email: string }) {

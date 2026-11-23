@@ -21,7 +21,7 @@ export default function SignupPage() {
   const [otpVerified, setOtpVerified] = useState(false);
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpMsg, setOtpMsg] = useState('');
-  const [devOtp, setDevOtp] = useState('');
+  const [fallbackToken, setFallbackToken] = useState('');
   const [resendIn, setResendIn] = useState(0);
 
   const set = (k: string) => (e: any) => {
@@ -40,8 +40,8 @@ export default function SignupPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Could not send code');
       setOtpSent(true); setOtpVerified(false); setOtpToken(''); setOtpCode('');
-      setDevOtp(data.fallbackOtp ?? data.devOtp ?? '');
-      setOtpMsg('6-digit code sent to your email (valid 10 minutes)');
+      setFallbackToken(data.fallbackToken ?? '');
+      setOtpMsg(data.sent ? '6-digit code sent to your email (valid 10 minutes)' : 'Email verification required');
       setResendIn(30);
     } catch (err: any) {
       setOtpMsg(err.message || 'Could not send code');
@@ -62,6 +62,28 @@ export default function SignupPage() {
       if (!res.ok) throw new Error(data.message || 'Verification failed');
       setOtpToken(data.otpToken);
       setOtpVerified(true);
+      setOtpMsg('');
+      setFallbackToken('');
+    } catch (err: any) {
+      setOtpMsg(err.message || 'Verification failed');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const verifyNow = async () => {
+    setOtpMsg(''); setOtpLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/v1/auth/verify-fallback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: form.email, token: fallbackToken }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Verification failed');
+      setOtpToken(data.otpToken);
+      setOtpVerified(true);
+      setFallbackToken('');
       setOtpMsg('');
     } catch (err: any) {
       setOtpMsg(err.message || 'Verification failed');
@@ -190,7 +212,7 @@ export default function SignupPage() {
                 </span>
               )}
             </div>
-            {otpSent && !otpVerified && (
+            {otpSent && !otpVerified && !fallbackToken && (
               <div className="flex items-center gap-2 pt-1">
                 <input
                   required
@@ -206,11 +228,17 @@ export default function SignupPage() {
                 </button>
               </div>
             )}
-            {otpMsg && <p className={`text-[11px] ${otpMsg.includes('sent') ? 'text-brand-600' : 'text-rose-600'}`}>{otpMsg}</p>}
-            {devOtp && !otpVerified && (
-              <p className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] font-medium text-amber-800">
-                Verification code: <span className="font-mono text-sm font-bold tracking-widest">{devOtp}</span> — enter it above to verify your email
-              </p>
+            {otpMsg && <p className={`text-[11px] ${otpMsg.includes('sent') || otpMsg.includes('required') ? 'text-brand-600' : 'text-rose-600'}`}>{otpMsg}</p>}
+            {fallbackToken && !otpVerified && (
+              <button
+                type="button"
+                onClick={verifyNow}
+                disabled={otpLoading}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-brand-200 bg-brand-50 px-4 py-2.5 text-[12px] font-semibold text-brand-700 transition hover:bg-brand-100 disabled:opacity-50"
+              >
+                {otpLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                Verify Email Now
+              </button>
             )}
           </div>
 

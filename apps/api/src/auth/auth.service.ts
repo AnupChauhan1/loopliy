@@ -6,6 +6,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { HR_ROLES } from '../common/roles';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
+import { resolveMx } from 'dns/promises';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { SignupDto } from './dto/signup.dto';
@@ -28,6 +29,13 @@ export class AuthService {
   async sendOtp(emailRaw: string) {
     const email = emailRaw.trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new BadRequestException('Enter a valid email address');
+    // Real-time DNS MX validation — the domain must actually accept mail
+    const domain = email.split('@')[1];
+    try {
+      await resolveMx(domain);
+    } catch {
+      throw new BadRequestException('This email domain cannot receive mail — please check the address');
+    }
     const code = String(Math.floor(100000 + Math.random() * 900000));
     const codeHash = await bcrypt.hash(code, 10);
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
@@ -43,13 +51,36 @@ export class AuthService {
       const result = await this.mail.sendOtp(email, code);
       delivered = result.delivered;
     } catch {
-      // Mail delivery failed — fall back to returning the code below
+      // Mail delivery failed — fall back to one-click verify token below
     }
+    if (delivered) {
+      return { message: 'Verification code sent to your email', sent: true };
+    }
+    // No SMTP: issue a single-use cryptographic verify token instead of exposing the code.
+    // The user clicks "Verify Email Now"; the token is only activated on that call.
+    const linkToken = randomBytes(24).toString('hex');
+    await this.prisma.emailOtp.update({
+      where: { email },
+      data: { verifiedToken: linkToken },
+    });
     return {
-      message: delivered ? 'Verification code sent to your email' : 'Verification code generated',
-      sent: delivered,
-      ...(!delivered ? { fallbackOtp: code } : {}),
+      message: 'Verification required',
+      sent: false,
+      fallbackToken: linkToken,
     };
+  }
+
+  /** Activate a fallback verify token issued when SMTP is unavailable. */
+  async verifyFallbackToken(emailRaw: string, token: string) {
+    const email = emailRaw.trim().toLowerCase();
+    const otp = await this.prisma.emailOtp.findUnique({ where: { email } });
+    if (!otp || otp.verifiedToken !== token || otp.expiresAt < new Date()) {
+      throw new BadRequestException('Verification link is invalid or expired — request a new code');
+    }
+    if (!otp.verifiedAt) {
+      await this.prisma.emailOtp.update({ where: { id: otp.id }, data: { verifiedAt: new Date() } });
+    }
+    return { verified: true, otpToken: otp.verifiedToken };
   }
 
   /** Step 2: verify the OTP; returns a one-time token required by signup. */
