@@ -138,9 +138,11 @@ export class AuthService {
   async forgotPassword(email: string) {
     const normalized = email.trim().toLowerCase();
     const user = await this.prisma.user.findUnique({ where: { email: normalized } });
+    let devResetToken: string | undefined;
     // Always return the same response to avoid account enumeration
     if (user) {
       const resetToken = randomBytes(32).toString('hex');
+      devResetToken = resetToken;
       await this.prisma.user.update({
         where: { id: user.id },
         data: { resetToken, resetTokenExpiresAt: new Date(Date.now() + 60 * 60 * 1000) },
@@ -152,7 +154,10 @@ export class AuthService {
         `Hi ${user.firstName},\n\nReset your password using this link (valid for 1 hour):\n${resetUrl}\n\nIf you did not request this, ignore this email.`,
       );
     }
-    return { message: 'If an account exists for that email, a reset link has been sent.' };
+    return {
+      message: 'If an account exists for that email, a reset link has been sent.',
+      ...(process.env.NODE_ENV !== 'production' && devResetToken ? { devResetToken } : {}),
+    };
   }
 
   async resetPassword(token: string, newPassword: string) {

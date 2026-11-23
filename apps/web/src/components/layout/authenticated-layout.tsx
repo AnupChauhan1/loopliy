@@ -120,8 +120,9 @@ export function AuthenticatedLayout({ children }: { children: React.ReactNode })
 
   useCardSpotlight();
 
-  // Check if user is on login page
-  const isLoginPage = pathname === '/login' || pathname === '/client-login';
+  // Public auth pages — must never be redirected to /login
+  const PUBLIC_PATHS = ['/login', '/client-login', '/signup', '/forgot-password', '/verify-email', '/reset-password'];
+  const isPublicPage = PUBLIC_PATHS.includes(pathname);
 
   useEffect(() => {
     setCollapsed(localStorage.getItem(COLLAPSE_KEY) === '1');
@@ -161,26 +162,26 @@ export function AuthenticatedLayout({ children }: { children: React.ReactNode })
     };
   }, [isMobileSidebarOpen]);
 
-  // Redirect to login if not authenticated and not on login page
+  // Redirect to login if not authenticated and not on a public page
   useEffect(() => {
-    if (!isLoading && !isAuthenticated && !isLoginPage) {
+    if (!isLoading && !isAuthenticated && !isPublicPage) {
       window.location.href = '/login';
     }
-  }, [isAuthenticated, isLoading, isLoginPage]);
+  }, [isAuthenticated, isLoading, isPublicPage]);
 
   useEffect(() => {
-    if (isLoading || !isAuthenticated || isLoginPage) return;
+    if (isLoading || !isAuthenticated || isPublicPage) return;
     const isClientArea = pathname === '/client' || pathname.startsWith('/client/');
-    if (role === 'client' && !isClientArea && !isLoginPage) router.replace('/client');
+    if (role === 'client' && !isClientArea) router.replace('/client');
     if (role !== 'client' && isClientArea) router.replace('/');
-    if (isAuthenticated && pathname === '/client-login') router.replace(role === 'client' ? '/client' : '/');
-  }, [isAuthenticated, isLoading, isLoginPage, pathname, role, router]);
+    if (pathname === '/client-login') router.replace(role === 'client' ? '/client' : '/');
+  }, [isAuthenticated, isLoading, isPublicPage, pathname, role, router]);
 
   // Show loading state
   if (isLoading) return <BootScreen />;
 
-  // If on login page, show only children (the login page itself)
-  if (isLoginPage) {
+  // Public pages render standalone (no sidebar/header)
+  if (isPublicPage) {
     return <>{children}</>;
   }
 
