@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState } from 'react';
+import { Share, PlusSquare, Download, X } from 'lucide-react';
 
 interface InstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -9,18 +10,34 @@ interface InstallPromptEvent extends Event {
 
 interface PwaInstallContextValue {
   canInstall: boolean;
+  isIos: boolean;
   installApp: () => Promise<void>;
 }
 
 const PwaInstallContext = createContext<PwaInstallContextValue | null>(null);
+
+function detectIos() {
+  if (typeof navigator === 'undefined') return false;
+  const standalone =
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (navigator as any).standalone === true;
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !standalone;
+}
+
+function isNonSafariIos() {
+  return /CriOS|FxiOS|EdgiOS|OPiOS|mercury/i.test(navigator.userAgent);
+}
 
 export function PwaInstallProvider({ children }: { children: React.ReactNode }) {
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(display-mode: standalone)').matches,
   );
+  const [isIos, setIsIos] = useState(false);
+  const [showIosModal, setShowIosModal] = useState(false);
 
   useEffect(() => {
+    setIsIos(detectIos());
     const displayMode = window.matchMedia('(display-mode: standalone)');
 
     const handleInstallPrompt = (event: Event) => {
@@ -51,6 +68,10 @@ export function PwaInstallProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   const installApp = async () => {
+    if (isIos) {
+      setShowIosModal(true);
+      return;
+    }
     if (!installPrompt) return;
     await installPrompt.prompt();
     const choice = await installPrompt.userChoice;
@@ -58,9 +79,65 @@ export function PwaInstallProvider({ children }: { children: React.ReactNode }) 
     if (choice.outcome === 'accepted') setIsInstalled(true);
   };
 
+  const canInstall = !isInstalled && (isIos || !!installPrompt);
+
   return (
-    <PwaInstallContext.Provider value={{ canInstall: !!installPrompt && !isInstalled, installApp }}>
+    <PwaInstallContext.Provider value={{ canInstall, isIos, installApp }}>
       {children}
+      {showIosModal && (
+        <div className="fixed inset-0 z-[200] flex items-end justify-center bg-black/50 p-4 backdrop-blur-sm sm:items-center" onClick={() => setShowIosModal(false)}>
+          <div
+            className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/icons/icon-192.png" alt="LOOPLY" className="h-12 w-12 rounded-2xl shadow-md" />
+                <div>
+                  <h3 className="text-base font-bold text-gray-900">Install LOOPLY on your iPhone</h3>
+                  <p className="text-xs text-gray-500">Add it to your Home Screen for the full app experience</p>
+                </div>
+              </div>
+              <button onClick={() => setShowIosModal(false)} className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600" aria-label="Close">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              <div className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-gray-50/70 p-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 ring-1 ring-brand-100">
+                  <Share className="h-5 w-5" />
+                </span>
+                <p className="text-sm text-gray-700">
+                  <span className="font-semibold">Step 1:</span> Tap the <span className="font-semibold">Share</span> icon <Share className="mx-0.5 inline h-3.5 w-3.5 text-brand-600" /> in Safari&apos;s toolbar
+                </p>
+              </div>
+              <div className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-gray-50/70 p-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 ring-1 ring-brand-100">
+                  <PlusSquare className="h-5 w-5" />
+                </span>
+                <p className="text-sm text-gray-700">
+                  <span className="font-semibold">Step 2:</span> Scroll down and tap <span className="font-semibold">&ldquo;Add to Home Screen&rdquo;</span>, then tap <span className="font-semibold">Add</span>
+                </p>
+              </div>
+            </div>
+
+            {isNonSafariIos() && (
+              <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+                Open this link in Safari first to install — other browsers on iPhone can&apos;t add apps to the Home Screen.
+              </p>
+            )}
+
+            <button
+              onClick={() => setShowIosModal(false)}
+              className="mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-xl gradient-brand-btn text-sm font-semibold text-white shadow-md shadow-brand-500/25"
+            >
+              <Download className="h-4 w-4" /> Got it
+            </button>
+          </div>
+        </div>
+      )}
     </PwaInstallContext.Provider>
   );
 }
