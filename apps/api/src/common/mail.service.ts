@@ -37,15 +37,22 @@ export class MailService {
       this.logger.log(`[mail:dev] To: ${to} | Subject: ${subject}\n${text}`);
       return { delivered: false as const };
     }
-    await transporter.sendMail({
-      from,
-      to,
-      replyTo: process.env.SMTP_USER || undefined,
-      subject,
-      text,
-      html: html ?? text,
-    });
-    return { delivered: true as const };
+    try {
+      await transporter.sendMail({
+        from,
+        to,
+        replyTo: process.env.SMTP_USER || undefined,
+        subject,
+        text,
+        html: html ?? text,
+      });
+      return { delivered: true as const };
+    } catch (err: any) {
+      this.logger.error(
+        `SMTP send failed to=${to} host=${process.env.SMTP_HOST}:${process.env.SMTP_PORT} — ${err?.message || err}`,
+      );
+      return { delivered: false as const, error: String(err?.message || err) };
+    }
   }
 
   /** Branded 6-digit OTP email (HTML + plain text). */
