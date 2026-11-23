@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { fmtDate, fullName, initials } from '@/lib/format';
 import { useAuth } from '@/lib/auth-context';
-import { Search, Plus, X, Pencil, UserX, UserCheck } from 'lucide-react';
+import { Search, Plus, X, Pencil, UserX, UserCheck, Trash2 } from 'lucide-react';
 import { useDebouncedValue } from '@/lib/hooks/use-debounced-value';
 
 export default function EmployeesPage() {
@@ -21,7 +21,7 @@ export default function EmployeesPage() {
   const [editing, setEditing] = useState<any>(null);
   const [error, setError] = useState('');
   const [form, setForm] = useState({
-    email: '', firstName: '', lastName: '', password: '', departmentId: '',
+    email: '', firstName: '', lastName: '', password: '', departmentId: '', teamId: '',
     designation: '', reportingManager: '', phone: '', roleNames: ['Employee'] as string[],
     dateOfJoining: '', employmentStatus: 'active', leaveBalance: '20', emergencyContact: '', address: '',
   });
@@ -62,11 +62,23 @@ export default function EmployeesPage() {
     onSuccess: invalidate,
   });
 
+  const removeUser = useMutation({
+    mutationFn: (id: string) => api.delete(`/users/${id}`),
+    onSuccess: invalidate,
+    onError: (e: any) => setError(e.response?.data?.message || 'Could not delete user'),
+  });
+
+  const confirmDelete = (u: any) => {
+    if (window.confirm(`Permanently delete ${fullName(u)} (${u.email})? This cannot be undone. For safety, prefer deactivating the account.`)) {
+      removeUser.mutate(u.id);
+    }
+  };
+
   const openEdit = (u: any) => {
     setEditing(u);
     setForm({
       email: u.email, firstName: u.firstName, lastName: u.lastName, password: '',
-      departmentId: u.departmentId ?? '', designation: u.employeeProfile?.designation ?? '',
+      departmentId: u.departmentId ?? '', teamId: u.teamId ?? '', designation: u.employeeProfile?.designation ?? '',
       reportingManager: u.employeeProfile?.reportingManager ?? '', phone: u.employeeProfile?.phone ?? '',
       roleNames: u.roleNames ?? ['Employee'], dateOfJoining: u.employeeProfile?.dateOfJoining?.slice(0, 10) ?? '',
       employmentStatus: u.employeeProfile?.employmentStatus ?? 'active',
@@ -84,7 +96,7 @@ export default function EmployeesPage() {
           <p className="text-sm text-gray-500 mt-1">{users?.length ?? 0} people</p>
         </div>
         {canManage && (
-          <Button onClick={() => { setEditing(null); setForm({ email: '', firstName: '', lastName: '', password: '', departmentId: '', designation: '', reportingManager: '', phone: '', roleNames: ['Employee'], dateOfJoining: '', employmentStatus: 'active', leaveBalance: '20', emergencyContact: '', address: '' }); setShowForm(true); }} className="gradient-brand-btn text-white border-0 rounded-xl">
+          <Button onClick={() => { setEditing(null); setForm({ email: '', firstName: '', lastName: '', password: '', departmentId: '', teamId: '', designation: '', reportingManager: '', phone: '', roleNames: ['Employee'], dateOfJoining: '', employmentStatus: 'active', leaveBalance: '20', emergencyContact: '', address: '' }); setShowForm(true); }} className="gradient-brand-btn text-white border-0 rounded-xl">
             <Plus className="h-4 w-4 mr-1" /> Add Employee
           </Button>
         )}
@@ -125,6 +137,9 @@ export default function EmployeesPage() {
                       <button onClick={() => toggleActive.mutate(u.id)} title={u.isActive ? 'Deactivate' : 'Reactivate'} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-all duration-150 hover:scale-110">
                         {u.isActive ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
                       </button>
+                      {role === 'admin' && u.id !== undefined && (
+                        <button onClick={() => confirmDelete(u)} title="Delete permanently" className="rounded-lg p-1.5 text-gray-400 hover:bg-rose-50 hover:text-rose-600 transition-all duration-150 hover:scale-110"><Trash2 className="h-4 w-4" /></button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -163,9 +178,15 @@ export default function EmployeesPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <input value={form.designation} onChange={(e) => setForm({ ...form, designation: e.target.value })} placeholder="Designation" className="rounded-lg border border-gray-200 px-3 py-2.5 text-sm" />
                   <input value={form.reportingManager} onChange={(e) => setForm({ ...form, reportingManager: e.target.value })} placeholder="Reporting manager" className="rounded-lg border border-gray-200 px-3 py-2.5 text-sm" />
-                  <select value={form.departmentId} onChange={(e) => setForm({ ...form, departmentId: e.target.value })} className="rounded-lg border border-gray-200 px-3 py-2.5 text-sm">
+                  <select value={form.departmentId} onChange={(e) => setForm({ ...form, departmentId: e.target.value, teamId: '' })} className="rounded-lg border border-gray-200 px-3 py-2.5 text-sm">
                     <option value="">No department</option>
                     {(departments ?? []).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                  </select>
+                  <select value={form.teamId} onChange={(e) => setForm({ ...form, teamId: e.target.value })} className="rounded-lg border border-gray-200 px-3 py-2.5 text-sm">
+                    <option value="">No team</option>
+                    {((departments ?? []).find((d: any) => d.id === form.departmentId)?.teams ?? []).map((t: any) => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
                   </select>
                   <input type="date" value={form.dateOfJoining} onChange={(e) => setForm({ ...form, dateOfJoining: e.target.value })} className="rounded-lg border border-gray-200 px-3 py-2.5 text-sm" />
                   <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Phone" className="rounded-lg border border-gray-200 px-3 py-2.5 text-sm" />

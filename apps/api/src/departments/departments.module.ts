@@ -15,6 +15,13 @@ export class DepartmentsService {
       include: {
         head: { select: { id: true, firstName: true, lastName: true, email: true } },
         _count: { select: { members: true, tasks: true, projects: true } },
+        teams: {
+          include: {
+            lead: { select: { id: true, firstName: true, lastName: true } },
+            _count: { select: { members: true } },
+          },
+          orderBy: { name: 'asc' },
+        },
       },
       orderBy: { name: 'asc' },
     });
@@ -104,6 +111,76 @@ export class DepartmentsService {
     return { message: 'Department deleted' };
   }
 
+  async createTeam(departmentId: string, data: any, userId: string, organizationId: string) {
+    const dept = await this.prisma.department.findFirst({ where: { id: departmentId, organizationId } });
+    if (!dept) throw new NotFoundException('Department not found');
+    if (data.leadId) {
+      const lead = await this.prisma.user.findFirst({ where: { id: data.leadId, organizationId, isActive: true } });
+      if (!lead) throw new ForbiddenException('Invalid team lead');
+    }
+    const team = await this.prisma.team.create({
+      data: { name: data.name, departmentId, leadId: data.leadId || null, organizationId },
+      include: { lead: { select: { id: true, firstName: true, lastName: true } }, _count: { select: { members: true } } },
+    });
+    await this.prisma.auditLog.create({
+      data: { organizationId, userId, action: 'create', resource: 'team', resourceId: team.id, changes: { name: team.name, departmentId } },
+    });
+    return team;
+  }
+
+  async updateTeam(teamId: string, data: any, userId: string, organizationId: string) {
+    const team = await this.prisma.team.findFirst({ where: { id: teamId, organizationId } });
+    if (!team) throw new NotFoundException('Team not found');
+
+    if (data.leadId) {
+      const lead = await this.prisma.user.findFirst({ where: { id: data.leadId, organizationId, isActive: true } });
+      if (!lead) throw new ForbiddenException('Invalid team lead');
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const t = await tx.team.update({
+        where: { id: teamId },
+        data: {
+          name: data.name ?? undefined,
+          leadId: data.leadId !== undefined ? data.leadId || null : undefined,
+        },
+        include: { lead: { select: { id: true, firstName: true, lastName: true } }, _count: { select: { members: true } } },
+      });
+
+      // Member assignment: set/clear teamId on the given users (org-scoped)
+      if (Array.isArray(data.memberIds)) {
+        const valid = await tx.user.findMany({
+          where: { id: { in: data.memberIds }, organizationId },
+          select: { id: true },
+        });
+        const validIds = valid.map((u) => u.id);
+        await tx.user.updateMany({ where: { teamId: teamId }, data: { teamId: null } });
+        if (validIds.length) {
+          await tx.user.updateMany({ where: { id: { in: validIds } }, data: { teamId } });
+        }
+      }
+      return t;
+    });
+
+    await this.prisma.auditLog.create({
+      data: { organizationId, userId, action: 'update', resource: 'team', resourceId: teamId, changes: { name: updated.name } },
+    });
+    return updated;
+  }
+
+  async deleteTeam(teamId: string, userId: string, organizationId: string) {
+    const team = await this.prisma.team.findFirst({ where: { id: teamId, organizationId } });
+    if (!team) throw new NotFoundException('Team not found');
+    await this.prisma.$transaction([
+      this.prisma.user.updateMany({ where: { teamId }, data: { teamId: null } }),
+      this.prisma.team.delete({ where: { id: teamId } }),
+    ]);
+    await this.prisma.auditLog.create({
+      data: { organizationId, userId, action: 'delete', resource: 'team', resourceId: teamId, changes: { name: team.name } },
+    });
+    return { message: 'Team deleted' };
+  }
+
   private audit(organizationId: string, userId: string, action: string, resourceId: string, changes: any) {
     return this.prisma.auditLog.create({
       data: { organizationId, userId, action, resource: 'department', resourceId, changes },
@@ -153,6 +230,26 @@ export class DepartmentsController {
   @Roles(...PRIVILEGED_ROLES)
   remove(@Param('id') id: string, @Request() req: any) {
     return this.departments.remove(id, req.user.id, req.user.organizationId);
+  }
+
+  // ---- Teams ----
+
+  @Post(':id/teams')
+  @Roles(...PRIVILEGED_ROLES)
+  createTeam(@Param('id') id: string, @Body() body: any, @Request() req: any) {
+    return this.departments.createTeam(id, body, req.user.id, req.user.organizationId);
+  }
+
+  @Put('teams/:teamId')
+  @Roles(...PRIVILEGED_ROLES)
+  updateTeam(@Param('teamId') teamId: string, @Body() body: any, @Request() req: any) {
+    return this.departments.updateTeam(teamId, body, req.user.id, req.user.organizationId);
+  }
+
+  @Delete('teams/:teamId')
+  @Roles(...PRIVILEGED_ROLES)
+  deleteTeam(@Param('teamId') teamId: string, @Request() req: any) {
+    return this.departments.deleteTeam(teamId, req.user.id, req.user.organizationId);
   }
 }
 

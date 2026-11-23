@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { fullName, initials } from '@/lib/format';
 import { useAuth } from '@/lib/auth-context';
-import { Network, Plus, Users, FolderKanban, CheckSquare, X, Archive, Pencil } from 'lucide-react';
+import { Network, Plus, Users, FolderKanban, CheckSquare, X, Archive, Pencil, Trash2, UsersRound } from 'lucide-react';
 
 export default function DepartmentsPage() {
   const { role } = useAuth();
@@ -17,6 +17,10 @@ export default function DepartmentsPage() {
   const [editing, setEditing] = useState<any>(null);
   const [form, setForm] = useState({ name: '', code: '', description: '', color: '#00A878', headId: '' });
   const [error, setError] = useState('');
+  const [teamsDept, setTeamsDept] = useState<any>(null);
+  const [teamForm, setTeamForm] = useState({ name: '', leadId: '' });
+  const [editingTeam, setEditingTeam] = useState<any>(null);
+  const [teamMembers, setTeamMembers] = useState<string[]>([]);
 
   const { data: departments, isLoading } = useQuery({
     queryKey: ['departments'],
@@ -39,6 +43,27 @@ export default function DepartmentsPage() {
     mutationFn: (id: string) => api.post(`/departments/${id}/archive`),
     onSuccess: invalidate,
   });
+
+  const saveTeam = useMutation({
+    mutationFn: (): Promise<any> => editingTeam
+      ? api.put(`/departments/teams/${editingTeam.id}`, { name: teamForm.name, leadId: teamForm.leadId || null, memberIds: teamMembers })
+      : api.post(`/departments/${teamsDept.id}/teams`, { name: teamForm.name, leadId: teamForm.leadId || null }),
+    onSuccess: () => { invalidate(); setTeamForm({ name: '', leadId: '' }); setEditingTeam(null); setTeamMembers([]); },
+    onError: (e: any) => setError(e.response?.data?.message || 'Failed to save team'),
+  });
+
+  const deleteTeam = useMutation({
+    mutationFn: (teamId: string) => api.delete(`/departments/teams/${teamId}`),
+    onSuccess: invalidate,
+  });
+
+  const openTeamEdit = (t: any) => {
+    setEditingTeam(t);
+    setTeamForm({ name: t.name, leadId: t.leadId ?? '' });
+    setTeamMembers((users ?? []).filter((u: any) => u.teamId === t.id).map((u: any) => u.id));
+  };
+
+  const deptUsers = (users ?? []).filter((u: any) => !teamsDept || u.departmentId === teamsDept.id);
 
   const openEdit = (d: any) => {
     setEditing(d);
@@ -89,9 +114,76 @@ export default function DepartmentsPage() {
                   <span className="flex items-center gap-1"><FolderKanban className="h-3.5 w-3.5" /> {d._count.projects}</span>
                   <span className="flex items-center gap-1"><CheckSquare className="h-3.5 w-3.5" /> {d._count.tasks}</span>
                 </div>
+                <button onClick={() => { setTeamsDept(d); setEditingTeam(null); setTeamForm({ name: '', leadId: '' }); setTeamMembers([]); setError(''); }} className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-gray-200 py-1.5 text-[11px] font-medium text-gray-600 transition-colors hover:border-brand-300 hover:bg-brand-50/50 hover:text-brand-700">
+                  <UsersRound className="h-3.5 w-3.5" /> Teams ({d.teams?.length ?? 0})
+                </button>
               </CardContent>
             </Card>
           ))}
+        </div>
+      )}
+
+      {teamsDept && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4 animate-fade-in" onClick={() => setTeamsDept(null)}>
+          <Card className="w-full max-w-lg max-h-[88vh] overflow-y-auto animate-scale-in shadow-2xl" onClick={(e: any) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 pt-5 pb-3">
+              <div>
+                <h2 className="text-lg font-semibold">Teams — {teamsDept.name}</h2>
+                <p className="text-xs text-gray-500 mt-0.5">{teamsDept.teams?.length ?? 0} teams</p>
+              </div>
+              <button onClick={() => setTeamsDept(null)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100"><X className="h-5 w-5" /></button>
+            </div>
+            <CardContent className="space-y-3">
+              {(teamsDept.teams ?? []).map((t: any) => (
+                <div key={t.id} className="rounded-xl border border-gray-200 p-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">{t.name}</p>
+                      <p className="text-[11px] text-gray-500">Lead: {t.lead ? fullName(t.lead) : '—'} · {t._count.members} members</p>
+                    </div>
+                    {canEdit && (
+                      <div className="flex gap-1">
+                        <button onClick={() => openTeamEdit(t)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"><Pencil className="h-4 w-4" /></button>
+                        <button onClick={() => { if (window.confirm(`Delete team "${t.name}"? Members will be unassigned.`)) deleteTeam.mutate(t.id); }} className="rounded-lg p-1.5 text-gray-400 hover:bg-rose-50 hover:text-rose-600"><Trash2 className="h-4 w-4" /></button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              {canEdit && (
+                <form onSubmit={(e) => { e.preventDefault(); setError(''); saveTeam.mutate(); }} className="rounded-xl border border-dashed border-gray-300 p-3 space-y-3">
+                  <p className="text-xs font-semibold text-gray-700">{editingTeam ? `Edit team: ${editingTeam.name}` : 'New team'}</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input required value={teamForm.name} onChange={(e) => setTeamForm({ ...teamForm, name: e.target.value })} placeholder="Team name" className="rounded-lg border border-gray-200 px-3 py-2 text-sm" />
+                    <select value={teamForm.leadId} onChange={(e) => setTeamForm({ ...teamForm, leadId: e.target.value })} className="rounded-lg border border-gray-200 px-3 py-2 text-sm">
+                      <option value="">No lead</option>
+                      {deptUsers.map((u: any) => <option key={u.id} value={u.id}>{fullName(u)}</option>)}
+                    </select>
+                  </div>
+                  {editingTeam && (
+                    <div>
+                      <p className="mb-1.5 text-[11px] font-medium text-gray-600">Members</p>
+                      <div className="max-h-36 space-y-1 overflow-y-auto rounded-lg border border-gray-100 p-2">
+                        {deptUsers.map((u: any) => (
+                          <label key={u.id} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-xs hover:bg-gray-50">
+                            <input type="checkbox" checked={teamMembers.includes(u.id)} onChange={(e) => setTeamMembers(e.target.checked ? [...teamMembers, u.id] : teamMembers.filter((id) => id !== u.id))} className="accent-brand-500" />
+                            {fullName(u)}
+                          </label>
+                        ))}
+                        {deptUsers.length === 0 && <p className="text-[11px] text-gray-400">No users in this department</p>}
+                      </div>
+                    </div>
+                  )}
+                  {error && <p className="text-xs text-rose-600">{error}</p>}
+                  <div className="flex gap-2">
+                    {editingTeam && <Button type="button" variant="outline" size="sm" className="rounded-lg" onClick={() => { setEditingTeam(null); setTeamForm({ name: '', leadId: '' }); setTeamMembers([]); }}>Cancel</Button>}
+                    <Button type="submit" disabled={saveTeam.isPending} size="sm" className="gradient-brand-btn flex-1 text-white border-0 rounded-lg">{saveTeam.isPending ? 'Saving...' : editingTeam ? 'Update team' : 'Create team'}</Button>
+                  </div>
+                </form>
+              )}
+            </CardContent>
+          </Card>
         </div>
       )}
 

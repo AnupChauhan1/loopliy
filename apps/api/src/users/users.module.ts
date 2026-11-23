@@ -71,6 +71,7 @@ export class UsersService {
         lastName: data.lastName,
         organizationId,
         departmentId: data.departmentId || null,
+        teamId: data.teamId || null,
         employeeProfile: {
           create: {
             employeeId,
@@ -178,6 +179,37 @@ export class UsersService {
     return { id, isActive: updated.isActive };
   }
 
+  /** Permanently delete a user. Admin-only. Blocked for self and for the
+   *  last remaining Super Admin; users with dependent records must be
+   *  deactivated instead. */
+  async remove(id: string, actorId: string, actor: any, organizationId: string) {
+    if (id === actorId) throw new ForbiddenException('You cannot delete your own account');
+    const user = await this.prisma.user.findFirst({
+      where: { id, organizationId },
+      include: { roles: { include: { role: true } } },
+    });
+    if (!user) throw new NotFoundException('User not found');
+
+    const isSuperAdmin = user.roles.some((ur) => ur.role.name === 'Super Admin');
+    if (isSuperAdmin) {
+      const admins = await this.prisma.userRole.findMany({
+        where: { role: { name: 'Super Admin' }, user: { organizationId, isActive: true } },
+        select: { userId: true },
+      });
+      if (admins.length <= 1) throw new ForbiddenException('Cannot delete the last Super Admin account');
+    }
+
+    try {
+      await this.prisma.user.delete({ where: { id } });
+    } catch {
+      throw new ConflictException('This user has related records and cannot be permanently deleted — deactivate the account instead');
+    }
+    await this.prisma.auditLog.create({
+      data: { organizationId, userId: actorId, action: 'delete', resource: 'user', resourceId: id, changes: { email: user.email } },
+    });
+    return { message: 'User deleted' };
+  }
+
   async updateAvatar(id: string, avatar: string, organizationId: string) {
     const user = await this.prisma.user.findFirst({ where: { id, organizationId } });
     if (!user) throw new NotFoundException('User not found');
@@ -252,6 +284,12 @@ export class UsersController {
   @Roles(...HR_ROLES)
   deactivate(@Param('id') id: string, @Request() req: any) {
     return this.users.deactivate(id, req.user.id, req.user.organizationId);
+  }
+
+  @Delete(':id')
+  @Roles(...PRIVILEGED_ROLES)
+  remove(@Param('id') id: string, @Request() req: any) {
+    return this.users.remove(id, req.user.id, req.user, req.user.organizationId);
   }
 
   @Post(':id/avatar')
