@@ -18,6 +18,7 @@ import {
   BarChart3, FileText, Clapperboard, Megaphone, TrendingUp, PenTool, Code2, Building2, UsersRound,
 } from 'lucide-react';
 import { StatCard } from '@/components/ui/stat-card';
+import { PendingApprovals } from '@/components/pending-approvals';
 import { Stagger, Reveal } from '@/components/ui/motion';
 import { EmptyState, PageLoader } from '@/components/ui/empty-state';
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
@@ -237,6 +238,9 @@ export default function AdminDashboard() {
           <StatCard key={c.label} {...c} />
         ))}
       </Stagger>
+
+      {/* ---------- Pending account approvals ---------- */}
+      <PendingApprovals />
 
       {/* ---------- Tasks by status + department workload ---------- */}
       <div className="grid items-stretch gap-5 xl:grid-cols-[1.55fr_1fr]">

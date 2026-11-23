@@ -46,6 +46,9 @@ export class UsersService {
       where.rejectedAt = { not: null };
     } else if (stage === 'approved') {
       where.approvedAt = { not: null };
+    } else if (stage === 'all_pending') {
+      where.approvedAt = null;
+      where.rejectedAt = null;
     }
     if (departmentId) where.departmentId = departmentId;
     if (status === 'active') where.isActive = true;

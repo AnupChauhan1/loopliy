@@ -8,6 +8,7 @@ import { fmtDate, fullName, initials, timeAgo } from '@/lib/format';
 import { Users, CalendarOff, Clock, Network, AlertTriangle, UserPlus } from 'lucide-react';
 import Link from 'next/link';
 import { StatCard } from '@/components/ui/stat-card';
+import { PendingApprovals } from '@/components/pending-approvals';
 import { Stagger } from '@/components/ui/motion';
 import { PageHeader } from '@/components/ui/page-header';
 import { useHrDashboardStats } from '@/lib/hooks/dashboard';
@@ -64,6 +65,8 @@ export default function HRDashboard() {
           <StatCard key={c.label} {...c} />
         ))}
       </Stagger>
+
+      <PendingApprovals />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="card-premium">

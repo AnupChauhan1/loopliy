@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Mail, Lock, AlertCircle, CheckCircle2, Loader2, Copy, Check } from 'lucide-react';
+import { Mail, Lock, AlertCircle, CheckCircle2, Loader2, Copy, Check, Camera } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { panelRoleOf, homeFor } from '@/lib/roles';
 import Link from 'next/link';
@@ -48,6 +48,8 @@ export default function LoginPage() {
   const [suLoading, setSuLoading] = useState(false);
   const [suDevToken, setSuDevToken] = useState('');
   const [suDoneEmail, setSuDoneEmail] = useState('');
+  const [suPhoto, setSuPhoto] = useState<File | null>(null);
+  const [suPreview, setSuPreview] = useState('');
   const [extraCreds, setExtraCreds] = useState<{ role: string; email: string; password: string }[]>(() => {
     try { return JSON.parse(localStorage.getItem('looply_extra_creds') || '[]'); } catch { return []; }
   });
@@ -78,6 +80,7 @@ export default function LoginPage() {
       fd.append('password', su.password);
       fd.append('phone', '');
       fd.append('accountType', su.accountType);
+      if (suPhoto) fd.append('photo', suPhoto);
       const res = await fetch(`${API_URL}/api/v1/auth/signup`, { method: 'POST', body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(Array.isArray(data.message) ? data.message[0] : data.message || 'Registration failed');
@@ -443,6 +446,31 @@ export default function LoginPage() {
                   <option value="hr">HR Manager</option>
                   <option value="manager">Manager</option>
                 </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-medium text-gray-700">Profile photo <span className="font-normal text-gray-400">(optional)</span></label>
+                <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-gray-300 bg-gray-50/60 p-3 transition-colors hover:border-brand-400">
+                  {suPreview ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={suPreview} alt="Preview" className="h-11 w-11 rounded-full object-cover ring-2 ring-brand-200" />
+                  ) : (
+                    <Camera className="h-5 w-5 text-gray-400" />
+                  )}
+                  <span className="text-xs text-gray-500">{suPhoto ? suPhoto.name : 'Upload photo (JPG/PNG, max 5MB)'}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (!f) return;
+                      if (!f.type.startsWith('image/') || f.size > 5 * 1024 * 1024) { setSuErr('Choose an image under 5MB'); return; }
+                      setSuErr('');
+                      setSuPhoto(f);
+                      setSuPreview(URL.createObjectURL(f));
+                    }}
+                  />
+                </label>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
