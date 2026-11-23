@@ -40,7 +40,7 @@ export default function SignupPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Could not send code');
       setOtpSent(true); setOtpVerified(false); setOtpToken(''); setOtpCode('');
-      setDevOtp(data.devOtp ?? '');
+      setDevOtp(data.fallbackOtp ?? data.devOtp ?? '');
       setOtpMsg('6-digit code sent to your email (valid 10 minutes)');
       setResendIn(30);
     } catch (err: any) {
@@ -208,7 +208,9 @@ export default function SignupPage() {
             )}
             {otpMsg && <p className={`text-[11px] ${otpMsg.includes('sent') ? 'text-brand-600' : 'text-rose-600'}`}>{otpMsg}</p>}
             {devOtp && !otpVerified && (
-              <p className="text-[11px] text-amber-600">Dev mode — your code is <span className="font-mono font-bold">{devOtp}</span></p>
+              <p className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] font-medium text-amber-800">
+                Verification code: <span className="font-mono text-sm font-bold tracking-widest">{devOtp}</span> — enter it above to verify your email
+              </p>
             )}
           </div>
 

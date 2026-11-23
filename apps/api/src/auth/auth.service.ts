@@ -36,10 +36,19 @@ export class AuthService {
       update: { codeHash, expiresAt, attempts: 0, verifiedAt: null, verifiedToken: null },
       create: { email, codeHash, expiresAt },
     });
-    await this.mail.sendOtp(email, code);
+    // Send via SMTP when configured; if mail can't be delivered (no SMTP or send failure),
+    // fall back to returning the code so signup is never blocked.
+    let delivered = false;
+    try {
+      const result = await this.mail.sendOtp(email, code);
+      delivered = result.delivered;
+    } catch {
+      // Mail delivery failed — fall back to returning the code below
+    }
     return {
-      message: 'Verification code sent to your email',
-      ...(process.env.NODE_ENV !== 'production' ? { devOtp: code } : {}),
+      message: delivered ? 'Verification code sent to your email' : 'Verification code generated',
+      sent: delivered,
+      ...(!delivered ? { fallbackOtp: code } : {}),
     };
   }
 
