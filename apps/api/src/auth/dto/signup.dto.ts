@@ -35,4 +35,8 @@ export class SignupDto {
   @IsOptional()
   @IsString()
   googleIdToken?: string;
+
+  @IsOptional()
+  @IsString()
+  firebaseIdToken?: string;
 }

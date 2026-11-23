@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Mail, Lock, User, Phone, AlertCircle, CheckCircle2, Loader2, Camera, Eye, EyeOff } from 'lucide-react';
@@ -15,20 +15,71 @@ export default function SignupPage() {
   const [error, setError] = useState('');
   const [done, setDone] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpCode, setOtpCode] = useState('');
-  const [otpToken, setOtpToken] = useState('');
-  const [otpVerified, setOtpVerified] = useState(false);
-  const [otpLoading, setOtpLoading] = useState(false);
-  const [otpMsg, setOtpMsg] = useState('');
-  const [fallbackToken, setFallbackToken] = useState('');
-  const [googleToken, setGoogleToken] = useState('');
+  // Real inbox verification via Firebase Auth
+  const [fbSent, setFbSent] = useState(false);
+  const [fbLoading, setFbLoading] = useState(false);
+  const [fbMsg, setFbMsg] = useState('');
+  const [emailProof, setEmailProof] = useState('');
+  const [emailLocked, setEmailLocked] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [resendIn, setResendIn] = useState(0);
+  const fbUser = useRef<any>(null);
+
+  const resetEmailVerification = () => {
+    setFbSent(false); setFbLoading(false); setFbMsg('');
+    setEmailProof(''); setEmailLocked(false); fbUser.current = null;
+  };
 
   const set = (k: string) => (e: any) => {
     setForm({ ...form, [k]: e.target.value });
-    if (k === 'email') { setOtpSent(false); setOtpVerified(false); setOtpToken(''); }
+    if (k === 'email') resetEmailVerification();
+  };
+
+  const sendVerificationEmail = async () => {
+    setFbMsg(''); setFbLoading(true);
+    try {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) { setFbMsg('Enter a valid email first'); return; }
+      const { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification } = await import('firebase/auth');
+      const { auth } = await import('@/lib/firebase');
+      let cred;
+      try {
+        cred = await createUserWithEmailAndPassword(auth, form.email, form.password);
+      } catch (e: any) {
+        if (e?.code === 'auth/email-already-in-use') {
+          cred = await signInWithEmailAndPassword(auth, form.email, form.password);
+        } else {
+          throw e;
+        }
+      }
+      fbUser.current = cred.user;
+      if (!cred.user.emailVerified) await sendEmailVerification(cred.user);
+      setFbSent(true);
+      setFbMsg('Verification link sent to your email inbox. Please open your email, click the verification link, and then click "I have verified" to continue.');
+    } catch (err: any) {
+      setFbMsg(err?.message || 'Could not send verification email');
+    } finally {
+      setFbLoading(false);
+    }
+  };
+
+  const confirmVerified = async () => {
+    setFbMsg(''); setFbLoading(true);
+    try {
+      if (!fbUser.current) { setFbMsg('Request a verification email first'); return; }
+      await fbUser.current.reload();
+      if (!fbUser.current.emailVerified) {
+        setFbMsg('Not verified yet — open the email, click the link, then try again.');
+        return;
+      }
+      const token = await fbUser.current.getIdToken(true);
+      setEmailProof(token);
+      setEmailLocked(true);
+      setFbSent(false);
+      setFbMsg('');
+    } catch (err: any) {
+      setFbMsg(err?.message || 'Could not confirm verification');
+    } finally {
+      setFbLoading(false);
+    }
   };
 
   const signInWithGoogle = async () => {
@@ -38,13 +89,13 @@ export default function SignupPage() {
       const { auth, googleProvider } = await import('@/lib/firebase');
       const cred = await signInWithPopup(auth, googleProvider);
       const idToken = await cred.user.getIdToken();
-      setGoogleToken(idToken);
+      setEmailProof(idToken);
+      setEmailLocked(true);
       setForm((f) => ({
         ...f,
         email: cred.user.email ?? f.email,
         fullName: f.fullName || cred.user.displayName || '',
       }));
-      setOtpSent(true); setOtpVerified(true); setOtpToken(''); setFallbackToken(''); setOtpMsg('');
     } catch (err: any) {
       if (err?.code !== 'auth/popup-closed-by-user' && err?.code !== 'auth/cancelled-popup-request') {
         setError('Google sign-in failed — please try again or use email verification below.');
@@ -54,75 +105,6 @@ export default function SignupPage() {
     }
   };
 
-  const sendOtp = async () => {
-    setOtpMsg(''); setOtpLoading(true);
-    try {
-      const res = await fetch(`${API_URL}/api/v1/auth/send-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: form.email }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Could not send code');
-      setOtpSent(true); setOtpVerified(false); setOtpToken(''); setOtpCode('');
-      setFallbackToken(data.fallbackToken ?? '');
-      setOtpMsg(data.sent ? '6-digit code sent to your email (valid 10 minutes)' : 'Email verification required');
-      setResendIn(30);
-    } catch (err: any) {
-      setOtpMsg(err.message || 'Could not send code');
-    } finally {
-      setOtpLoading(false);
-    }
-  };
-
-  const verifyOtp = async () => {
-    setOtpMsg(''); setOtpLoading(true);
-    try {
-      const res = await fetch(`${API_URL}/api/v1/auth/verify-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: form.email, code: otpCode }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Verification failed');
-      setOtpToken(data.otpToken);
-      setOtpVerified(true);
-      setOtpMsg('');
-      setFallbackToken('');
-    } catch (err: any) {
-      setOtpMsg(err.message || 'Verification failed');
-    } finally {
-      setOtpLoading(false);
-    }
-  };
-
-  const verifyNow = async () => {
-    setOtpMsg(''); setOtpLoading(true);
-    try {
-      const res = await fetch(`${API_URL}/api/v1/auth/verify-fallback`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: form.email, token: fallbackToken }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Verification failed');
-      setOtpToken(data.otpToken);
-      setOtpVerified(true);
-      setFallbackToken('');
-      setOtpMsg('');
-    } catch (err: any) {
-      setOtpMsg(err.message || 'Verification failed');
-    } finally {
-      setOtpLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (resendIn <= 0) return;
-    const t = setTimeout(() => setResendIn((s) => s - 1), 1000);
-    return () => clearTimeout(t);
-  }, [resendIn]);
-
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -131,7 +113,7 @@ export default function SignupPage() {
     if (!strong.test(form.password)) { setError('Password must be 8+ characters with upper, lower case and a number'); return; }
     if (!/^\+?[0-9\s\-()]{7,20}$/.test(form.phone)) { setError('Enter a valid phone number'); return; }
     if (form.accountType === 'client' && !form.companyName.trim()) { setError('Company name is required for client accounts'); return; }
-    if (!googleToken && (!otpVerified || !otpToken)) { setError('Please verify your email with the OTP code first'); return; }
+    if (!emailProof) { setError('Please verify your email via the link sent to your inbox first'); return; }
     const nameParts = form.fullName.trim().split(/\s+/);
     if (nameParts.length < 2) { setError('Please enter your full name (first and last name)'); return; }
     const firstName = nameParts[0];
@@ -146,8 +128,7 @@ export default function SignupPage() {
       fd.append('phone', form.phone);
       fd.append('accountType', form.accountType);
       fd.append('companyName', form.accountType === 'client' ? (form.companyName || form.agencyName) : form.agencyName);
-      fd.append('otpToken', otpToken);
-      if (googleToken) fd.append('googleIdToken', googleToken);
+      fd.append('firebaseIdToken', emailProof);
       if (photo) fd.append('photo', photo);
       const res = await fetch(`${API_URL}/api/v1/auth/signup`, { method: 'POST', body: fd });
       const data = await res.json();
@@ -245,11 +226,11 @@ export default function SignupPage() {
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <Mail className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                <input required type="email" value={form.email} onChange={(e) => { if (googleToken) return; set('email')(e); }} readOnly={!!googleToken} placeholder="you@company.com" className={`w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40 ${googleToken ? 'bg-brand-50/50 text-gray-600' : ''}`} />
+                <input required type="email" value={form.email} onChange={(e) => { if (emailLocked) return; set('email')(e); }} readOnly={emailLocked} placeholder="you@company.com" className={`w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40 ${emailLocked ? 'bg-brand-50/50 text-gray-600' : ''}`} />
               </div>
-              {!otpVerified ? (
-                <button type="button" onClick={sendOtp} disabled={otpLoading || resendIn > 0} className="shrink-0 rounded-xl border border-brand-200 bg-brand-50 px-3 text-[12px] font-semibold text-brand-700 hover:bg-brand-100 disabled:opacity-50">
-                  {otpLoading ? '...' : otpSent ? (resendIn > 0 ? `Resend (${resendIn}s)` : 'Resend OTP') : 'Send OTP'}
+              {!emailProof ? (
+                <button type="button" onClick={sendVerificationEmail} disabled={fbLoading} className="shrink-0 rounded-xl border border-brand-200 bg-brand-50 px-3 text-[12px] font-semibold text-brand-700 hover:bg-brand-100 disabled:opacity-50">
+                  {fbLoading ? '...' : fbSent ? 'Resend email' : 'Verify Email'}
                 </button>
               ) : (
                 <span className="flex shrink-0 items-center gap-1 rounded-xl bg-brand-50 px-3 text-[12px] font-semibold text-brand-700 ring-1 ring-brand-200">
@@ -257,34 +238,18 @@ export default function SignupPage() {
                 </span>
               )}
             </div>
-            {otpSent && !otpVerified && !fallbackToken && (
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  required
-                  inputMode="numeric"
-                  maxLength={6}
-                  value={otpCode}
-                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                  placeholder="6-digit code"
-                  className="w-32 rounded-xl border border-gray-200 bg-white px-3 py-2 text-center text-sm font-semibold tracking-[0.3em] shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40"
-                />
-                <button type="button" onClick={verifyOtp} disabled={otpLoading || otpCode.length !== 6} className="rounded-xl bg-brand-600 px-4 py-2 text-[12px] font-semibold text-white hover:bg-brand-700 disabled:opacity-50">
-                  {otpLoading ? '...' : 'Verify Code'}
-                </button>
-              </div>
-            )}
-            {otpMsg && <p className={`text-[11px] ${otpMsg.includes('sent') || otpMsg.includes('required') ? 'text-brand-600' : 'text-rose-600'}`}>{otpMsg}</p>}
-            {fallbackToken && !otpVerified && (
+            {fbSent && !emailProof && (
               <button
                 type="button"
-                onClick={verifyNow}
-                disabled={otpLoading}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-brand-200 bg-brand-50 px-4 py-2.5 text-[12px] font-semibold text-brand-700 transition hover:bg-brand-100 disabled:opacity-50"
+                onClick={confirmVerified}
+                disabled={fbLoading}
+                className="flex w-full items-center justify-center gap-2 rounded-xl gradient-brand-btn px-4 py-2.5 text-[12px] font-semibold text-white shadow-md shadow-brand-500/25 disabled:opacity-50"
               >
-                {otpLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                Verify Email Now
+                {fbLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                I have verified — continue
               </button>
             )}
+            {fbMsg && <p className="text-[11px] text-brand-700">{fbMsg}</p>}
           </div>
 
           <div className="space-y-1.5">
@@ -348,8 +313,8 @@ export default function SignupPage() {
             </div>
           </div>
 
-          <Button type="submit" disabled={loading || !otpVerified} className="h-11 w-full gradient-brand-btn rounded-xl border-0 font-medium text-white shadow-md shadow-brand-500/25 disabled:opacity-60">
-            {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating account...</> : otpVerified ? 'Create Account' : 'Verify email to continue'}
+          <Button type="submit" disabled={loading || !emailProof} className="h-11 w-full gradient-brand-btn rounded-xl border-0 font-medium text-white shadow-md shadow-brand-500/25 disabled:opacity-60">
+            {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating account...</> : emailProof ? 'Create Account' : 'Verify email to continue'}
           </Button>
         </form>
 

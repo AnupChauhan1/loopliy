@@ -107,26 +107,28 @@ export class AuthService {
     const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing) throw new ConflictException('An account with this email already exists');
 
-    // Email proof: either a verified OTP token OR a valid Google ID token for this email
-    let googleVerified = false;
-    if (dto.googleIdToken) {
+    // Email proof: a Firebase ID token whose email_verified claim is true
+    // (covers both Google sign-in and password email-verification links)
+    const fbToken = dto.firebaseIdToken || dto.googleIdToken;
+    let firebaseVerified = false;
+    if (fbToken) {
       try {
-        const res = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(dto.googleIdToken)}`);
+        const res = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(fbToken)}`);
         if (res.ok) {
           const payload: any = await res.json();
-          googleVerified = payload.email === email && payload.email_verified === 'true';
+          firebaseVerified = payload.email === email && payload.email_verified === 'true';
         }
       } catch {
-        googleVerified = false;
+        firebaseVerified = false;
       }
-      if (!googleVerified) throw new BadRequestException('Google verification failed — please try again');
+      if (!firebaseVerified) throw new BadRequestException('Email verification failed — please verify your email and try again');
     }
-    const otpRecord = !googleVerified && dto.otpToken
+    const otpRecord = !firebaseVerified && dto.otpToken
       ? await this.prisma.emailOtp.findFirst({
           where: { email, verifiedToken: dto.otpToken, verifiedAt: { not: null } },
         })
       : null;
-    if (!googleVerified && !otpRecord) {
+    if (!firebaseVerified && !otpRecord) {
       throw new BadRequestException('Email verification required — enter the 6-digit code sent to your email');
     }
 
