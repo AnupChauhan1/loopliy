@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState, useRef, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
@@ -26,37 +26,60 @@ const COLUMN_LABELS: Record<string, string> = {
 };
 
 function TaskMenu({ task, manager, onEdit, onDelete }: { task: any; manager: boolean; onEdit: (t: any) => void; onDelete: (t: any) => void }) {
-  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+
+  const toggle = () => {
+    if (pos) { setPos(null); return; }
+    const rect = btnRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const menuWidth = 176;
+    const left = Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8);
+    const top = rect.bottom + 4 + 180 > window.innerHeight ? rect.top - 184 : rect.bottom + 4;
+    setPos({ top: Math.max(8, top), left: Math.max(8, left) });
+  };
+
+  const close = () => setPos(null);
+
   return (
-    <div className="relative">
+    <>
       <button
-        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen((o) => !o); }}
-        className="rounded-lg p-1.5 text-gray-400 transition-all duration-150 hover:bg-gray-100 hover:text-gray-700"
+        ref={btnRef}
+        type="button"
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggle(); }}
+        className="rounded-lg p-1.5 text-gray-500 transition-all duration-150 hover:bg-gray-200 hover:text-gray-800 active:scale-90"
         title="Task actions"
+        aria-label="Task actions"
+        aria-expanded={!!pos}
       >
         <MoreVertical className="h-4 w-4" />
       </button>
-      {open && (
+      {pos && typeof document !== 'undefined' && createPortal(
         <>
-          <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full z-40 mt-1 w-44 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-xl animate-scale-in">
-            <Link href={`/tasks/${task.id}`} onClick={() => setOpen(false)} className="flex items-center gap-2.5 px-3.5 py-2 text-[13px] text-gray-700 hover:bg-gray-50">
+          <div className="fixed inset-0 z-[9998]" onClick={close} />
+          <div
+            className="fixed z-[9999] w-44 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-2xl animate-scale-in"
+            style={{ top: pos.top, left: pos.left }}
+            role="menu"
+          >
+            <Link href={`/tasks/${task.id}`} onClick={close} className="flex items-center gap-2.5 px-3.5 py-2 text-[13px] text-gray-700 hover:bg-gray-50">
               <Eye className="h-3.5 w-3.5 text-gray-400" /> View Details
             </Link>
             {manager && (
               <>
-                <button onClick={() => { setOpen(false); onEdit(task); }} className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] text-gray-700 hover:bg-gray-50">
+                <button type="button" onClick={() => { close(); onEdit(task); }} className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] text-gray-700 hover:bg-gray-50">
                   <Pencil className="h-3.5 w-3.5 text-gray-400" /> Edit Task
                 </button>
-                <button onClick={() => { setOpen(false); onDelete(task); }} className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] text-rose-600 hover:bg-rose-50">
+                <button type="button" onClick={() => { close(); onDelete(task); }} className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] text-rose-600 hover:bg-rose-50">
                   <Trash2 className="h-3.5 w-3.5" /> Delete Task
                 </button>
               </>
             )}
           </div>
-        </>
+        </>,
+        document.body,
       )}
-    </div>
+    </>
   );
 }
 
@@ -309,7 +332,7 @@ function TasksPageInner() {
                           </p>
                         )}
                       </Link>
-                      <div className="absolute right-2 top-2 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                      <div className="absolute right-2 top-2 rounded-lg bg-white/90 opacity-70 backdrop-blur-sm transition-opacity group-hover:opacity-100 focus-within:opacity-100">
                         <TaskMenu task={task} manager={manager} onEdit={openEdit} onDelete={confirmDelete} />
                       </div>
                     </div>
