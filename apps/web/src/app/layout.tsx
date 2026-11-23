@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ReactQueryProvider } from "@/lib/react-query-provider";
 import { PwaInstallProvider } from "@/lib/pwa-install-provider";
+import { IosInstallBanner } from "@/components/ios-install-banner";
 import { UiProviders } from "@/components/providers";
 import { AuthProvider } from "@/lib/auth-context";
 import { AuthenticatedLayout } from "@/components/layout/authenticated-layout";
@@ -32,7 +33,7 @@ export const metadata: Metadata = {
       { url: "/icons/icon.svg", type: "image/svg+xml" },
       { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
     ],
-    apple: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
   },
 };
 
@@ -40,7 +41,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#0b1220",
+  themeColor: "#059669",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -57,6 +58,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <UiProviders>
                 <CelebrationProvider>
                   <AuthenticatedLayout>{children}</AuthenticatedLayout>
+                  <IosInstallBanner />
                 </CelebrationProvider>
               </UiProviders>
             </ReactQueryProvider>
