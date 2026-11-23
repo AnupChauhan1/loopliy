@@ -1565,3 +1565,16 @@ model SystemState {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+// Email OTP challenges for signup verification (6-digit code, 10 min expiry)
+model EmailOtp {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  codeHash     String
+  expiresAt    DateTime
+  attempts     Int       @default(0)
+  verifiedAt   DateTime?
+  verifiedToken String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}

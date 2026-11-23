@@ -24,10 +24,58 @@ export class AuthService {
   /** Employee self-registration: creates an unverified, unapproved Employee
    *  account in the default workspace. Admin approval is required before
    *  login is allowed. */
+  /** Step 1 of signup: generate + email a 6-digit OTP (10 min expiry). */
+  async sendOtp(emailRaw: string) {
+    const email = emailRaw.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new BadRequestException('Enter a valid email address');
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const codeHash = await bcrypt.hash(code, 10);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    await this.prisma.emailOtp.upsert({
+      where: { email },
+      update: { codeHash, expiresAt, attempts: 0, verifiedAt: null, verifiedToken: null },
+      create: { email, codeHash, expiresAt },
+    });
+    await this.mail.sendOtp(email, code);
+    return {
+      message: 'Verification code sent to your email',
+      ...(process.env.NODE_ENV !== 'production' ? { devOtp: code } : {}),
+    };
+  }
+
+  /** Step 2: verify the OTP; returns a one-time token required by signup. */
+  async verifyOtp(emailRaw: string, code: string) {
+    const email = emailRaw.trim().toLowerCase();
+    const otp = await this.prisma.emailOtp.findUnique({ where: { email } });
+    if (!otp || otp.expiresAt < new Date() || otp.attempts >= 5) {
+      throw new BadRequestException('Invalid or expired verification code');
+    }
+    if (!(await bcrypt.compare(code.trim(), otp.codeHash))) {
+      await this.prisma.emailOtp.update({ where: { id: otp.id }, data: { attempts: { increment: 1 } } });
+      throw new BadRequestException('Incorrect verification code');
+    }
+    const otpToken = randomBytes(32).toString('hex');
+    await this.prisma.emailOtp.update({
+      where: { id: otp.id },
+      data: { verifiedAt: new Date(), verifiedToken: otpToken },
+    });
+    return { verified: true, otpToken };
+  }
+
   async signup(dto: SignupDto, avatarUrl?: string) {
     const email = dto.email.trim().toLowerCase();
     const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing) throw new ConflictException('An account with this email already exists');
+
+    // Mandatory OTP verification: signup requires a verified otpToken for this email
+    const otpRecord = dto.otpToken
+      ? await this.prisma.emailOtp.findFirst({
+          where: { email, verifiedToken: dto.otpToken, verifiedAt: { not: null } },
+        })
+      : null;
+    if (!otpRecord) {
+      throw new BadRequestException('Email verification required — enter the 6-digit code sent to your email');
+    }
 
     const org =
       (await this.prisma.organization.findUnique({ where: { slug: DEFAULT_ORG_SLUG } })) ??
@@ -35,7 +83,6 @@ export class AuthService {
       (await this.prisma.organization.create({ data: { name: 'LOOPLY', slug: DEFAULT_ORG_SLUG } }));
 
     const passwordHash = await bcrypt.hash(dto.password, 12);
-    const verifyToken = randomBytes(32).toString('hex');
 
     const accountType = dto.accountType ?? 'employee';
     const roleName =
@@ -58,8 +105,7 @@ export class AuthService {
         lastName: dto.lastName.trim(),
         organizationId: org.id,
         avatar: avatarUrl,
-        emailVerifyToken: verifyToken,
-        emailVerifyExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        emailVerified: new Date(),
         roles: { create: { roleId: role.id } },
         preferences: { create: {} },
         ...(accountType !== 'client'
@@ -93,12 +139,8 @@ export class AuthService {
       }
     }
 
-    const verifyUrl = this.mail.appUrl(`/verify-email?email=${encodeURIComponent(email)}&token=${verifyToken}`);
-    await this.mail.send(
-      email,
-      'Verify your LOOPLY account',
-      `Hi ${user.firstName},\n\nVerify your email to continue your LOOPLY registration:\n${verifyUrl}\n\nThis link expires in 24 hours.`,
-    );
+    // OTP already proved email ownership — consume the challenge
+    await this.prisma.emailOtp.delete({ where: { id: otpRecord.id } }).catch(() => {});
 
     // Notify HR and Admin users about the new registration request
     const reviewerIds = await this.notifications.userIdsWithRoles(org.id, HR_ROLES);
@@ -111,11 +153,8 @@ export class AuthService {
     );
 
     return {
-      message: 'Registration submitted. Check your email to verify your address — HR and an admin will then review your account.',
+      message: 'Registration submitted — HR and an admin will review your account. You\'ll get an email once approved.',
       userId: user.id,
-      // Exposed only outside production so local/dev flows remain testable
-      // without SMTP. Never set this in production.
-      ...(process.env.NODE_ENV !== 'production' ? { devVerifyToken: verifyToken } : {}),
     };
   }
 

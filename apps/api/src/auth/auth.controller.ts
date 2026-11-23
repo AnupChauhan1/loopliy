@@ -70,6 +70,18 @@ export class AuthController {
     return this.authService.verifyEmail(dto.email, dto.token);
   }
 
+  @Post('send-otp')
+  @HttpCode(HttpStatus.OK)
+  sendOtp(@Body() body: { email: string }) {
+    return this.authService.sendOtp(body.email);
+  }
+
+  @Post('verify-otp')
+  @HttpCode(HttpStatus.OK)
+  verifyOtp(@Body() body: { email: string; code: string }) {
+    return this.authService.verifyOtp(body.email, body.code);
+  }
+
   @Post('resend-verification')
   @HttpCode(HttpStatus.OK)
   resendVerification(@Body() body: { email: string }) {

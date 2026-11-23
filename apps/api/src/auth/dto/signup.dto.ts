@@ -27,4 +27,8 @@ export class SignupDto {
   @IsOptional()
   @IsString()
   companyName?: string;
+
+  @IsOptional()
+  @IsString()
+  otpToken?: string;
 }

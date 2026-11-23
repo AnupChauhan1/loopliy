@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Mail, Lock, AlertCircle, CheckCircle2, Loader2, Copy, Check, Camera } from 'lucide-react';
@@ -65,6 +65,67 @@ export default function LoginPage() {
   const [resendToken, setResendToken] = useState('');
   const [resendLoading, setResendLoading] = useState(false);
 
+  // Signup OTP state
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [otpToken, setOtpToken] = useState('');
+  const [otpVerified, setOtpVerified] = useState(false);
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [otpMsg, setOtpMsg] = useState('');
+  const [devOtp, setDevOtp] = useState('');
+  const [resendIn, setResendIn] = useState(0);
+
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const t = setTimeout(() => setResendIn((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendIn]);
+
+  const sendOtp = async () => {
+    setOtpMsg(''); setOtpLoading(true);
+    try {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(su.email)) { setOtpMsg('Enter a valid email first'); return; }
+      const res = await fetch(`${API_URL}/api/v1/auth/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: su.email }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Could not send code');
+      setOtpSent(true);
+      setOtpVerified(false);
+      setOtpToken('');
+      setOtpCode('');
+      setDevOtp(data.devOtp ?? '');
+      setOtpMsg('6-digit code sent to your email (valid 10 minutes)');
+      setResendIn(30);
+    } catch (err: any) {
+      setOtpMsg(err.message || 'Could not send code');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const verifyOtp = async () => {
+    setOtpMsg(''); setOtpLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/v1/auth/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: su.email, code: otpCode }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Verification failed');
+      setOtpToken(data.otpToken);
+      setOtpVerified(true);
+      setOtpMsg('');
+    } catch (err: any) {
+      setOtpMsg(err.message || 'Verification failed');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
   const allCredentials = [...loginCredentials, ...extraCreds];
 
   const submitSignup = async (e: React.FormEvent) => {
@@ -74,6 +135,7 @@ export default function LoginPage() {
     if (parts.length < 2) { setSuErr('Please enter your full name (first and last name)'); return; }
     if (su.password !== su.confirm) { setSuErr('Passwords do not match'); return; }
     if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(su.password)) { setSuErr('Password needs 8+ chars with upper, lower case and a number'); return; }
+    if (!otpVerified || !otpToken) { setSuErr('Please verify your email with the OTP code first'); return; }
     setSuLoading(true);
     try {
       const fd = new FormData();
@@ -83,6 +145,7 @@ export default function LoginPage() {
       fd.append('password', su.password);
       fd.append('phone', '');
       fd.append('accountType', su.accountType);
+      fd.append('otpToken', otpToken);
       if (suPhoto) fd.append('photo', suPhoto);
       const res = await fetch(`${API_URL}/api/v1/auth/signup`, { method: 'POST', body: fd });
       const data = await res.json();
@@ -97,6 +160,7 @@ export default function LoginPage() {
       setSuDoneEmail(su.email);
       setSuMsg(data.message || 'Registration submitted.');
       setSu({ fullName: '', email: '', accountType: 'employee', password: '', confirm: '' });
+      setOtpSent(false); setOtpVerified(false); setOtpToken(''); setOtpCode(''); setDevOtp(''); setOtpMsg(''); setResendIn(0);
     } catch (err: any) {
       setSuErr(err.message || 'Registration failed. Please try again.');
     } finally {
@@ -443,7 +507,7 @@ export default function LoginPage() {
 
           <button
             type="button"
-            onClick={() => { setAuthMode('signup'); setSuErr(''); setSuMsg(''); }}
+            onClick={() => { setAuthMode('signup'); setSuErr(''); setSuMsg(''); setOtpSent(false); setOtpVerified(false); setOtpToken(''); setOtpCode(''); setOtpMsg(''); setDevOtp(''); setResendIn(0); }}
             className="mt-4 flex h-11 w-full items-center justify-center rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-700 shadow-sm transition-all hover:border-brand-300 hover:text-brand-700 hover:shadow"
           >
             Create New Account
@@ -521,7 +585,38 @@ export default function LoginPage() {
               </div>
               <div className="space-y-1.5">
                 <label className="text-[13px] font-medium text-gray-700">Work email</label>
-                <input required type="email" value={su.email} onChange={(e) => setSu({ ...su, email: e.target.value })} placeholder="you@company.com" className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
+                <div className="flex gap-2">
+                  <input required type="email" value={su.email} onChange={(e) => { setSu({ ...su, email: e.target.value }); setOtpSent(false); setOtpVerified(false); setOtpToken(''); }} placeholder="you@company.com" className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
+                  {!otpVerified ? (
+                    <button type="button" onClick={sendOtp} disabled={otpLoading || resendIn > 0} className="shrink-0 rounded-xl border border-brand-200 bg-brand-50 px-3 text-[12px] font-semibold text-brand-700 hover:bg-brand-100 disabled:opacity-50">
+                      {otpLoading ? '...' : otpSent ? (resendIn > 0 ? `Resend (${resendIn}s)` : 'Resend OTP') : 'Send OTP'}
+                    </button>
+                  ) : (
+                    <span className="flex shrink-0 items-center gap-1 rounded-xl bg-brand-50 px-3 text-[12px] font-semibold text-brand-700 ring-1 ring-brand-200">
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Verified
+                    </span>
+                  )}
+                </div>
+                {otpSent && !otpVerified && (
+                  <div className="flex items-center gap-2 pt-1">
+                    <input
+                      required
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                      placeholder="6-digit code"
+                      className="w-32 rounded-xl border border-gray-200 bg-white px-3 py-2 text-center text-sm font-semibold tracking-[0.3em] shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+                    />
+                    <button type="button" onClick={verifyOtp} disabled={otpLoading || otpCode.length !== 6} className="rounded-xl bg-brand-600 px-4 py-2 text-[12px] font-semibold text-white hover:bg-brand-700 disabled:opacity-50">
+                      {otpLoading ? '...' : 'Verify Code'}
+                    </button>
+                  </div>
+                )}
+                {otpMsg && <p className={`text-[11px] ${otpMsg.includes('sent') ? 'text-brand-600' : 'text-rose-600'}`}>{otpMsg}</p>}
+                {devOtp && !otpVerified && (
+                  <p className="text-[11px] text-amber-600">Dev mode — your code is <span className="font-mono font-bold">{devOtp}</span></p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <label className="text-[13px] font-medium text-gray-700">Role</label>
@@ -542,8 +637,8 @@ export default function LoginPage() {
                   <input required type="password" value={su.confirm} onChange={(e) => setSu({ ...su, confirm: e.target.value })} placeholder="Repeat" className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
                 </div>
               </div>
-              <Button type="submit" disabled={suLoading} className="h-11 w-full gradient-brand-btn rounded-xl border-0 font-medium text-white shadow-md shadow-brand-500/25">
-                {suLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating...</> : 'Create Account'}
+              <Button type="submit" disabled={suLoading || !otpVerified} className="h-11 w-full gradient-brand-btn rounded-xl border-0 font-medium text-white shadow-md shadow-brand-500/25 disabled:opacity-60">
+                {suLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating...</> : otpVerified ? 'Create Account' : 'Verify email to continue'}
               </Button>
               <button type="button" onClick={() => setAuthMode('login')} className="w-full text-center text-[13px] font-medium text-brand-600 hover:underline">
                 Already have an account? Sign in

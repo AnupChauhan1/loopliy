@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Mail, Lock, User, Phone, AlertCircle, CheckCircle2, Loader2, Camera, Eye, EyeOff } from 'lucide-react';
@@ -13,11 +13,68 @@ export default function SignupPage() {
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState('');
   const [error, setError] = useState('');
-  const [devToken, setDevToken] = useState('');
   const [done, setDone] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [otpToken, setOtpToken] = useState('');
+  const [otpVerified, setOtpVerified] = useState(false);
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [otpMsg, setOtpMsg] = useState('');
+  const [devOtp, setDevOtp] = useState('');
+  const [resendIn, setResendIn] = useState(0);
 
-  const set = (k: string) => (e: any) => setForm({ ...form, [k]: e.target.value });
+  const set = (k: string) => (e: any) => {
+    setForm({ ...form, [k]: e.target.value });
+    if (k === 'email') { setOtpSent(false); setOtpVerified(false); setOtpToken(''); }
+  };
+
+  const sendOtp = async () => {
+    setOtpMsg(''); setOtpLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/v1/auth/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: form.email }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Could not send code');
+      setOtpSent(true); setOtpVerified(false); setOtpToken(''); setOtpCode('');
+      setDevOtp(data.devOtp ?? '');
+      setOtpMsg('6-digit code sent to your email (valid 10 minutes)');
+      setResendIn(30);
+    } catch (err: any) {
+      setOtpMsg(err.message || 'Could not send code');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const verifyOtp = async () => {
+    setOtpMsg(''); setOtpLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/v1/auth/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: form.email, code: otpCode }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Verification failed');
+      setOtpToken(data.otpToken);
+      setOtpVerified(true);
+      setOtpMsg('');
+    } catch (err: any) {
+      setOtpMsg(err.message || 'Verification failed');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const t = setTimeout(() => setResendIn((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendIn]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,6 +84,7 @@ export default function SignupPage() {
     if (!strong.test(form.password)) { setError('Password must be 8+ characters with upper, lower case and a number'); return; }
     if (!/^\+?[0-9\s\-()]{7,20}$/.test(form.phone)) { setError('Enter a valid phone number'); return; }
     if (form.accountType === 'client' && !form.companyName.trim()) { setError('Company name is required for client accounts'); return; }
+    if (!otpVerified || !otpToken) { setError('Please verify your email with the OTP code first'); return; }
     const nameParts = form.fullName.trim().split(/\s+/);
     if (nameParts.length < 2) { setError('Please enter your full name (first and last name)'); return; }
     const firstName = nameParts[0];
@@ -41,11 +99,11 @@ export default function SignupPage() {
       fd.append('phone', form.phone);
       fd.append('accountType', form.accountType);
       fd.append('companyName', form.accountType === 'client' ? (form.companyName || form.agencyName) : form.agencyName);
+      fd.append('otpToken', otpToken);
       if (photo) fd.append('photo', photo);
       const res = await fetch(`${API_URL}/api/v1/auth/signup`, { method: 'POST', body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(Array.isArray(data.message) ? data.message[0] : data.message || 'Registration failed');
-      setDevToken(data.devVerifyToken ?? '');
       setDone(true);
     } catch (err: any) {
       setError(err.message || 'Registration failed. Please try again.');
@@ -61,19 +119,11 @@ export default function SignupPage() {
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl gradient-brand shadow-lg shadow-brand-500/25">
             <CheckCircle2 className="h-7 w-7 text-white" />
           </div>
-          <h1 className="mt-6 text-2xl font-semibold text-gray-900">Check your email</h1>
+          <h1 className="mt-6 text-2xl font-semibold text-gray-900">Registration submitted</h1>
           <p className="mt-2 text-sm text-gray-500">
-            We sent a verification link to <span className="font-medium text-gray-700">{form.email}</span>.
-            Verify your email, then an admin will approve your account.
+            Your email <span className="font-medium text-gray-700">{form.email}</span> is verified.
+            HR and an admin will review your account — you&apos;ll be able to sign in once approved.
           </p>
-          {devToken && (
-            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-left">
-              <p className="text-xs font-semibold text-amber-800">Dev mode — no SMTP configured</p>
-              <Link href={`/verify-email?email=${encodeURIComponent(form.email)}&token=${devToken}`} className="mt-1 block text-xs font-medium text-brand-700 underline">
-                Verify email now
-              </Link>
-            </div>
-          )}
           <Link href="/login" className="mt-6 inline-block text-sm font-medium text-brand-600 hover:underline">Back to sign in</Link>
         </div>
       </div>
@@ -125,10 +175,41 @@ export default function SignupPage() {
 
           <div className="space-y-1.5">
             <label className="text-[13px] font-medium text-gray-700">Work email</label>
-            <div className="relative">
-              <Mail className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <input required type="email" value={form.email} onChange={set('email')} placeholder="you@company.com" className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Mail className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <input required type="email" value={form.email} onChange={set('email')} placeholder="you@company.com" className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
+              </div>
+              {!otpVerified ? (
+                <button type="button" onClick={sendOtp} disabled={otpLoading || resendIn > 0} className="shrink-0 rounded-xl border border-brand-200 bg-brand-50 px-3 text-[12px] font-semibold text-brand-700 hover:bg-brand-100 disabled:opacity-50">
+                  {otpLoading ? '...' : otpSent ? (resendIn > 0 ? `Resend (${resendIn}s)` : 'Resend OTP') : 'Send OTP'}
+                </button>
+              ) : (
+                <span className="flex shrink-0 items-center gap-1 rounded-xl bg-brand-50 px-3 text-[12px] font-semibold text-brand-700 ring-1 ring-brand-200">
+                  <CheckCircle2 className="h-3.5 w-3.5" /> Verified
+                </span>
+              )}
             </div>
+            {otpSent && !otpVerified && (
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  required
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                  placeholder="6-digit code"
+                  className="w-32 rounded-xl border border-gray-200 bg-white px-3 py-2 text-center text-sm font-semibold tracking-[0.3em] shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+                />
+                <button type="button" onClick={verifyOtp} disabled={otpLoading || otpCode.length !== 6} className="rounded-xl bg-brand-600 px-4 py-2 text-[12px] font-semibold text-white hover:bg-brand-700 disabled:opacity-50">
+                  {otpLoading ? '...' : 'Verify Code'}
+                </button>
+              </div>
+            )}
+            {otpMsg && <p className={`text-[11px] ${otpMsg.includes('sent') ? 'text-brand-600' : 'text-rose-600'}`}>{otpMsg}</p>}
+            {devOtp && !otpVerified && (
+              <p className="text-[11px] text-amber-600">Dev mode — your code is <span className="font-mono font-bold">{devOtp}</span></p>
+            )}
           </div>
 
           <div className="space-y-1.5">
@@ -192,8 +273,8 @@ export default function SignupPage() {
             </div>
           </div>
 
-          <Button type="submit" disabled={loading} className="h-11 w-full gradient-brand-btn rounded-xl border-0 font-medium text-white shadow-md shadow-brand-500/25">
-            {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating account...</> : 'Create Account'}
+          <Button type="submit" disabled={loading || !otpVerified} className="h-11 w-full gradient-brand-btn rounded-xl border-0 font-medium text-white shadow-md shadow-brand-500/25 disabled:opacity-60">
+            {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating account...</> : otpVerified ? 'Create Account' : 'Verify email to continue'}
           </Button>
         </form>
 
