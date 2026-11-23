@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, Suspense } from 'react';
+import { createPortal } from 'react-dom';
 import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -320,10 +321,10 @@ function TasksPageInner() {
         </div>
       )}
 
-      {/* Create modal */}
-      {showCreate && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto bg-black/50 p-3 backdrop-blur-[2px] animate-fade-in sm:p-6" onClick={closeModal}>
-          <Card className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-lg flex-col animate-scale-in shadow-2xl sm:max-h-[calc(100dvh-3rem)]" onClick={(e: any) => e.stopPropagation()}>
+      {/* Create/Edit modal — portaled to body so page transforms can't clip it */}
+      {showCreate && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center overflow-y-auto bg-black/50 p-3 backdrop-blur-[2px] animate-fade-in sm:p-6" onClick={closeModal}>
+          <Card className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-[650px] flex-col animate-scale-in shadow-2xl sm:max-h-[calc(100dvh-3rem)]" onClick={(e: any) => e.stopPropagation()}>
             <div className="flex shrink-0 items-center justify-between px-6 pb-3 pt-5">
               <h2 className="text-lg font-semibold text-gray-900">{editing ? `Edit task — ${editing.taskNumber}` : 'Create task'}</h2>
               <button onClick={closeModal} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-all duration-150 hover:rotate-90"><X className="h-5 w-5" /></button>
@@ -423,7 +424,8 @@ function TasksPageInner() {
               </form>
             </CardContent>
           </Card>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
