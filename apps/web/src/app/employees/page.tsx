@@ -77,10 +77,11 @@ export default function EmployeesPage() {
     onError: (e: any) => setError(e.response?.data?.message || 'Could not delete user'),
   });
 
-  const hrApprove = useMutation({ mutationFn: (id: string) => api.post(`/users/${id}/hr-approve`), onSuccess: invalidate });
-  const adminApprove = useMutation({ mutationFn: (id: string) => api.post(`/users/${id}/admin-approve`), onSuccess: invalidate });
-  const hrReject = useMutation({ mutationFn: ({ id, reason }: any) => api.post(`/users/${id}/hr-reject`, { reason }), onSuccess: invalidate });
-  const adminReject = useMutation({ mutationFn: ({ id, reason }: any) => api.post(`/users/${id}/admin-reject`, { reason }), onSuccess: invalidate });
+  const reviewError = (e: any) => setError(e?.response?.data?.message || 'Approval action failed');
+  const hrApprove = useMutation({ mutationFn: (id: string) => api.post(`/users/${id}/hr-approve`), onSuccess: invalidate, onError: reviewError });
+  const adminApprove = useMutation({ mutationFn: (id: string) => api.post(`/users/${id}/admin-approve`), onSuccess: invalidate, onError: reviewError });
+  const hrReject = useMutation({ mutationFn: ({ id, reason }: any) => api.post(`/users/${id}/hr-reject`, { reason }), onSuccess: invalidate, onError: reviewError });
+  const adminReject = useMutation({ mutationFn: ({ id, reason }: any) => api.post(`/users/${id}/admin-reject`, { reason }), onSuccess: invalidate, onError: reviewError });
 
   const stageOf = (u: any) =>
     u.rejectedAt ? 'rejected'
@@ -222,10 +223,10 @@ export default function EmployeesPage() {
                 </div>
                 {stageOf(u) === 'hr_pending' && canManage && (
                   <div className="mt-3 flex gap-2">
-                    <button onClick={() => review('hr', u, true)} className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-brand-50 px-2 py-1.5 text-[11px] font-semibold text-brand-700 hover:bg-brand-100">
-                      <CheckCircle2 className="h-3.5 w-3.5" /> HR Approve
+                    <button onClick={() => review(role === 'admin' ? 'admin' : 'hr', u, true)} className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-brand-50 px-2 py-1.5 text-[11px] font-semibold text-brand-700 hover:bg-brand-100">
+                      <CheckCircle2 className="h-3.5 w-3.5" /> {role === 'admin' ? 'Admin Approve' : 'HR Approve'}
                     </button>
-                    <button onClick={() => review('hr', u, false)} className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-rose-50 px-2 py-1.5 text-[11px] font-semibold text-rose-600 hover:bg-rose-100">
+                    <button onClick={() => review(role === 'admin' ? 'admin' : 'hr', u, false)} className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-rose-50 px-2 py-1.5 text-[11px] font-semibold text-rose-600 hover:bg-rose-100">
                       <XCircle className="h-3.5 w-3.5" /> Reject
                     </button>
                   </div>

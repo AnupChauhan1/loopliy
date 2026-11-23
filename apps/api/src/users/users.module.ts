@@ -202,7 +202,7 @@ export class UsersService {
     if (user.rejectedAt || user.approvedAt) throw new ForbiddenException('This registration is already finalized');
 
     if (approve) {
-      if (!user.emailVerified) throw new ForbiddenException('Cannot approve an unverified email');
+      // Approval implies the email is trusted — never block on emailVerified
       if (user.hrApprovedAt) throw new ForbiddenException('HR has already reviewed this registration');
       await this.prisma.user.update({
         where: { id },
@@ -240,10 +240,11 @@ export class UsersService {
     if (user.rejectedAt || user.approvedAt) throw new ForbiddenException('This registration is already finalized');
 
     if (approve) {
-      if (!user.hrApprovedAt) throw new ForbiddenException('HR must approve this registration before admin approval');
+      // Admin may approve directly even if HR hasn't reviewed yet
       const updated = await this.prisma.user.update({
         where: { id },
         data: {
+          hrApprovedAt: user.hrApprovedAt ?? new Date(),
           adminApprovedAt: new Date(),
           approvedAt: new Date(),
           isActive: true,

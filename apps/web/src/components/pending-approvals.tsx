@@ -11,7 +11,6 @@ import { fmtDate, fullName, initials, avatarSrc } from '@/lib/format';
 const stageOf = (u: any) =>
   u.rejectedAt ? 'rejected'
   : u.approvedAt ? 'approved'
-  : !u.emailVerified ? 'unverified'
   : !u.hrApprovedAt ? 'hr_pending'
   : 'admin_pending';
 
@@ -106,7 +105,7 @@ export function PendingApprovals() {
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  {stage === 'hr_pending' && u.emailVerified && (
+                  {stage === 'hr_pending' && !isAdmin && (
                     <>
                       <button
                         disabled={busy}
@@ -118,6 +117,24 @@ export function PendingApprovals() {
                       <button
                         disabled={busy}
                         onClick={() => act(u, 'hr', false)}
+                        className="inline-flex items-center gap-1 rounded-lg bg-rose-50 px-3 py-1.5 text-[11px] font-semibold text-rose-600 hover:bg-rose-100 disabled:opacity-50"
+                      >
+                        <XCircle className="h-3.5 w-3.5" /> Reject
+                      </button>
+                    </>
+                  )}
+                  {stage === 'hr_pending' && isAdmin && (
+                    <>
+                      <button
+                        disabled={busy}
+                        onClick={() => act(u, 'admin', true)}
+                        className="inline-flex items-center gap-1 rounded-lg bg-brand-600 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5" /> Admin Approve
+                      </button>
+                      <button
+                        disabled={busy}
+                        onClick={() => act(u, 'admin', false)}
                         className="inline-flex items-center gap-1 rounded-lg bg-rose-50 px-3 py-1.5 text-[11px] font-semibold text-rose-600 hover:bg-rose-100 disabled:opacity-50"
                       >
                         <XCircle className="h-3.5 w-3.5" /> Reject
@@ -144,9 +161,6 @@ export function PendingApprovals() {
                   )}
                   {stage === 'admin_pending' && !isAdmin && (
                     <span className="text-[11px] font-medium text-sky-600">Awaiting admin</span>
-                  )}
-                  {stage === 'unverified' && (
-                    <span className="text-[11px] text-gray-400">Awaiting email verification</span>
                   )}
                 </div>
               </div>
