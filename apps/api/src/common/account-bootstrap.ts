@@ -126,6 +126,8 @@ export async function bootstrapTeamAccounts(prisma: PrismaClient) {
         departmentId,
         emailVerified: new Date(),
         approvedAt: new Date(),
+        hrApprovedAt: new Date(),
+        adminApprovedAt: new Date(),
       },
     });
 

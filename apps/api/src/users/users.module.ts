@@ -8,12 +8,14 @@ import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard, Roles, PRIVILEGED_ROLES, HR_ROLES, MANAGER_ROLES, hasAnyRole } from '../common/roles';
 import { NotificationsService } from '../notifications/notifications.service';
+import { MailService } from '../common/mail.service';
 import { ClientAccess } from '../common/client-access';
 
 const USER_SELECT = {
   id: true, email: true, firstName: true, lastName: true, isActive: true,
   avatar: true, lastLoginAt: true, createdAt: true, departmentId: true, teamId: true,
   approvedAt: true, emailVerified: true,
+  hrApprovedAt: true, adminApprovedAt: true, rejectedAt: true, rejectionReason: true,
   department: { select: { id: true, name: true, color: true } },
   roles: { include: { role: { select: { id: true, name: true } } } },
   employeeProfile: true,
@@ -24,12 +26,27 @@ export class UsersService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
+    private mail: MailService,
   ) {}
 
   async findAll(organizationId: string, query: any) {
-    const { departmentId, search, status, role, pending } = query;
+    const { departmentId, search, status, role, pending, stage } = query;
     const where: any = { organizationId };
     if (pending === 'true') where.approvedAt = null;
+    if (stage === 'hr_pending') {
+      where.emailVerified = { not: null };
+      where.hrApprovedAt = null;
+      where.approvedAt = null;
+      where.rejectedAt = null;
+    } else if (stage === 'admin_pending') {
+      where.hrApprovedAt = { not: null };
+      where.approvedAt = null;
+      where.rejectedAt = null;
+    } else if (stage === 'rejected') {
+      where.rejectedAt = { not: null };
+    } else if (stage === 'approved') {
+      where.approvedAt = { not: null };
+    }
     if (departmentId) where.departmentId = departmentId;
     if (status === 'active') where.isActive = true;
     if (status === 'inactive') where.isActive = false;
@@ -74,9 +91,11 @@ export class UsersService {
         organizationId,
         departmentId: data.departmentId || null,
         teamId: data.teamId || null,
-        // Admin-provisioned accounts are pre-verified and pre-approved
+        // Admin-provisioned accounts are pre-verified and pre-approved at both stages
         emailVerified: new Date(),
         approvedAt: new Date(),
+        hrApprovedAt: new Date(),
+        adminApprovedAt: new Date(),
         employeeProfile: {
           create: {
             employeeId,
@@ -173,31 +192,79 @@ export class UsersService {
     return this.findOne(id, organizationId);
   }
 
-  /** Approve a self-registered account: grants CRM access. */
-  async approve(id: string, actorId: string, organizationId: string) {
+  /** Stage 1 — HR review of a self-registered account. */
+  async hrReview(id: string, approve: boolean, reason: string | undefined, actorId: string, organizationId: string) {
     const user = await this.prisma.user.findFirst({ where: { id, organizationId } });
     if (!user) throw new NotFoundException('User not found');
-    if (!user.emailVerified) throw new ForbiddenException('Cannot approve an unverified email');
-    const updated = await this.prisma.user.update({
+    if (user.rejectedAt || user.approvedAt) throw new ForbiddenException('This registration is already finalized');
+
+    if (approve) {
+      if (!user.emailVerified) throw new ForbiddenException('Cannot approve an unverified email');
+      if (user.hrApprovedAt) throw new ForbiddenException('HR has already reviewed this registration');
+      await this.prisma.user.update({ where: { id }, data: { hrApprovedAt: new Date() } });
+      // Notify admins that the request now awaits admin approval
+      const adminIds = await this.notifications.userIdsWithRoles(organizationId, PRIVILEGED_ROLES);
+      await this.notifications.notifyMany(
+        adminIds.filter((a) => a !== actorId),
+        'registration_admin_pending',
+        'Registration awaiting admin approval',
+        `HR approved "${user.firstName} ${user.lastName}" (${user.email}) — admin approval required`,
+        '/employees',
+      );
+      await this.prisma.auditLog.create({
+        data: { organizationId, userId: actorId, action: 'hr_approve', resource: 'user', resourceId: id, changes: { email: user.email } },
+      });
+      return { id, stage: 'pending_admin' };
+    }
+
+    await this.prisma.user.update({
       where: { id },
-      data: { approvedAt: user.approvedAt ?? new Date(), isActive: true },
+      data: { rejectedAt: new Date(), rejectionReason: reason?.trim() || 'Rejected by HR', isActive: false },
     });
     await this.prisma.auditLog.create({
-      data: { organizationId, userId: actorId, action: 'approve', resource: 'user', resourceId: id, changes: { email: user.email } },
+      data: { organizationId, userId: actorId, action: 'hr_reject', resource: 'user', resourceId: id, changes: { email: user.email, reason } },
     });
-    return { id, approvedAt: updated.approvedAt, isActive: updated.isActive };
+    return { id, stage: 'rejected' };
   }
 
-  /** Reject a pending registration: blocks login until re-approved. */
-  async reject(id: string, actorId: string, organizationId: string) {
+  /** Stage 2 — Admin final approval; activates the account and emails the employee. */
+  async adminReview(id: string, approve: boolean, reason: string | undefined, actorId: string, actor: any, organizationId: string) {
     const user = await this.prisma.user.findFirst({ where: { id, organizationId } });
     if (!user) throw new NotFoundException('User not found');
-    if (user.approvedAt) throw new ForbiddenException('This account is already approved — deactivate it instead');
-    await this.prisma.user.update({ where: { id }, data: { isActive: false } });
-    await this.prisma.auditLog.create({
-      data: { organizationId, userId: actorId, action: 'reject', resource: 'user', resourceId: id, changes: { email: user.email } },
+    if (user.rejectedAt || user.approvedAt) throw new ForbiddenException('This registration is already finalized');
+
+    if (approve) {
+      if (!user.hrApprovedAt) throw new ForbiddenException('HR must approve this registration before admin approval');
+      const updated = await this.prisma.user.update({
+        where: { id },
+        data: { adminApprovedAt: new Date(), approvedAt: new Date(), isActive: true },
+      });
+      await this.prisma.auditLog.create({
+        data: { organizationId, userId: actorId, action: 'admin_approve', resource: 'user', resourceId: id, changes: { email: user.email } },
+      });
+      await this.notifications.notify(
+        user.id,
+        'account_approved',
+        'Your account is active',
+        'Your LOOPLY account has been approved — you can now sign in.',
+        '/employee',
+      );
+      await this.mail.send(
+        user.email,
+        'Your LOOPLY account is active',
+        `Hi ${user.firstName},\n\nYour account has been approved by HR and admin.\nSign in at ${this.mail.appUrl('/login')} with your email and password.`,
+      );
+      return { id, approvedAt: updated.approvedAt, stage: 'approved' };
+    }
+
+    await this.prisma.user.update({
+      where: { id },
+      data: { rejectedAt: new Date(), rejectionReason: reason?.trim() || 'Rejected by admin', isActive: false },
     });
-    return { id, isActive: false };
+    await this.prisma.auditLog.create({
+      data: { organizationId, userId: actorId, action: 'admin_reject', resource: 'user', resourceId: id, changes: { email: user.email, reason } },
+    });
+    return { id, stage: 'rejected' };
   }
 
   async deactivate(id: string, actorId: string, organizationId: string) {
@@ -248,6 +315,18 @@ export class UsersService {
     return this.prisma.user.update({ where: { id }, data: { avatar } });
   }
 
+  /** Counts for the registration-requests dashboard. */
+  async registrationStats(organizationId: string) {
+    const [total, pendingHR, pendingAdmin, rejected, approved] = await Promise.all([
+      this.prisma.user.count({ where: { organizationId } }),
+      this.prisma.user.count({ where: { organizationId, emailVerified: { not: null }, hrApprovedAt: null, approvedAt: null, rejectedAt: null } }),
+      this.prisma.user.count({ where: { organizationId, hrApprovedAt: { not: null }, approvedAt: null, rejectedAt: null } }),
+      this.prisma.user.count({ where: { organizationId, rejectedAt: { not: null } } }),
+      this.prisma.user.count({ where: { organizationId, approvedAt: { not: null } } }),
+    ]);
+    return { total, pendingHR, pendingAdmin, rejected, approved };
+  }
+
   rolesList() {
     return this.prisma.role.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true, description: true } });
   }
@@ -283,6 +362,12 @@ export class UsersController {
     return this.users.rolesList();
   }
 
+  @Get('registration-stats')
+  @Roles(...HR_ROLES, ...MANAGER_ROLES)
+  registrationStats(@Request() req: any) {
+    return this.users.registrationStats(req.user.organizationId);
+  }
+
   @Get('next-employee-id')
   @Roles(...HR_ROLES, ...MANAGER_ROLES)
   nextEmployeeId() {
@@ -312,16 +397,28 @@ export class UsersController {
     return this.users.update(id, body, req.user.id, req.user, req.user.organizationId);
   }
 
-  @Post(':id/approve')
+  @Post(':id/hr-approve')
   @Roles(...HR_ROLES)
-  approve(@Param('id') id: string, @Request() req: any) {
-    return this.users.approve(id, req.user.id, req.user.organizationId);
+  hrApprove(@Param('id') id: string, @Request() req: any) {
+    return this.users.hrReview(id, true, undefined, req.user.id, req.user.organizationId);
   }
 
-  @Post(':id/reject')
+  @Post(':id/hr-reject')
   @Roles(...HR_ROLES)
-  reject(@Param('id') id: string, @Request() req: any) {
-    return this.users.reject(id, req.user.id, req.user.organizationId);
+  hrReject(@Param('id') id: string, @Body() body: any, @Request() req: any) {
+    return this.users.hrReview(id, false, body?.reason, req.user.id, req.user.organizationId);
+  }
+
+  @Post(':id/admin-approve')
+  @Roles(...PRIVILEGED_ROLES)
+  adminApprove(@Param('id') id: string, @Request() req: any) {
+    return this.users.adminReview(id, true, undefined, req.user.id, req.user, req.user.organizationId);
+  }
+
+  @Post(':id/admin-reject')
+  @Roles(...PRIVILEGED_ROLES)
+  adminReject(@Param('id') id: string, @Body() body: any, @Request() req: any) {
+    return this.users.adminReview(id, false, body?.reason, req.user.id, req.user, req.user.organizationId);
   }
 
   @Post(':id/deactivate')
@@ -366,6 +463,6 @@ export class UsersController {
 
 @Module({
   controllers: [UsersController],
-  providers: [UsersService],
+  providers: [UsersService, MailService],
 })
 export class UsersModule {}

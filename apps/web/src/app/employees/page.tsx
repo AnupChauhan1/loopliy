@@ -17,7 +17,7 @@ export default function EmployeesPage() {
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search);
   const [deptFilter, setDeptFilter] = useState('all');
-  const [pendingOnly, setPendingOnly] = useState(false);
+  const [stageFilter, setStageFilter] = useState('all');
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [error, setError] = useState('');
@@ -28,14 +28,22 @@ export default function EmployeesPage() {
   });
 
   const { data: users, isLoading } = useQuery({
-    queryKey: ['users', { search: debouncedSearch, deptFilter, pendingOnly }],
-    queryFn: () => api.get('/users', { params: { ...(debouncedSearch ? { search: debouncedSearch } : {}), ...(deptFilter !== 'all' ? { departmentId: deptFilter } : {}), ...(pendingOnly ? { pending: 'true' } : {}) } }).then((r) => r.data),
+    queryKey: ['users', { search: debouncedSearch, deptFilter, stageFilter }],
+    queryFn: () => api.get('/users', { params: { ...(debouncedSearch ? { search: debouncedSearch } : {}), ...(deptFilter !== 'all' ? { departmentId: deptFilter } : {}), ...(stageFilter !== 'all' ? { stage: stageFilter } : {}) } }).then((r) => r.data),
     placeholderData: keepPreviousData,
   });
   const { data: departments } = useQuery({ queryKey: ['departments'], queryFn: () => api.get('/departments').then((r) => r.data) });
   const { data: roles } = useQuery({ queryKey: ['roles'], queryFn: () => api.get('/users/roles').then((r) => r.data) });
+  const { data: regStats } = useQuery({
+    queryKey: ['registration-stats'],
+    queryFn: () => api.get('/users/registration-stats').then((r) => r.data),
+    enabled: canManage,
+  });
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['users'] });
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['users'] });
+    queryClient.invalidateQueries({ queryKey: ['registration-stats'] });
+  };
 
   const save = useMutation({
     mutationFn: () => {
@@ -69,15 +77,28 @@ export default function EmployeesPage() {
     onError: (e: any) => setError(e.response?.data?.message || 'Could not delete user'),
   });
 
-  const approveUser = useMutation({
-    mutationFn: (id: string) => api.post(`/users/${id}/approve`),
-    onSuccess: invalidate,
-  });
+  const hrApprove = useMutation({ mutationFn: (id: string) => api.post(`/users/${id}/hr-approve`), onSuccess: invalidate });
+  const adminApprove = useMutation({ mutationFn: (id: string) => api.post(`/users/${id}/admin-approve`), onSuccess: invalidate });
+  const hrReject = useMutation({ mutationFn: ({ id, reason }: any) => api.post(`/users/${id}/hr-reject`, { reason }), onSuccess: invalidate });
+  const adminReject = useMutation({ mutationFn: ({ id, reason }: any) => api.post(`/users/${id}/admin-reject`, { reason }), onSuccess: invalidate });
 
-  const rejectUser = useMutation({
-    mutationFn: (id: string) => api.post(`/users/${id}/reject`),
-    onSuccess: invalidate,
-  });
+  const stageOf = (u: any) =>
+    u.rejectedAt ? 'rejected'
+    : u.approvedAt ? 'approved'
+    : !u.hrApprovedAt ? 'hr_pending'
+    : 'admin_pending';
+
+  const review = (kind: 'hr' | 'admin', u: any, approve: boolean) => {
+    const name = fullName(u);
+    if (approve) {
+      if (!window.confirm(`${kind === 'hr' ? 'HR' : 'Admin'} approve ${name}?`)) return;
+      (kind === 'hr' ? hrApprove : adminApprove).mutate(u.id);
+      return;
+    }
+    const reason = window.prompt(`Reason for rejecting ${name}'s registration (visible to the employee):`);
+    if (reason === null) return;
+    (kind === 'hr' ? hrReject : adminReject).mutate({ id: u.id, reason: reason || undefined });
+  };
 
   const confirmDelete = (u: any) => {
     if (window.confirm(`Permanently delete ${fullName(u)} (${u.email})? This cannot be undone. For safety, prefer deactivating the account.`)) {
@@ -123,14 +144,34 @@ export default function EmployeesPage() {
             <option value="all">All departments</option>
             {(departments ?? []).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
-          <button
-            onClick={() => setPendingOnly((p) => !p)}
-            className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${pendingOnly ? 'border-amber-300 bg-amber-50 text-amber-700' : 'border-gray-200 bg-white text-gray-600 hover:border-amber-300'}`}
-          >
-            Pending approvals
-          </button>
+          <select value={stageFilter} onChange={(e) => setStageFilter(e.target.value)} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm">
+            <option value="all">All statuses</option>
+            <option value="hr_pending">Pending HR review</option>
+            <option value="admin_pending">Pending admin approval</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+          </select>
         </CardContent>
       </Card>
+
+      {canManage && regStats && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5 stagger">
+          {[
+            { label: 'Total', value: regStats.total, cls: 'text-gray-900' },
+            { label: 'Pending HR', value: regStats.pendingHR, cls: 'text-amber-600' },
+            { label: 'Pending Admin', value: regStats.pendingAdmin, cls: 'text-sky-600' },
+            { label: 'Approved', value: regStats.approved, cls: 'text-brand-600' },
+            { label: 'Rejected', value: regStats.rejected, cls: 'text-rose-600' },
+          ].map((s) => (
+            <Card key={s.label} className="card-premium">
+              <CardContent className="p-3.5 text-center">
+                <p className={`text-xl font-semibold ${s.cls}`}>{s.value}</p>
+                <p className="text-[11px] font-medium text-gray-500">{s.label}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {isLoading ? (
         <div className="flex h-48 items-center justify-center"><div className="h-5 w-5 rounded-full border-2 border-gray-300 border-t-brand-500 animate-spin" /></div>
@@ -141,7 +182,12 @@ export default function EmployeesPage() {
               <CardContent className="p-5">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
-                    <span className="flex h-11 w-11 items-center justify-center rounded-full gradient-brand text-sm font-semibold text-white shadow-md shadow-brand-500/25 transition-transform duration-300 group-hover:scale-110">{initials(u.firstName, u.lastName)}</span>
+                    {u.avatar ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={u.avatar} alt="" className="h-11 w-11 rounded-full object-cover shadow-md ring-2 ring-brand-100" />
+                    ) : (
+                      <span className="flex h-11 w-11 items-center justify-center rounded-full gradient-brand text-sm font-semibold text-white shadow-md shadow-brand-500/25 transition-transform duration-300 group-hover:scale-110">{initials(u.firstName, u.lastName)}</span>
+                    )}
                     <div>
                       <p className="text-sm font-semibold text-gray-900">{fullName(u)}</p>
                       <p className="text-xs text-gray-500">{u.employeeProfile?.designation ?? '—'}</p>
@@ -164,25 +210,42 @@ export default function EmployeesPage() {
                   {(u.roleNames ?? []).map((r: string) => (
                     <span key={r} className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600">{r}</span>
                   ))}
-                  {!u.approvedAt && (
-                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Pending approval</span>
+                  {stageOf(u) !== 'approved' && (
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                      stageOf(u) === 'hr_pending' ? 'bg-amber-100 text-amber-700'
+                      : stageOf(u) === 'admin_pending' ? 'bg-sky-100 text-sky-700'
+                      : 'bg-rose-100 text-rose-700'
+                    }`}>
+                      {stageOf(u) === 'hr_pending' ? 'Pending HR review' : stageOf(u) === 'admin_pending' ? 'Pending admin' : 'Rejected'}
+                    </span>
                   )}
                 </div>
-                {!u.approvedAt && canManage && (
+                {stageOf(u) === 'hr_pending' && canManage && (
                   <div className="mt-3 flex gap-2">
-                    <button
-                      onClick={() => { if (window.confirm(`Approve ${fullName(u)}? They will be able to sign in.`)) approveUser.mutate(u.id); }}
-                      className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-brand-50 px-2 py-1.5 text-[11px] font-semibold text-brand-700 hover:bg-brand-100"
-                    >
-                      <CheckCircle2 className="h-3.5 w-3.5" /> Approve
+                    <button onClick={() => review('hr', u, true)} className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-brand-50 px-2 py-1.5 text-[11px] font-semibold text-brand-700 hover:bg-brand-100">
+                      <CheckCircle2 className="h-3.5 w-3.5" /> HR Approve
                     </button>
-                    <button
-                      onClick={() => { if (window.confirm(`Reject ${fullName(u)}'s registration? Their account will be deactivated.`)) rejectUser.mutate(u.id); }}
-                      className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-rose-50 px-2 py-1.5 text-[11px] font-semibold text-rose-600 hover:bg-rose-100"
-                    >
+                    <button onClick={() => review('hr', u, false)} className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-rose-50 px-2 py-1.5 text-[11px] font-semibold text-rose-600 hover:bg-rose-100">
                       <XCircle className="h-3.5 w-3.5" /> Reject
                     </button>
                   </div>
+                )}
+                {stageOf(u) === 'admin_pending' && (
+                  role === 'admin' ? (
+                    <div className="mt-3 flex gap-2">
+                      <button onClick={() => review('admin', u, true)} className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-brand-50 px-2 py-1.5 text-[11px] font-semibold text-brand-700 hover:bg-brand-100">
+                        <CheckCircle2 className="h-3.5 w-3.5" /> Admin Approve
+                      </button>
+                      <button onClick={() => review('admin', u, false)} className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-rose-50 px-2 py-1.5 text-[11px] font-semibold text-rose-600 hover:bg-rose-100">
+                        <XCircle className="h-3.5 w-3.5" /> Reject
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-[11px] font-medium text-sky-600">Awaiting admin approval</p>
+                  )
+                )}
+                {stageOf(u) === 'rejected' && u.rejectionReason && (
+                  <p className="mt-2 text-[11px] text-rose-600">Reason: {u.rejectionReason}</p>
                 )}
                 <div className="mt-3 space-y-1 text-xs text-gray-500">
                   <p>{u.email}</p>

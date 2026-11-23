@@ -49,6 +49,10 @@ model User {
   isActive          Boolean      @default(true)
   emailVerified     DateTime?
   approvedAt        DateTime?
+  hrApprovedAt      DateTime?
+  adminApprovedAt   DateTime?
+  rejectedAt        DateTime?
+  rejectionReason   String?
   emailVerifyToken  String?
   emailVerifyExpiresAt DateTime?
   resetToken        String?

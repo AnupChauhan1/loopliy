@@ -3,12 +3,14 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Mail, Lock, User, Phone, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
+import { Mail, Lock, User, Phone, AlertCircle, CheckCircle2, Loader2, Camera } from 'lucide-react';
 
 const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/+$/, '');
 
 export default function SignupPage() {
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', password: '', confirm: '', phone: '' });
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState('');
   const [error, setError] = useState('');
   const [devToken, setDevToken] = useState('');
   const [done, setDone] = useState(false);
@@ -21,16 +23,17 @@ export default function SignupPage() {
     setError('');
     if (form.password !== form.confirm) { setError('Passwords do not match'); return; }
     if (form.password.length < 8) { setError('Password must be at least 8 characters'); return; }
+    if (!/^\+?[0-9\s\-()]{7,20}$/.test(form.phone)) { setError('Enter a valid phone number'); return; }
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/v1/auth/signup`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          firstName: form.firstName, lastName: form.lastName, email: form.email,
-          password: form.password, phone: form.phone || undefined,
-        }),
-      });
+      const fd = new FormData();
+      fd.append('firstName', form.firstName);
+      fd.append('lastName', form.lastName);
+      fd.append('email', form.email);
+      fd.append('password', form.password);
+      fd.append('phone', form.phone);
+      if (photo) fd.append('photo', photo);
+      const res = await fetch(`${API_URL}/api/v1/auth/signup`, { method: 'POST', body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(Array.isArray(data.message) ? data.message[0] : data.message || 'Registration failed');
       setDevToken(data.devVerifyToken ?? '');
@@ -110,11 +113,40 @@ export default function SignupPage() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-[13px] font-medium text-gray-700">Phone <span className="font-normal text-gray-400">(optional)</span></label>
+            <label className="text-[13px] font-medium text-gray-700">Phone number</label>
             <div className="relative">
               <Phone className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <input type="tel" value={form.phone} onChange={set('phone')} placeholder="+1 234 567 890" className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
+              <input required type="tel" value={form.phone} onChange={set('phone')} placeholder="+1 234 567 890" className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[13px] font-medium text-gray-700">Profile photo <span className="font-normal text-gray-400">(optional)</span></label>
+            <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-gray-300 bg-gray-50/60 p-3 transition-colors hover:border-brand-400">
+              {photoPreview ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={photoPreview} alt="Preview" className="h-12 w-12 rounded-full object-cover ring-2 ring-brand-200" />
+              ) : (
+                <span className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100"><Camera className="h-5 w-5 text-gray-400" /></span>
+              )}
+              <span className="text-xs text-gray-500">
+                {photo ? photo.name : 'Click to upload a photo (JPG/PNG, max 5MB)'}
+              </span>
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (!f) return;
+                  if (!f.type.startsWith('image/')) { setError('Please choose an image file'); return; }
+                  if (f.size > 5 * 1024 * 1024) { setError('Image must be under 5MB'); return; }
+                  setError('');
+                  setPhoto(f);
+                  setPhotoPreview(URL.createObjectURL(f));
+                }}
+              />
+            </label>
           </div>
 
           <div className="grid grid-cols-2 gap-3">

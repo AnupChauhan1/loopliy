@@ -2,6 +2,8 @@ import { Injectable, UnauthorizedException, ConflictException, BadRequestExcepti
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../common/mail.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { HR_ROLES } from '../common/roles';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
 import { RegisterDto } from './dto/register.dto';
@@ -16,12 +18,13 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private mail: MailService,
+    private notifications: NotificationsService,
   ) {}
 
   /** Employee self-registration: creates an unverified, unapproved Employee
    *  account in the default workspace. Admin approval is required before
    *  login is allowed. */
-  async signup(dto: SignupDto) {
+  async signup(dto: SignupDto, avatarUrl?: string) {
     const email = dto.email.trim().toLowerCase();
     const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing) throw new ConflictException('An account with this email already exists');
@@ -47,6 +50,7 @@ export class AuthService {
         firstName: dto.firstName.trim(),
         lastName: dto.lastName.trim(),
         organizationId: org.id,
+        avatar: avatarUrl,
         emailVerifyToken: verifyToken,
         emailVerifyExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
         roles: { create: { roleId: employeeRole.id } },
@@ -68,8 +72,19 @@ export class AuthService {
       `Hi ${user.firstName},\n\nVerify your email to continue your LOOPLY registration:\n${verifyUrl}\n\nThis link expires in 24 hours.`,
     );
 
+    // Notify HR and Admin users about the new registration request
+    const reviewerIds = await this.notifications.userIdsWithRoles(org.id, HR_ROLES);
+    await this.notifications.notifyMany(
+      reviewerIds,
+      'registration_submitted',
+      'New employee registration',
+      `${user.firstName} ${user.lastName} submitted a registration request (${email})`,
+      '/employees',
+    );
+
     return {
-      message: 'Account created. Check your email to verify your address — an admin will then approve your access.',
+      message: 'Registration submitted. Check your email to verify your address — HR and an admin will then review your account.',
+      userId: user.id,
       // Exposed only outside production so local/dev flows remain testable
       // without SMTP. Never set this in production.
       ...(process.env.NODE_ENV !== 'production' ? { devVerifyToken: verifyToken } : {}),
@@ -86,7 +101,10 @@ export class AuthService {
       where: { id: user.id },
       data: { emailVerified: new Date(), emailVerifyToken: null, emailVerifyExpiresAt: null },
     });
-    return { message: 'Email verified. Your account is pending admin approval.' };
+    return {
+      message: 'Email verified. Your registration is now pending HR review.',
+      stage: 'pending_hr',
+    };
   }
 
   async forgotPassword(email: string) {
@@ -214,14 +232,22 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    if (!user.isActive) {
-      throw new UnauthorizedException('User account is inactive');
-    }
     if (!user.emailVerified) {
       throw new UnauthorizedException('Please verify your email address before signing in');
     }
+    if (user.rejectedAt) {
+      throw new UnauthorizedException(
+        user.rejectionReason ? `Your registration was rejected: ${user.rejectionReason}` : 'Your registration was rejected',
+      );
+    }
+    if (!user.isActive) {
+      throw new UnauthorizedException('User account is inactive');
+    }
+    if (!user.hrApprovedAt) {
+      throw new UnauthorizedException('Your registration is pending HR review');
+    }
     if (!user.approvedAt) {
-      throw new UnauthorizedException('Your account is pending admin approval');
+      throw new UnauthorizedException('Your registration is pending admin approval');
     }
 
     // Update last login

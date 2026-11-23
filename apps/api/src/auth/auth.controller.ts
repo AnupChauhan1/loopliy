@@ -1,4 +1,9 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, Get, UseGuards, Request } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, Get, UseGuards, Request, UploadedFile, UseInterceptors, BadRequestException } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname, join } from 'path';
+import { mkdirSync } from 'fs';
+import { randomUUID } from 'crypto';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -38,8 +43,26 @@ export class AuthController {
   }
 
   @Post('signup')
-  async signup(@Body() dto: SignupDto) {
-    return this.authService.signup(dto);
+  @UseInterceptors(
+    FileInterceptor('photo', {
+      storage: diskStorage({
+        destination: (req, file, cb) => {
+          const dir = join(process.cwd(), 'uploads', 'avatars');
+          mkdirSync(dir, { recursive: true });
+          cb(null, dir);
+        },
+        filename: (req, file, cb) => {
+          const safe = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-60);
+          cb(null, `${Date.now()}-${randomUUID().slice(0, 8)}-${safe}`);
+        },
+      }),
+      limits: { fileSize: 5 * 1024 * 1024 },
+      fileFilter: (req, file, cb) =>
+        cb(/^image\//.test(file.mimetype) ? null : new BadRequestException('Only image files are allowed'), /^image\//.test(file.mimetype)),
+    }),
+  )
+  async signup(@Body() dto: SignupDto, @UploadedFile() photo?: any) {
+    return this.authService.signup(dto, photo ? `/uploads/avatars/${photo.filename}` : undefined);
   }
 
   @Post('verify-email')
