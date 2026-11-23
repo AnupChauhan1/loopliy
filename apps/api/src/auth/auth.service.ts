@@ -290,17 +290,13 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // Self-heal: accounts approved before email verification existed are treated as verified
+    // Email verification is informational only — approval (HR + admin) is the real gate.
+    // Self-heal: mark approved users as verified so records stay consistent.
     if (!user.emailVerified && (user.approvedAt || user.adminApprovedAt)) {
       await this.prisma.user.update({
         where: { id: user.id },
         data: { emailVerified: new Date(), emailVerifyToken: null, emailVerifyExpiresAt: null },
       });
-      user.emailVerified = new Date();
-    }
-
-    if (!user.emailVerified) {
-      throw new UnauthorizedException('Please verify your email address before signing in');
     }
     if (user.rejectedAt) {
       throw new UnauthorizedException(
