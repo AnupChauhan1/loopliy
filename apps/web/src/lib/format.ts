@@ -114,3 +114,10 @@ export function isOverdue(d?: string | Date | null, status?: string) {
   if (!d) return false;
   return new Date(d) < new Date() && !['completed', 'cancelled', 'approved', 'final_approved', 'delivered'].includes(status ?? '');
 }
+
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/+$/, '');
+
+export function avatarSrc(avatar?: string | null) {
+  if (!avatar) return null;
+  return avatar.startsWith('http') ? avatar : `${API_BASE}${avatar}`;
+}

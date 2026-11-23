@@ -6,7 +6,7 @@ import api from '@/lib/api-client';
 import { useAuth } from '@/lib/auth-context';
 import { Card, CardContent } from '@/components/ui/card';
 import { CheckCircle2, XCircle, Clock, ShieldCheck } from 'lucide-react';
-import { fmtDate, fullName, initials } from '@/lib/format';
+import { fmtDate, fullName, initials, avatarSrc } from '@/lib/format';
 
 const stageOf = (u: any) =>
   u.rejectedAt ? 'rejected'
@@ -83,9 +83,9 @@ export function PendingApprovals() {
             return (
               <div key={u.id} className="flex flex-col gap-3 rounded-xl border border-gray-100 bg-gray-50/50 p-3 sm:flex-row sm:items-center">
                 <div className="flex min-w-0 flex-1 items-center gap-3">
-                  {u.avatar ? (
+                  {avatarSrc(u.avatar) ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={u.avatar} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-brand-100" />
+                    <img src={avatarSrc(u.avatar)!} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-brand-100" />
                   ) : (
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full gradient-brand text-xs font-semibold text-white">
                       {initials(u.firstName, u.lastName)}

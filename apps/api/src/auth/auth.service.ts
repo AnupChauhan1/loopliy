@@ -310,6 +310,7 @@ export class AuthService {
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
+        avatar: user.avatar,
         organizationId: user.organizationId,
         departmentId: user.departmentId,
         roles: roleNames,

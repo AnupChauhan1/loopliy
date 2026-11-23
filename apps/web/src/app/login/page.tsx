@@ -250,8 +250,16 @@ export default function LoginPage() {
           </div>
 
           <div className="mb-8 animate-fade-in-up">
-            <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">Welcome back</h1>
-            <p className="mt-1.5 text-sm text-gray-500">Sign in to your workspace to continue</p>
+            <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">
+              {authMode === 'login' ? 'Welcome back' : authMode === 'signup' ? 'Create your account' : 'Reset password'}
+            </h1>
+            <p className="mt-1.5 text-sm text-gray-500">
+              {authMode === 'login'
+                ? 'Sign in to your workspace to continue'
+                : authMode === 'signup'
+                  ? 'Your account activates after HR and admin approval'
+                  : fpStep === 1 ? 'Enter your email and we\u2019ll send a reset link' : 'Choose a new password'}
+            </p>
           </div>
 
           {authMode === 'login' && (<>
@@ -410,10 +418,6 @@ export default function LoginPage() {
 
           {authMode === 'signup' && (
             <form onSubmit={submitSignup} className="space-y-4">
-              <div className="mb-2">
-                <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">Create your account</h1>
-                <p className="mt-1.5 text-sm text-gray-500">Your account activates after HR and admin approval</p>
-              </div>
               {suErr && (
                 <div className="flex items-center gap-2.5 rounded-xl border border-rose-200/80 bg-rose-50 p-3.5">
                   <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />
@@ -430,6 +434,49 @@ export default function LoginPage() {
                   )}
                 </div>
               )}
+              <div className="flex items-center gap-4 rounded-xl border border-gray-200 bg-white p-3">
+                <div className="relative">
+                  {suPreview ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={suPreview} alt="Preview" className="h-16 w-16 rounded-full object-cover ring-2 ring-brand-200" />
+                  ) : (
+                    <span className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
+                      <Camera className="h-6 w-6 text-gray-400" />
+                    </span>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-medium text-gray-700">Profile photo <span className="font-normal text-gray-400">(optional)</span></p>
+                  <p className="truncate text-[11px] text-gray-400">{suPhoto ? suPhoto.name : 'PNG, JPG or WebP — max 5MB'}</p>
+                  <div className="mt-1.5 flex items-center gap-3">
+                    <label className="cursor-pointer rounded-lg bg-brand-50 px-3 py-1.5 text-[11px] font-semibold text-brand-700 ring-1 ring-brand-200 transition-colors hover:bg-brand-100">
+                      {suPhoto ? 'Change photo' : 'Upload Photo'}
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (!f) return;
+                          if (!['image/png', 'image/jpeg', 'image/webp'].includes(f.type) || f.size > 5 * 1024 * 1024) { setSuErr('Choose a PNG, JPG or WebP image under 5MB'); return; }
+                          setSuErr('');
+                          setSuPhoto(f);
+                          setSuPreview(URL.createObjectURL(f));
+                        }}
+                      />
+                    </label>
+                    {suPhoto && (
+                      <button
+                        type="button"
+                        onClick={() => { setSuPhoto(null); setSuPreview(''); }}
+                        className="text-[11px] font-medium text-rose-500 hover:text-rose-600 hover:underline"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
               <div className="space-y-1.5">
                 <label className="text-[13px] font-medium text-gray-700">Full name</label>
                 <input required value={su.fullName} onChange={(e) => setSu({ ...su, fullName: e.target.value })} placeholder="First and last name" className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
@@ -446,31 +493,6 @@ export default function LoginPage() {
                   <option value="hr">HR Manager</option>
                   <option value="manager">Manager</option>
                 </select>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[13px] font-medium text-gray-700">Profile photo <span className="font-normal text-gray-400">(optional)</span></label>
-                <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-gray-300 bg-gray-50/60 p-3 transition-colors hover:border-brand-400">
-                  {suPreview ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={suPreview} alt="Preview" className="h-11 w-11 rounded-full object-cover ring-2 ring-brand-200" />
-                  ) : (
-                    <Camera className="h-5 w-5 text-gray-400" />
-                  )}
-                  <span className="text-xs text-gray-500">{suPhoto ? suPhoto.name : 'Upload photo (JPG/PNG, max 5MB)'}</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (!f) return;
-                      if (!f.type.startsWith('image/') || f.size > 5 * 1024 * 1024) { setSuErr('Choose an image under 5MB'); return; }
-                      setSuErr('');
-                      setSuPhoto(f);
-                      setSuPreview(URL.createObjectURL(f));
-                    }}
-                  />
-                </label>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
@@ -493,12 +515,6 @@ export default function LoginPage() {
 
           {authMode === 'forgot' && (
             <form onSubmit={submitForgot} className="space-y-4">
-              <div className="mb-2">
-                <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">Reset password</h1>
-                <p className="mt-1.5 text-sm text-gray-500">
-                  {fpStep === 1 ? 'Enter your email and we\u2019ll send a reset link' : 'Choose a new password'}
-                </p>
-              </div>
               {fpErr && (
                 <div className="flex items-center gap-2.5 rounded-xl border border-rose-200/80 bg-rose-50 p-3.5">
                   <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />

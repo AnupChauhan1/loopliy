@@ -9,6 +9,7 @@ export interface AuthUser {
   email: string;
   firstName: string;
   lastName: string;
+  avatar?: string | null;
   organizationId: string;
   clientId?: string | null;
   departmentId?: string | null;

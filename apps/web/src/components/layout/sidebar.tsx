@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 import { AnimatePresence, LayoutGroup, motion } from 'motion/react';
 import { useAuth } from '@/lib/auth-context';
 import { homeFor } from '@/lib/roles';
-import { fullName, initials } from '@/lib/format';
+import { fullName, initials, avatarSrc } from '@/lib/format';
 import { useDashboardNavStats } from '@/lib/hooks/dashboard';
 import { Tooltip } from '@/components/ui/tooltip';
 import {
@@ -397,8 +397,13 @@ export function Sidebar({ isMobileSidebarOpen = false, setIsMobileSidebarOpen, c
       {/* User card */}
       <div className="relative p-3">
         <div className={cn('group flex items-center gap-3 rounded-2xl bg-white/[0.04] p-2.5 ring-1 ring-white/[0.07] transition-all duration-300 hover:bg-white/[0.07] hover:ring-brand-400/20', mini && 'flex-col p-2')}>
-          <div className="avatar relative h-9 w-9 shrink-0 text-xs">
-            {initials(user?.firstName, user?.lastName)}
+          <div className="avatar relative h-9 w-9 shrink-0 overflow-hidden text-xs">
+            {avatarSrc(user?.avatar) ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={avatarSrc(user?.avatar)!} alt="" className="h-full w-full object-cover" />
+            ) : (
+              initials(user?.firstName, user?.lastName)
+            )}
             <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-brand-400 ring-2 ring-[#0B1220]">
               <span className="absolute inset-0 animate-ping rounded-full bg-brand-400 opacity-60" />
             </span>

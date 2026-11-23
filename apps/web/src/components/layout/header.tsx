@@ -6,7 +6,7 @@ import { AnimatePresence, motion, useAnimationControls } from 'motion/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api-client';
 import { useAuth } from '@/lib/auth-context';
-import { fullName, initials, timeAgo } from '@/lib/format';
+import { fullName, initials, timeAgo, avatarSrc } from '@/lib/format';
 import { notificationMeta } from '@/lib/notification-meta';
 import { Segmented } from '@/components/ui/segmented';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -207,8 +207,13 @@ function UserMenu() {
   return (
     <div className="relative" ref={ref}>
       <button onClick={() => setOpen((o) => !o)} className="group flex items-center gap-2.5 rounded-xl py-1 pl-1 pr-2 transition-colors hover:bg-gray-100/80">
-        <span className="relative flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-600 text-xs font-bold text-white shadow-[0_6px_14px_-4px_rgba(0,168,120,0.7)] transition-transform group-hover:scale-105">
-          {initials(user?.firstName, user?.lastName)}
+        <span className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-brand-500 to-brand-600 text-xs font-bold text-white shadow-[0_6px_14px_-4px_rgba(0,168,120,0.7)] transition-transform group-hover:scale-105">
+          {avatarSrc(user?.avatar) ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={avatarSrc(user?.avatar)!} alt="" className="h-full w-full object-cover" />
+          ) : (
+            initials(user?.firstName, user?.lastName)
+          )}
           <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-brand-400 ring-2 ring-white" />
         </span>
         <span className="hidden text-left md:block">

@@ -5,7 +5,7 @@ import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tansta
 import api from '@/lib/api-client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { fmtDate, fullName, initials } from '@/lib/format';
+import { fmtDate, fullName, initials, avatarSrc } from '@/lib/format';
 import { useAuth } from '@/lib/auth-context';
 import { Search, Plus, X, Pencil, UserX, UserCheck, Trash2, CheckCircle2, XCircle } from 'lucide-react';
 import { useDebouncedValue } from '@/lib/hooks/use-debounced-value';
@@ -182,9 +182,9 @@ export default function EmployeesPage() {
               <CardContent className="p-5">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
-                    {u.avatar ? (
+                    {avatarSrc(u.avatar) ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={u.avatar} alt="" className="h-11 w-11 rounded-full object-cover shadow-md ring-2 ring-brand-100" />
+                      <img src={avatarSrc(u.avatar)!} alt="" className="h-11 w-11 rounded-full object-cover shadow-md ring-2 ring-brand-100" />
                     ) : (
                       <span className="flex h-11 w-11 items-center justify-center rounded-full gradient-brand text-sm font-semibold text-white shadow-md shadow-brand-500/25 transition-transform duration-300 group-hover:scale-110">{initials(u.firstName, u.lastName)}</span>
                     )}
