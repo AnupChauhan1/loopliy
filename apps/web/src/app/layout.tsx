@@ -4,6 +4,7 @@ import "./globals.css";
 import { ReactQueryProvider } from "@/lib/react-query-provider";
 import { PwaInstallProvider } from "@/lib/pwa-install-provider";
 import { IosInstallBanner } from "@/components/ios-install-banner";
+import { LooplySplashIntro } from "@/components/LooplySplashIntro";
 import { UiProviders } from "@/components/providers";
 import { AuthProvider } from "@/lib/auth-context";
 import { AuthenticatedLayout } from "@/components/layout/authenticated-layout";
@@ -59,6 +60,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                 <CelebrationProvider>
                   <AuthenticatedLayout>{children}</AuthenticatedLayout>
                   <IosInstallBanner />
+                  <LooplySplashIntro />
                 </CelebrationProvider>
               </UiProviders>
             </ReactQueryProvider>

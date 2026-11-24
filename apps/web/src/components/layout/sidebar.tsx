@@ -8,6 +8,7 @@ import { AnimatePresence, LayoutGroup, motion } from 'motion/react';
 import { useAuth } from '@/lib/auth-context';
 import { homeFor } from '@/lib/roles';
 import { fullName, initials, avatarSrc } from '@/lib/format';
+import { LooplyLogo } from '@/components/LooplyLogo';
 import { useDashboardNavStats } from '@/lib/hooks/dashboard';
 import { Tooltip } from '@/components/ui/tooltip';
 import {
@@ -27,7 +28,6 @@ import {
   ChevronDown,
   ChevronsLeft,
   ChevronLeft,
-  ClipboardCheck,
   LogOut,
   X,
   AlertCircle,
@@ -248,7 +248,7 @@ export function Sidebar({ isMobileSidebarOpen = false, setIsMobileSidebarOpen, c
             transition={{ type: 'spring', stiffness: 400, damping: 14 }}
             className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 shadow-[0_8px_22px_-6px_rgba(0,168,120,0.75),inset_0_1px_0_rgba(255,255,255,0.3)]"
           >
-            <ClipboardCheck className="h-5 w-5 text-white" strokeWidth={2.2} />
+            <LooplyLogo className="h-5 w-5" light />
           </motion.div>
           <AnimatePresence initial={false}>
             {!mini && (

@@ -7,6 +7,7 @@ import { Mail, Lock, AlertCircle, CheckCircle2, Loader2, Copy, Check, Camera } f
 import { useAuth } from '@/lib/auth-context';
 import { panelRoleOf, homeFor } from '@/lib/roles';
 import Link from 'next/link';
+import { LooplyLogo } from '@/components/LooplyLogo';
 
 const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/+$/, '');
 
@@ -325,10 +326,7 @@ export default function LoginPage() {
         />
 
         <div className="relative flex items-center gap-3 animate-rotate-in">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-brand shadow-lg shadow-brand-500/25 animate-glow-pulse smooth-transition hover:scale-110 cursor-pointer">
-            <span className="text-sm font-bold text-white">LO</span>
-          </div>
-          <span className="text-lg font-semibold text-white tracking-tight">LOOPLY</span>
+          <LooplyLogo wordmark light className="h-9 w-auto" />
         </div>
 
         <div className="relative max-w-md animate-slide-up">
@@ -361,10 +359,7 @@ export default function LoginPage() {
       <div className="flex flex-1 items-center justify-center px-6 py-12 bg-white">
         <div className="w-full max-w-[400px] animate-fade-in-blur">
           <div className="lg:hidden flex items-center gap-3 mb-10 justify-center animate-rotate-in">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-brand shadow-lg shadow-brand-500/25 smooth-transition hover:scale-110 cursor-pointer">
-              <span className="text-sm font-bold text-white">LO</span>
-            </div>
-            <span className="text-lg font-semibold text-gray-900 tracking-tight">LOOPLY</span>
+            <LooplyLogo wordmark className="h-9 w-auto" />
           </div>
 
           <div className="mb-8 animate-fade-in-up">

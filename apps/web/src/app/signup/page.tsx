@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { LooplyLogo } from '@/components/LooplyLogo';
 import { Mail, Lock, User, Phone, AlertCircle, CheckCircle2, Loader2, Camera, Eye, EyeOff } from 'lucide-react';
 
 const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/+$/, '');
@@ -190,9 +191,7 @@ export default function SignupPage() {
     <div className="flex min-h-screen items-center justify-center bg-white px-6 py-12">
       <div className="w-full max-w-md animate-fade-in-blur">
         <div className="mb-8 text-center">
-          <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl gradient-brand shadow-lg shadow-brand-500/25">
-            <span className="text-sm font-bold text-white">LO</span>
-          </div>
+          <LooplyLogo className="mx-auto h-11 w-auto" />
           <h1 className="mt-4 text-2xl font-semibold text-gray-900 tracking-tight">Create your account</h1>
           <p className="mt-1.5 text-sm text-gray-500">Join the LOOPLY workspace — your admin will approve your access</p>
         </div>
