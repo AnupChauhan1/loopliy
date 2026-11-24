@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { Plus, Filter, Search, MoreHorizontal, Calendar, Users, TrendingUp, FolderKanban, X, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Filter, Search, MoreHorizontal, Calendar, Users, TrendingUp, FolderKanban, X, Pencil, Trash2, Loader2 } from 'lucide-react';
 import api from '@/lib/api-client';
+import { useToast, errorMessage } from '@/components/ui/toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 
@@ -65,8 +66,9 @@ export default function ProjectsPage() {
     section: 'corporate',
     startDate: '',
     deadline: '',
-    budget: '',
   });
+  const [formError, setFormError] = useState('');
+  const toast = useToast();
   const queryClient = useQueryClient();
 
   const { data: projectsData, isLoading } = useQuery({
@@ -81,7 +83,7 @@ export default function ProjectsPage() {
 
   const createProjectMutation = useMutation({
     mutationFn: (projectData: any) => api.post('/projects', projectData).then(res => res.data),
-    onSuccess: () => {
+    onSuccess: (created: any) => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       setShowCreateModal(false);
       setNewProject({
@@ -92,9 +94,11 @@ export default function ProjectsPage() {
         section: 'corporate',
         startDate: '',
         deadline: '',
-        budget: '',
       });
+      setFormError('');
+      toast.success('Project created', `"${created?.name ?? 'Project'}" is now in your projects list.`);
     },
+    onError: (e: any) => setFormError(errorMessage(e)),
   });
 
   const updateProjectMutation = useMutation({
@@ -103,7 +107,10 @@ export default function ProjectsPage() {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       setShowEditModal(false);
       setSelectedProject(null);
+      setFormError('');
+      toast.success('Project updated');
     },
+    onError: (e: any) => setFormError(errorMessage(e)),
   });
 
   const deleteProjectMutation = useMutation({
@@ -158,7 +165,6 @@ export default function ProjectsPage() {
       section: project.section || 'corporate',
       startDate: project.startDate ? new Date(project.startDate).toISOString().split('T')[0] : '',
       deadline: project.deadline ? new Date(project.deadline).toISOString().split('T')[0] : '',
-      budget: project.budget ? project.budget.toString() : '',
     });
     setShowEditModal(true);
   };
@@ -304,12 +310,6 @@ export default function ProjectsPage() {
                 </div>
 
                 <div className="space-y-2 pt-4 border-t border-gray-200">
-                  {project.budget && (
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Budget</span>
-                      <span className="font-medium text-gray-900">${project.budget.toLocaleString()}</span>
-                    </div>
-                  )}
                   {project.deadline && (
                     <div className="flex items-center justify-between text-sm">
                       <div className="flex items-center gap-2 text-gray-600">
@@ -354,14 +354,21 @@ export default function ProjectsPage() {
             <CardContent>
               <form onSubmit={(e) => {
                 e.preventDefault();
+                setFormError('');
                 const projectData = {
-                  ...newProject,
-                  budget: newProject.budget ? parseFloat(newProject.budget) : null,
-                  startDate: newProject.startDate ? new Date(newProject.startDate) : null,
-                  deadline: newProject.deadline ? new Date(newProject.deadline) : null,
+                  name: newProject.name,
+                  description: newProject.description,
+                  status: newProject.status,
+                  priority: newProject.priority,
+                  section: newProject.section,
+                  startDate: newProject.startDate ? new Date(newProject.startDate).toISOString() : null,
+                  deadline: newProject.deadline ? new Date(newProject.deadline).toISOString() : null,
                 };
                 createProjectMutation.mutate(projectData);
               }} className="space-y-4">
+                {formError && (
+                  <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] font-medium text-rose-700">{formError}</div>
+                )}
                 <div>
                   <label className="text-sm font-medium text-gray-700 mb-1 block">Project Name</label>
                   <input
@@ -441,16 +448,6 @@ export default function ProjectsPage() {
                     />
                   </div>
                 </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1 block">Budget ($)</label>
-                  <input
-                    type="number"
-                    value={newProject.budget}
-                    onChange={(e) => setNewProject({ ...newProject, budget: e.target.value })}
-                    className="w-full rounded-lg border border-gray-200 bg-white py-2 px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
-                    step="0.01"
-                  />
-                </div>
                 <div className="flex gap-3 pt-4">
                   <Button
                     type="button"
@@ -465,7 +462,7 @@ export default function ProjectsPage() {
                     className="flex-1 bg-brand-600 hover:bg-brand-700 text-white"
                     disabled={createProjectMutation.isPending}
                   >
-                    {createProjectMutation.isPending ? 'Creating...' : 'Create Project'}
+                    {createProjectMutation.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating...</> : 'Create Project'}
                   </Button>
                 </div>
               </form>
@@ -493,14 +490,21 @@ export default function ProjectsPage() {
             <CardContent>
               <form onSubmit={(e) => {
                 e.preventDefault();
+                setFormError('');
                 const projectData = {
-                  ...newProject,
-                  budget: newProject.budget ? parseFloat(newProject.budget) : null,
-                  startDate: newProject.startDate ? new Date(newProject.startDate) : null,
-                  deadline: newProject.deadline ? new Date(newProject.deadline) : null,
+                  name: newProject.name,
+                  description: newProject.description,
+                  status: newProject.status,
+                  priority: newProject.priority,
+                  section: newProject.section,
+                  startDate: newProject.startDate ? new Date(newProject.startDate).toISOString() : null,
+                  deadline: newProject.deadline ? new Date(newProject.deadline).toISOString() : null,
                 };
                 updateProjectMutation.mutate({ id: selectedProject.id, data: projectData });
               }} className="space-y-4">
+                {formError && (
+                  <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] font-medium text-rose-700">{formError}</div>
+                )}
                 <div>
                   <label className="text-sm font-medium text-gray-700 mb-1 block">Project Name</label>
                   <input
@@ -568,16 +572,6 @@ export default function ProjectsPage() {
                     />
                   </div>
                 </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1 block">Budget ($)</label>
-                  <input
-                    type="number"
-                    value={newProject.budget}
-                    onChange={(e) => setNewProject({ ...newProject, budget: e.target.value })}
-                    className="w-full rounded-lg border border-gray-200 bg-white py-2 px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
-                    step="0.01"
-                  />
-                </div>
                 <div className="flex gap-3 pt-4">
                   <Button
                     type="button"
@@ -592,7 +586,7 @@ export default function ProjectsPage() {
                     className="flex-1 bg-brand-600 hover:bg-brand-700 text-white"
                     disabled={updateProjectMutation.isPending}
                   >
-                    {updateProjectMutation.isPending ? 'Updating...' : 'Update Project'}
+                    {updateProjectMutation.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Updating...</> : 'Update Project'}
                   </Button>
                 </div>
               </form>

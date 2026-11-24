@@ -1,4 +1,5 @@
-import { IsString, IsOptional, IsEnum, IsDate } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsString, IsOptional, IsEnum, IsDate, IsNumber } from 'class-validator';
 
 export enum ProjectStatus {
   PLANNING = 'planning',
@@ -24,6 +25,10 @@ export class CreateProjectDto {
   description?: string;
 
   @IsOptional()
+  @IsString()
+  section?: string;
+
+  @IsOptional()
   @IsEnum(ProjectStatus)
   status?: ProjectStatus;
 
@@ -32,10 +37,12 @@ export class CreateProjectDto {
   priority?: ProjectPriority;
 
   @IsOptional()
+  @Type(() => Date)
   @IsDate()
   startDate?: Date;
 
   @IsOptional()
+  @Type(() => Date)
   @IsDate()
   deadline?: Date;
 
@@ -48,9 +55,10 @@ export class CreateProjectDto {
   departmentId?: string;
 
   @IsOptional()
-  @IsDate()
-  budget?: any;
+  @IsNumber()
+  budget?: number;
 
   @IsOptional()
+  @IsNumber()
   progress?: number;
 }
