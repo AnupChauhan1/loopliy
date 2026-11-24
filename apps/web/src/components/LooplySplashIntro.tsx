@@ -20,7 +20,7 @@ export function LooplySplashIntro() {
 
   return (
     <div
-      className={`fixed inset-0 z-[300] flex items-center justify-center bg-[#FFFFFF] transition-opacity duration-500 ${
+      className={`fixed inset-0 z-[300] flex items-center justify-center bg-white transition-opacity duration-500 ${
         fading ? "opacity-0 pointer-events-none" : "opacity-100"
       }`}
     >

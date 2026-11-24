@@ -326,7 +326,9 @@ export default function LoginPage() {
         />
 
         <div className="relative flex items-center gap-3 animate-rotate-in">
-          <LooplyLogo animate={true} size="md" />
+          <div className="rounded-2xl bg-white px-4 py-2 shadow-lg">
+            <LooplyLogo animate={true} size="md" />
+          </div>
         </div>
 
         <div className="relative max-w-md animate-slide-up">

@@ -8,27 +8,29 @@ interface LooplyLogoProps {
 }
 
 export function LooplyLogo({ size = "md", animate = true, className = "" }: LooplyLogoProps) {
-  const heights = { sm: 32, md: 42, lg: 72 };
+  const heights = { sm: 32, md: 42, lg: 76 };
   const h = heights[size];
 
   return (
     <div className={`inline-flex items-center select-none ${className}`} aria-label="Looply">
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@800;900&display=swap');
+
         @keyframes looplyBlackSnap {
           0%, 100% { transform: translate(0px, 0px); }
-          50% { transform: translate(-2.5px, 1.5px); }
+          50% { transform: translate(-2px, 1.5px); }
         }
         @keyframes looplyGreenSnap {
-          0%, 100% { transform: translate(0px, 0px); filter: drop-shadow(0 0 0px rgba(16,185,129,0)); }
-          50% { transform: translate(2.5px, -1.5px); filter: drop-shadow(0 0 6px rgba(16,185,129,0.45)); }
+          0%, 100% { transform: translate(0px, 0px); filter: drop-shadow(0 0 0px rgba(5,150,105,0)); }
+          50% { transform: translate(2px, -1.5px); filter: drop-shadow(0 0 6px rgba(5,150,105,0.4)); }
         }
         @keyframes looplyIntroLeft {
-          0% { opacity: 0; transform: translateX(-28px) scale(0.88); }
+          0% { opacity: 0; transform: translateX(-26px) scale(0.9); }
           65% { opacity: 1; transform: translateX(3px) scale(1.03); }
           100% { opacity: 1; transform: translateX(0px) scale(1); }
         }
         @keyframes looplyIntroRight {
-          0% { opacity: 0; transform: translateX(28px) scale(0.88); }
+          0% { opacity: 0; transform: translateX(26px) scale(0.9); }
           65% { opacity: 1; transform: translateX(-3px) scale(1.03); }
           100% { opacity: 1; transform: translateX(0px) scale(1); }
         }
@@ -51,37 +53,37 @@ export function LooplyLogo({ size = "md", animate = true, className = "" }: Loop
 
       <svg
         height={h}
-        viewBox="0 0 360 110"
+        viewBox="0 0 385 112"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
         className="overflow-visible"
       >
-        {/* Bottom-Left Deep Black Interlocking Chain Link */}
+        {/* Bottom-Left Deep Black Teardrop/Leaf-Cornered Interlocking Link (opens right) */}
         <g className={animate ? "looply-link-black" : ""}>
           <path
-            d="M66 44H34C20.745 44 10 54.745 10 68C10 81.255 20.745 92 34 92H62C71.5 92 79.5 86.2 83 78H62C59.8 80.2 56.8 81.5 53.5 81.5H34C26.544 81.5 20.5 75.456 20.5 68C20.5 60.544 26.544 54.5 34 54.5H60L66 44Z"
+            d="M72 44H36C19.5 44 8 55.2 8 70C8 84.8 19.5 96 36 96H66C77.5 96 86.5 89 90.5 79H67C64.2 81.8 60.2 83.2 55.5 83.2H36C27.2 83.2 21 77.4 21 70C21 62.6 27.2 56.8 36 56.8H63.5L72 44Z"
             fill="#0B0F19"
           />
         </g>
 
-        {/* Top-Right Emerald Green Interlocking Chain Link */}
+        {/* Top-Right Emerald Green Teardrop/Leaf-Cornered Interlocking Link (opens left) */}
         <g className={animate ? "looply-link-green" : ""}>
           <path
-            d="M44 66H76C89.255 66 100 55.255 100 42C100 28.745 89.255 18 76 18H48C38.5 18 30.5 23.8 27 32H48C50.2 29.8 53.2 28.5 56.5 28.5H76C83.456 28.5 89.5 34.544 89.5 42C89.5 49.456 83.456 55.5 76 55.5H50L44 66Z"
+            d="M44 68H80C96.5 68 108 56.8 108 42C108 27.2 96.5 16 80 16H50C38.5 16 29.5 23 25.5 33H49C51.8 30.2 55.8 28.8 60.5 28.8H80C88.8 28.8 95 34.6 95 42C95 49.4 88.8 55.2 80 55.2H52.5L44 68Z"
             fill="#059669"
           />
         </g>
 
-        {/* Bold Slab-Serif "Looply" Wordmark */}
+        {/* Heavy Slab-Serif "Looply" Wordmark in Deep Black */}
         <text
-          x="116"
-          y="79"
+          x="124"
+          y="82"
           fill="#0B0F19"
           className={animate ? "looply-wordmark" : ""}
           style={{
-            fontFamily: "'Roboto Slab', 'Rockwell', 'Courier Prime', Georgia, serif",
+            fontFamily: "'Roboto Slab', Georgia, serif",
             fontWeight: 900,
-            fontSize: "64px",
+            fontSize: "68px",
             letterSpacing: "-1.5px",
           }}
         >
