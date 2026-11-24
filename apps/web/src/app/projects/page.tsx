@@ -18,7 +18,6 @@ interface Project {
   priority: string;
   startDate?: string;
   deadline?: string;
-  budget?: number;
   progress: number;
   client?: {
     id: string;
