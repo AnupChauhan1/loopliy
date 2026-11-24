@@ -82,6 +82,7 @@ export function LooplyLogo({ size = "md", animate = true, className = "", theme 
           x="124"
           y="82"
           fill={primary}
+          fillOpacity={1}
           className={animate ? "looply-wordmark" : ""}
           style={{
             fontFamily: "'Roboto Slab', Georgia, serif",
