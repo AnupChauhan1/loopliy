@@ -42,6 +42,11 @@ export class ProjectsController {
     return this.projectsService.remove(id, req.user.id, req.user.organizationId);
   }
 
+  @Post(':id/cycles')
+  generateCycle(@Param('id') id: string, @Request() req: RequestWithUser) {
+    return this.projectsService.generateNextCycle(id, req.user, req.user.organizationId);
+  }
+
   @Post(':id/members')
   addMember(@Param('id') id: string, @Body('userId') userId: string, @Request() req: RequestWithUser) {
     return this.projectsService.addMember(id, userId, req.user.id, req.user.organizationId);

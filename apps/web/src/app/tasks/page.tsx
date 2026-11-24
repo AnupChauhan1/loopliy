@@ -92,6 +92,7 @@ function TasksPageInner() {
   const [search, setSearch] = useState(searchParams.get('search') ?? '');
   const debouncedSearch = useDebouncedValue(search);
   const [departmentId, setDepartmentId] = useState('all');
+  const [projectId, setProjectId] = useState(searchParams.get('projectId') ?? 'all');
   const [showCreate, setShowCreate] = useState(searchParams.get('create') === '1');
   const [editing, setEditing] = useState<any>(null);
   const queryClient = useQueryClient();
@@ -100,6 +101,7 @@ function TasksPageInner() {
   if (status !== 'all') params.status = status;
   if (debouncedSearch) params.search = debouncedSearch;
   if (departmentId !== 'all') params.departmentId = departmentId;
+  if (projectId !== 'all') params.projectId = projectId;
   if (searchParams.get('overdue') === 'true') params.overdue = 'true';
 
   const { data, isLoading } = useQuery({
@@ -231,6 +233,10 @@ function TasksPageInner() {
           <select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm smooth-transition hover:border-brand-300 focus:ring-2 focus:ring-brand-500/40">
             <option value="all">All departments</option>
             {(departments ?? []).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
+          </select>
+          <select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm smooth-transition hover:border-brand-300 focus:ring-2 focus:ring-brand-500/40">
+            <option value="all">All projects</option>
+            {(projects?.projects ?? []).map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
         </CardContent>
       </Card>

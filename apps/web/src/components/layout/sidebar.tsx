@@ -34,6 +34,7 @@ import {
   Layers,
   MessageCircle,
   UserRoundCog,
+  ClipboardList,
 } from 'lucide-react';
 
 interface NavItem {
@@ -57,6 +58,7 @@ function navFor(role: string): NavSection[] {
             { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
             { name: 'Chat', href: '/chat', icon: MessageCircle },
             { name: 'Tasks', href: '/tasks', icon: CheckSquare },
+            { name: 'Individual Tasks', href: '/individual-tasks', icon: ClipboardList },
             { name: 'Projects', href: '/projects', icon: FolderKanban },
             { name: 'Client access', href: '/client-accounts', icon: UserRoundCog },
             { name: 'Client messages', href: '/client-messages', icon: MessageCircle },
@@ -98,6 +100,7 @@ function navFor(role: string): NavSection[] {
             { name: 'Dashboard', href: '/manager', icon: LayoutDashboard },
             { name: 'Chat', href: '/chat', icon: MessageCircle },
             { name: 'Tasks', href: '/tasks', icon: CheckSquare },
+            { name: 'Individual Tasks', href: '/individual-tasks', icon: ClipboardList },
             { name: 'Projects', href: '/projects', icon: FolderKanban },
             { name: 'Client messages', href: '/client-messages', icon: MessageCircle },
             { name: 'Issues', href: '/issues', icon: AlertCircle },

@@ -55,9 +55,56 @@ export class TasksService {
     });
     return this.prisma.task.update({
       where: { id: taskId },
-      data: { status: toStatus, ...extra },
+      data: { status: toStatus, ...(toStatus === 'completed' ? { isOverdue: false } : {}), ...extra },
       include: ASSIGNEE_INCLUDE,
     });
+  }
+
+  /**
+   * Automatic overdue carry-forward: any task whose deadline is before today and
+   * is not finished is flagged isOverdue, escalated to Urgent, and managers/admins
+   * are notified. Runs on task-list loads so it fires daily/on-load.
+   */
+  private async escalateOverdue(user: any) {
+    const organizationId = user.organizationId;
+    if (!organizationId) return;
+    const manager = this.isManager(user);
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const overdue = await this.prisma.task.findMany({
+      where: {
+        organizationId,
+        isOverdue: false,
+        deadline: { lt: startOfToday },
+        status: { notIn: ['completed', 'cancelled', 'approved'] },
+        ...(manager ? {} : { assignees: { some: { userId: user.id } } }),
+      },
+      include: {
+        assignees: { include: { user: { select: { firstName: true, lastName: true } } } },
+      },
+      take: 200,
+    });
+    if (!overdue.length) return;
+
+    const managerIds = await this.notifications.userIdsWithRoles(organizationId, MANAGER_ROLES);
+    const now = new Date();
+    for (const task of overdue) {
+      await this.prisma.task.update({
+        where: { id: task.id },
+        data: { isOverdue: true, priority: 'urgent', carriedForwardAt: task.carriedForwardAt ?? now },
+      });
+      const who =
+        task.assignees?.map((a) => `${a.user.firstName} ${a.user.lastName}`.trim()).filter(Boolean).join(', ') ||
+        'unassigned';
+      await this.notifications.notifyMany(
+        managerIds,
+        'task_overdue_escalated',
+        'Overdue Task Escalated',
+        `Overdue Task Escalated: ${task.title} assigned to ${who}`,
+        `/tasks/${task.id}`,
+      );
+    }
   }
 
   async create(dto: CreateTaskDto & { assigneeIds?: string[] }, user: any) {
@@ -73,10 +120,21 @@ export class TasksService {
       if (!dept) throw new ForbiddenException('Invalid department');
     }
 
-    const { assigneeIds, ...fields } = dto;
+    const { assigneeIds, dayOffset, ...fields } = dto;
+    // Day-offset tasks auto-compute their due date from the start date
+    let deadline = fields.deadline;
+    if (dayOffset && fields.startDate) {
+      const start = new Date(fields.startDate);
+      start.setDate(start.getDate() + dayOffset - 1);
+      deadline = start.toISOString();
+    }
     const task = await this.prisma.task.create({
       data: {
         ...fields,
+        deadline,
+        dayOffset: dayOffset ?? null,
+        isIndividual: dto.isIndividual || !dto.projectId,
+        organizationId,
         taskNumber: await this.generateTaskNumber(),
         createdById: user.id,
       },
@@ -106,9 +164,11 @@ export class TasksService {
 
   async findAll(query: any, user: any) {
     const organizationId = user.organizationId;
-    const { status, priority, projectId, departmentId, assigneeId, category, moduleId, search, overdue, page = 1, limit = 50 } = query;
+    const { status, priority, projectId, departmentId, assigneeId, category, moduleId, search, overdue, individual, page = 1, limit = 50 } = query;
 
-    const where: any = { OR: [{ project: { organizationId } }, { projectId: null }] };
+    await this.escalateOverdue(user);
+
+    const where: any = { OR: [{ organizationId }, { project: { organizationId } }] };
     // Employees only see their own tasks
     if (!this.isManager(user)) {
       where.assignees = { some: { userId: user.id } };
@@ -116,6 +176,8 @@ export class TasksService {
     if (status) where.status = status;
     if (priority) where.priority = priority;
     if (projectId) where.projectId = projectId;
+    if (individual === 'true') where.isIndividual = true;
+    if (individual === 'false') where.isIndividual = false;
     if (departmentId) where.departmentId = departmentId;
     if (category) where.category = category;
     if (moduleId) where.moduleId = moduleId;
@@ -151,6 +213,7 @@ export class TasksService {
   }
 
   async findMyTasks(query: any, user: any) {
+    // findAll runs the overdue carry-forward escalation before querying
     return this.findAll({ ...query, assigneeId: user.id }, { ...user, roles: [{ role: { name: 'Super Admin' } }] });
   }
 
@@ -193,8 +256,8 @@ export class TasksService {
 
     const { assigneeIds, ...fields } = dto;
     if (!manager) {
-      // Employees may only edit description on their own tasks
-      const allowed = ['description'];
+      // Employees may only edit description and remote-work fields on their own tasks
+      const allowed = ['description', 'workNote', 'deliverableUrl'];
       for (const key of Object.keys(fields)) {
         if (!allowed.includes(key)) delete (fields as any)[key];
       }

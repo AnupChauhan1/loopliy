@@ -4,7 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api-client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { StatusBadge, PriorityBadge } from '@/components/ui/badge';
-import { TaskActions } from '@/components/task-actions';
+import { RemoteTaskControls } from '@/components/remote-task-controls';
+import { UrgentAlarm } from '@/components/urgent-alarm';
 import { CelebrationBurst } from '@/components/ui/celebration';
 import { useCompletionCelebration } from '@/lib/use-sound-prefs';
 import { useAuth } from '@/lib/auth-context';
@@ -58,6 +59,8 @@ export default function EmployeeDashboard() {
       <CelebrationBurst active={celebrating} />
       <PageHeader eyebrow={`Hey ${user?.firstName ?? 'there'} 👋`} title="My" highlight="Workspace" description="Here's your workload for today." />
 
+      <UrgentAlarm tasks={tasks} />
+
       <Stagger className="grid grid-cols-1 gap-4 min-[520px]:grid-cols-2 xl:grid-cols-3" stagger={0.07}>
         {cards.map((c) => (
           <StatCard key={c.label} {...c} />
@@ -93,6 +96,9 @@ export default function EmployeeDashboard() {
                           {task.requiresApproval && (
                             <span className="text-[10px] font-medium text-brand-600 bg-brand-50 rounded-full px-2 py-0.5">needs approval</span>
                           )}
+                          {(task.isOverdue || (task.deadline && new Date(task.deadline) < now && !['completed', 'cancelled', 'approved'].includes(task.status))) && (
+                            <span className="text-[10px] font-bold text-white bg-rose-600 rounded-full px-2 py-0.5 animate-pulse">carried over · urgent</span>
+                          )}
                         </div>
                         <p className="text-xs text-gray-500 mt-1 line-clamp-1">{task.description}</p>
                         <p className={`text-xs mt-1.5 ${isOverdue(task.deadline, task.status) ? 'text-rose-600 font-medium' : 'text-gray-400'}`}>
@@ -108,7 +114,7 @@ export default function EmployeeDashboard() {
                       </div>
                     </div>
                     <div className="mt-3">
-                      <TaskActions task={task} />
+                      <RemoteTaskControls task={task} />
                     </div>
                   </div>
                 ))

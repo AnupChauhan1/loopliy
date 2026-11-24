@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsString, IsOptional, IsEnum, IsDate, IsNumber } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsDate, IsNumber, IsArray, ValidateNested, IsInt, Min } from 'class-validator';
 
 export enum ProjectStatus {
   PLANNING = 'planning',
@@ -16,6 +16,15 @@ export enum ProjectPriority {
   URGENT = 'urgent',
 }
 
+export class TemplateTaskDto {
+  @IsString()
+  title: string;
+
+  @IsInt()
+  @Min(1)
+  dayOffset: number;
+}
+
 export class CreateProjectDto {
   @IsString()
   name: string;
@@ -23,6 +32,10 @@ export class CreateProjectDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsString()
+  clientName?: string;
 
   @IsOptional()
   @IsString()
@@ -61,4 +74,31 @@ export class CreateProjectDto {
   @IsOptional()
   @IsNumber()
   progress?: number;
+
+  @IsOptional()
+  @IsEnum(['recurring', 'one_time'])
+  projectType?: string;
+
+  @IsOptional()
+  @IsEnum(['days', 'weeks', 'months'])
+  tenureUnit?: string;
+
+  @IsOptional()
+  @IsNumber()
+  tenureValue?: number;
+
+  @IsOptional()
+  @IsEnum(['fixed', 'customised'])
+  planStructure?: string;
+
+  @IsOptional()
+  @IsString()
+  service?: string;
+
+  /** Auto-dated task specs ({ title, dayOffset }) — due dates are computed from the cycle start date. */
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => TemplateTaskDto)
+  taskTemplate?: TemplateTaskDto[];
 }

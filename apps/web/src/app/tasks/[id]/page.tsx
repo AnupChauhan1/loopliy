@@ -6,7 +6,8 @@ import api from '@/lib/api-client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { StatusBadge, PriorityBadge } from '@/components/ui/badge';
-import { TaskActions, ReviewActions } from '@/components/task-actions';
+import { ReviewActions } from '@/components/task-actions';
+import { RemoteTaskControls } from '@/components/remote-task-controls';
 import { CelebrationBurst } from '@/components/ui/celebration';
 import { useCompletionCelebration } from '@/lib/use-sound-prefs';
 import { fmtDate, fmtDateTime, fullName, initials, isOverdue, statusLabel, timeAgo } from '@/lib/format';
@@ -108,6 +109,15 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
                 <div><p className="text-[11px] text-gray-400">Progress</p><p className="font-medium text-gray-800">{task.progress}%</p></div>
                 <div><p className="text-[11px] text-gray-400">Approval</p><p className="font-medium text-gray-800">{task.requiresApproval ? 'Required' : 'Not required'}</p></div>
               </div>
+              {(task.workNote || task.deliverableUrl) && (
+                <div className="mt-4 rounded-xl bg-gray-50 px-4 py-3 text-sm space-y-1">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Remote update</p>
+                  {task.workNote && <p className="text-gray-700 whitespace-pre-wrap">{task.workNote}</p>}
+                  {task.deliverableUrl && (
+                    <a href={task.deliverableUrl} target="_blank" rel="noreferrer" className="text-brand-600 hover:underline break-all">{task.deliverableUrl}</a>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -115,7 +125,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
             <Card className="card-premium">
               <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold text-gray-900">Actions</CardTitle></CardHeader>
               <CardContent className="space-y-4">
-                <TaskActions task={task} />
+                <RemoteTaskControls task={task} />
                 <ReviewActions task={task} />
                 {manager && !['completed', 'cancelled'].includes(task.status) && (
                   <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100">

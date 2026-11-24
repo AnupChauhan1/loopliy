@@ -55,4 +55,22 @@ export class CreateTaskDto {
   @IsOptional()
   @IsArray()
   assigneeIds?: string[];
+
+  @IsOptional()
+  @IsBoolean()
+  isIndividual?: boolean;
+
+  /** Day offset within a project cycle / standalone schedule (Day 1 = startDate). */
+  @IsOptional()
+  @IsInt()
+  dayOffset?: number;
+
+  /** Remote-work note / deliverable link logged by the assignee. */
+  @IsOptional()
+  @IsString()
+  workNote?: string;
+
+  @IsOptional()
+  @IsString()
+  deliverableUrl?: string;
 }

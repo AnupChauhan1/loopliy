@@ -3,11 +3,13 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { Plus, Filter, Search, MoreHorizontal, Calendar, Users, TrendingUp, FolderKanban, X, Pencil, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Filter, Search, MoreHorizontal, Calendar, Users, TrendingUp, FolderKanban, X, Pencil, Trash2, Loader2, RefreshCw } from 'lucide-react';
 import api from '@/lib/api-client';
 import { useToast, errorMessage } from '@/components/ui/toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import Link from 'next/link';
+import { SMM_CYCLE_1, PROJECT_SERVICES, SmmTaskSpec, dueDateFor, fmtShortDate, todayInputValue } from '@/lib/smm-template';
 
 interface Project {
   id: string;
@@ -38,6 +40,14 @@ interface Project {
   _count?: {
     tasks: number;
   };
+  clientName?: string;
+  projectType?: string;
+  tenureUnit?: string;
+  tenureValue?: number;
+  planStructure?: string;
+  service?: string;
+  currentCycle?: number;
+  cycleStartDate?: string;
 }
 
 const SECTIONS = [
@@ -70,6 +80,26 @@ export default function ProjectsPage() {
   const toast = useToast();
   const queryClient = useQueryClient();
 
+  // Smart create-project wizard state (zero manual task-date entry)
+  const emptySmart = {
+    clientName: '',
+    name: '',
+    description: '',
+    startDate: todayInputValue(),
+    projectType: 'recurring',
+    tenureUnit: 'months',
+    tenureValue: 1,
+    planStructure: 'fixed',
+    service: 'smm',
+  };
+  const [smart, setSmart] = useState(emptySmart);
+  const [smmTasks, setSmmTasks] = useState<SmmTaskSpec[]>(SMM_CYCLE_1);
+  const [customTasks, setCustomTasks] = useState<{ title: string; dayOffset: number }[]>([]);
+
+  const isFixedSmm = smart.planStructure === 'fixed' && smart.service === 'smm';
+  const showTemplatePreview = isFixedSmm;
+  const showCustomTasks = !isFixedSmm;
+
   const { data: projectsData, isLoading } = useQuery({
     queryKey: ['projects', { status: filter, section: sectionFilter }],
     queryFn: () => api.get('/projects', {
@@ -94,10 +124,22 @@ export default function ProjectsPage() {
         startDate: '',
         deadline: '',
       });
+      setSmart(emptySmart);
+      setSmmTasks(SMM_CYCLE_1);
+      setCustomTasks([]);
       setFormError('');
       toast.success('Project created', `"${created?.name ?? 'Project'}" is now in your projects list.`);
     },
     onError: (e: any) => setFormError(errorMessage(e)),
+  });
+
+  const generateCycleMutation = useMutation({
+    mutationFn: (id: string) => api.post(`/projects/${id}/cycles`).then((r) => r.data),
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      toast.success('Next cycle generated', `${data?.tasksCreated ?? 0} auto-dated tasks scheduled for cycle ${data?.cycle}.`);
+    },
+    onError: (e: any) => toast.error('Could not generate cycle', errorMessage(e)),
   });
 
   const updateProjectMutation = useMutation({
@@ -269,6 +311,12 @@ export default function ProjectsPage() {
                       </Button>
                     }
                   >
+                    {project.projectType === 'recurring' && (
+                      <DropdownMenuItem onClick={() => generateCycleMutation.mutate(project.id)}>
+                        <RefreshCw className="h-4 w-4 mr-2 inline" />
+                        Generate Next Cycle{(project.currentCycle ?? 1) > 1 ? ` (Cycle ${project.currentCycle})` : ''}
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem onClick={() => handleEditProject(project)}>
                       <Pencil className="h-4 w-4 mr-2 inline" />
                       Edit
@@ -290,6 +338,16 @@ export default function ProjectsPage() {
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border bg-gray-100 text-gray-700 border-gray-200">
                     {SECTIONS.find(s => s.value === project.section)?.label || project.section}
                   </span>
+                  {project.projectType === 'recurring' && (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border bg-brand-50 text-brand-700 border-brand-200">
+                      🔁 Cycle {project.currentCycle ?? 1}
+                    </span>
+                  )}
+                  {project.service && (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border bg-gray-50 text-gray-600 border-gray-200">
+                      {PROJECT_SERVICES.find(s => s.value === project.service)?.label ?? project.service}
+                    </span>
+                  )}
                 </div>
 
                 <div className="space-y-3 mb-4">
@@ -327,6 +385,9 @@ export default function ProjectsPage() {
                     </div>
                     <span className="font-medium text-gray-900">{project.members?.length || 0} members</span>
                   </div>
+                  <Link href={`/tasks?projectId=${project.id}`} className="block text-center text-xs font-medium text-brand-600 hover:text-brand-700 pt-1">
+                    View & assign tasks →
+                  </Link>
                 </div>
               </CardContent>
             </Card>
@@ -334,10 +395,10 @@ export default function ProjectsPage() {
         </div>
       )}
 
-      {/* Create Project Modal */}
+      {/* Create Project Modal — smart auto-dated wizard */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-50 p-4 animate-fade-in">
-          <Card className="w-full max-w-md border-gray-200 shadow-2xl animate-scale-in">
+          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto border-gray-200 shadow-2xl animate-scale-in">
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg font-semibold">Create New Project</CardTitle>
@@ -349,105 +410,253 @@ export default function ProjectsPage() {
                   <X className="h-4 w-4" />
                 </Button>
               </div>
+              <p className="text-xs text-gray-500">All task due dates are auto-computed from the start date — no manual date entry.</p>
             </CardHeader>
             <CardContent>
               <form onSubmit={(e) => {
                 e.preventDefault();
                 setFormError('');
-                const projectData = {
-                  name: newProject.name,
-                  description: newProject.description,
-                  status: newProject.status,
-                  priority: newProject.priority,
-                  section: newProject.section,
-                  startDate: newProject.startDate ? new Date(newProject.startDate).toISOString() : null,
-                  deadline: newProject.deadline ? new Date(newProject.deadline).toISOString() : null,
+                const taskTemplate = isFixedSmm
+                  ? smmTasks.filter((t) => t.title.trim())
+                  : customTasks.filter((t) => t.title.trim() && t.dayOffset > 0);
+                const projectData: any = {
+                  name: smart.name,
+                  clientName: smart.clientName || undefined,
+                  description: smart.description || undefined,
+                  status: 'active',
+                  priority: 'medium',
+                  section: 'corporate',
+                  startDate: new Date(`${smart.startDate}T00:00:00`).toISOString(),
+                  projectType: smart.projectType,
+                  planStructure: smart.planStructure,
+                  service: smart.service,
+                  ...(smart.projectType === 'recurring' && {
+                    tenureUnit: smart.tenureUnit,
+                    tenureValue: Number(smart.tenureValue) || 1,
+                  }),
+                  ...(taskTemplate.length ? { taskTemplate } : {}),
                 };
                 createProjectMutation.mutate(projectData);
-              }} className="space-y-4">
+              }} className="space-y-5">
                 {formError && (
                   <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] font-medium text-rose-700">{formError}</div>
                 )}
+
+                {/* Step 1 — client & title */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 mb-1 block">Client Name</label>
+                    <input
+                      type="text"
+                      value={smart.clientName}
+                      onChange={(e) => setSmart({ ...smart, clientName: e.target.value })}
+                      placeholder="e.g. Acme Corp"
+                      className="w-full rounded-lg border border-gray-200 bg-white py-2 px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 mb-1 block">Project Title *</label>
+                    <input
+                      type="text"
+                      value={smart.name}
+                      onChange={(e) => setSmart({ ...smart, name: e.target.value })}
+                      placeholder="e.g. Monthly SMM — Acme"
+                      className="w-full rounded-lg border border-gray-200 bg-white py-2 px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      required
+                    />
+                  </div>
+                </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1 block">Project Name</label>
+                  <label className="text-sm font-medium text-gray-700 mb-1 block">Start Date</label>
                   <input
-                    type="text"
-                    value={newProject.name}
-                    onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
+                    type="date"
+                    value={smart.startDate}
+                    onChange={(e) => setSmart({ ...smart, startDate: e.target.value })}
                     className="w-full rounded-lg border border-gray-200 bg-white py-2 px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
                     required
                   />
+                  <p className="text-[11px] text-gray-400 mt-1">Day 1 of every cycle is anchored to this date.</p>
                 </div>
+
+                {/* Step 2 — project type */}
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1 block">Description</label>
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">Project Type</label>
+                  <div className="flex gap-2">
+                    {(['recurring', 'one_time'] as const).map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setSmart({ ...smart, projectType: t })}
+                        className={`flex-1 rounded-xl border px-3 py-2.5 text-sm font-semibold transition-all ${smart.projectType === t ? 'border-brand-500 bg-brand-50 text-brand-700 shadow-sm' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
+                      >
+                        {t === 'recurring' ? '🔁 Recurring' : '📌 One-Time'}
+                      </button>
+                    ))}
+                  </div>
+                  {smart.projectType === 'recurring' && (
+                    <div className="mt-3 flex items-center gap-2 rounded-xl border border-brand-100 bg-brand-50/50 p-3">
+                      <span className="text-xs font-medium text-gray-600">Tenure:</span>
+                      <select
+                        value={smart.tenureUnit}
+                        onChange={(e) => setSmart({ ...smart, tenureUnit: e.target.value })}
+                        className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      >
+                        <option value="days">Days</option>
+                        <option value="weeks">Weeks</option>
+                        <option value="months">Months</option>
+                      </select>
+                      <input
+                        type="number"
+                        min={1}
+                        value={smart.tenureValue}
+                        onChange={(e) => setSmart({ ...smart, tenureValue: Number(e.target.value) })}
+                        className="w-20 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      />
+                      <span className="text-xs text-gray-500">
+                        {smart.tenureUnit === 'days' ? 'day(s)' : smart.tenureUnit === 'weeks' ? 'week(s)' : 'month(s)'} per cycle — use “Generate Next Cycle” on the project card to renew.
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Step 3 — plan structure */}
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">Plan Structure</label>
+                  <div className="flex gap-2">
+                    {(['fixed', 'customised'] as const).map((p) => (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => setSmart({ ...smart, planStructure: p })}
+                        className={`flex-1 rounded-xl border px-3 py-2.5 text-sm font-semibold transition-all ${smart.planStructure === p ? 'border-brand-500 bg-brand-50 text-brand-700 shadow-sm' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
+                      >
+                        {p === 'fixed' ? '📋 Fixed Template' : '✏️ Customised'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Step 4 — service */}
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">Service</label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {PROJECT_SERVICES.map((s) => (
+                      <button
+                        key={s.value}
+                        type="button"
+                        onClick={() => setSmart({ ...smart, service: s.value })}
+                        className={`rounded-xl border px-3 py-2.5 text-sm font-semibold transition-all ${smart.service === s.value ? 'border-brand-500 bg-brand-50 text-brand-700 shadow-sm' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Step 5 — auto-generated task preview */}
+                {showTemplatePreview ? (
+                  <div className="rounded-xl border border-brand-200 bg-brand-50/40 p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm font-semibold text-gray-900">
+                        Auto-generated SMM schedule — {smmTasks.length} tasks
+                      </p>
+                      <span className="text-[11px] text-gray-500">Month 1 · Days 1–24 · dates auto-computed</span>
+                    </div>
+                    <p className="text-[11px] text-gray-500 mb-3">
+                      Recurring Month 2+ cycles automatically skip Day 1–3 onboarding and run Day 4–24 from the new cycle start.
+                    </p>
+                    <div className="max-h-64 space-y-1.5 overflow-y-auto pr-1">
+                      {smmTasks.map((t, i) => (
+                        <div key={t.dayOffset} className="flex items-center gap-2 rounded-lg bg-white/80 px-2.5 py-1.5 border border-gray-100">
+                          <span className="w-14 shrink-0 text-[11px] font-bold text-brand-600">Day {t.dayOffset}</span>
+                          <input
+                            type="text"
+                            value={t.title}
+                            onChange={(e) => {
+                              const next = [...smmTasks];
+                              next[i] = { ...next[i], title: e.target.value };
+                              setSmmTasks(next);
+                            }}
+                            className="flex-1 min-w-0 rounded-md border border-transparent bg-transparent px-1.5 py-1 text-xs text-gray-800 hover:border-gray-200 focus:border-brand-400 focus:bg-white focus:outline-none"
+                          />
+                          <span className="w-20 shrink-0 text-right text-[11px] text-gray-400">
+                            {fmtShortDate(dueDateFor(smart.startDate, t.dayOffset))}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm font-semibold text-gray-900">Custom tasks — day offsets</p>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="rounded-lg text-xs"
+                        onClick={() => setCustomTasks([...customTasks, { title: '', dayOffset: customTasks.length + 1 }])}
+                      >
+                        <Plus className="h-3.5 w-3.5 mr-1" /> Add task
+                      </Button>
+                    </div>
+                    {customTasks.length === 0 ? (
+                      <p className="text-xs text-gray-400 py-2">No custom tasks yet — add tasks with a Day Offset and their due dates auto-calculate.</p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {customTasks.map((t, i) => (
+                          <div key={i} className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={t.title}
+                              onChange={(e) => {
+                                const next = [...customTasks];
+                                next[i] = { ...next[i], title: e.target.value };
+                                setCustomTasks(next);
+                              }}
+                              placeholder={`Task ${i + 1} title`}
+                              className="flex-1 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500"
+                            />
+                            <input
+                              type="number"
+                              min={1}
+                              value={t.dayOffset}
+                              onChange={(e) => {
+                                const next = [...customTasks];
+                                next[i] = { ...next[i], dayOffset: Number(e.target.value) };
+                                setCustomTasks(next);
+                              }}
+                              className="w-20 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500"
+                              title="Day offset"
+                            />
+                            <span className="w-16 text-right text-[11px] text-gray-400">
+                              {t.dayOffset > 0 ? fmtShortDate(dueDateFor(smart.startDate, t.dayOffset)) : '—'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setCustomTasks(customTasks.filter((_, j) => j !== i))}
+                              className="text-gray-400 hover:text-rose-500"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-1 block">Description (optional)</label>
                   <textarea
-                    value={newProject.description}
-                    onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
+                    value={smart.description}
+                    onChange={(e) => setSmart({ ...smart, description: e.target.value })}
                     className="w-full rounded-lg border border-gray-200 bg-white py-2 px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
-                    rows={3}
+                    rows={2}
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-700 mb-1 block">Section</label>
-                    <select
-                      value={newProject.section}
-                      onChange={(e) => setNewProject({ ...newProject, section: e.target.value })}
-                      className="w-full rounded-lg border border-gray-200 bg-white py-2 px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
-                    >
-                      {SECTIONS.filter(s => s.value !== 'all').map(section => (
-                        <option key={section.value} value={section.value}>{section.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-700 mb-1 block">Status</label>
-                    <select
-                      value={newProject.status}
-                      onChange={(e) => setNewProject({ ...newProject, status: e.target.value })}
-                      className="w-full rounded-lg border border-gray-200 bg-white py-2 px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
-                    >
-                      <option value="planning">Planning</option>
-                      <option value="active">Active</option>
-                      <option value="on_hold">On Hold</option>
-                      <option value="completed">Completed</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-700 mb-1 block">Priority</label>
-                    <select
-                      value={newProject.priority}
-                      onChange={(e) => setNewProject({ ...newProject, priority: e.target.value })}
-                      className="w-full rounded-lg border border-gray-200 bg-white py-2 px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
-                    >
-                      <option value="low">Low</option>
-                      <option value="medium">Medium</option>
-                      <option value="high">High</option>
-                      <option value="urgent">Urgent</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-700 mb-1 block">Start Date</label>
-                    <input
-                      type="date"
-                      value={newProject.startDate}
-                      onChange={(e) => setNewProject({ ...newProject, startDate: e.target.value })}
-                      className="w-full rounded-lg border border-gray-200 bg-white py-2 px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-700 mb-1 block">Deadline</label>
-                    <input
-                      type="date"
-                      value={newProject.deadline}
-                      onChange={(e) => setNewProject({ ...newProject, deadline: e.target.value })}
-                      className="w-full rounded-lg border border-gray-200 bg-white py-2 px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
-                    />
-                  </div>
-                </div>
-                <div className="flex gap-3 pt-4">
+
+                <div className="flex gap-3 pt-2">
                   <Button
                     type="button"
                     variant="outline"
@@ -459,7 +668,7 @@ export default function ProjectsPage() {
                   <Button
                     type="submit"
                     className="flex-1 bg-brand-600 hover:bg-brand-700 text-white"
-                    disabled={createProjectMutation.isPending}
+                    disabled={createProjectMutation.isPending || !smart.name.trim()}
                   >
                     {createProjectMutation.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating...</> : 'Create Project'}
                   </Button>

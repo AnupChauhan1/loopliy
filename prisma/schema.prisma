@@ -321,6 +321,15 @@ model Project {
   estimatedHours Int?
   progress    Int      @default(0)
   section     String   @default("corporate") // corporate, it, facilities, template_set, floors, work
+  clientName    String?
+  projectType   String   @default("one_time") // recurring | one_time
+  tenureUnit    String?  // days | weeks | months
+  tenureValue   Int?
+  planStructure String   @default("customised") // fixed | customised
+  service       String?  // smm | website | seo | performance_ads | branding | other
+  currentCycle  Int      @default(1)
+  cycleStartDate DateTime?
+  taskTemplate  Json?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -441,6 +450,14 @@ model Task {
   department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   moduleId    String?
   createdById String?
+  organizationId String?
+  isIndividual Boolean @default(false)
+  isOverdue    Boolean @default(false)
+  carriedForwardAt DateTime?
+  dayOffset    Int?
+  cycle        Int?
+  workNote     String?
+  deliverableUrl String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -456,6 +473,7 @@ model Task {
   @@index([projectId])
   @@index([status])
   @@index([deadline])
+  @@index([organizationId])
 }
 
 model TaskAssignee {
