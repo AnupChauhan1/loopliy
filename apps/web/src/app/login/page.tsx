@@ -326,7 +326,7 @@ export default function LoginPage() {
         />
 
         <div className="relative flex items-center gap-3 animate-rotate-in">
-          <LooplyLogo wordmark light className="h-9 w-auto" />
+          <LooplyLogo animate={true} size="md" />
         </div>
 
         <div className="relative max-w-md animate-slide-up">
@@ -359,7 +359,7 @@ export default function LoginPage() {
       <div className="flex flex-1 items-center justify-center px-6 py-12 bg-white">
         <div className="w-full max-w-[400px] animate-fade-in-blur">
           <div className="lg:hidden flex items-center gap-3 mb-10 justify-center animate-rotate-in">
-            <LooplyLogo wordmark className="h-9 w-auto" />
+            <LooplyLogo animate={true} size="md" />
           </div>
 
           <div className="mb-8 animate-fade-in-up">

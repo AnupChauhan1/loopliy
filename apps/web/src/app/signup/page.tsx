@@ -191,7 +191,7 @@ export default function SignupPage() {
     <div className="flex min-h-screen items-center justify-center bg-white px-6 py-12">
       <div className="w-full max-w-md animate-fade-in-blur">
         <div className="mb-8 text-center">
-          <LooplyLogo className="mx-auto h-11 w-auto" />
+          <LooplyLogo animate={true} size="md" className="mx-auto" />
           <h1 className="mt-4 text-2xl font-semibold text-gray-900 tracking-tight">Create your account</h1>
           <p className="mt-1.5 text-sm text-gray-500">Join the LOOPLY workspace — your admin will approve your access</p>
         </div>

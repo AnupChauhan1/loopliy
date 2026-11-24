@@ -243,19 +243,14 @@ export function Sidebar({ isMobileSidebarOpen = false, setIsMobileSidebarOpen, c
       {/* Brand */}
       <div className={cn('relative flex h-[68px] shrink-0 items-center', mini ? 'justify-center px-0' : 'justify-between pl-4 pr-3')}>
         <Link href={home} className="group flex items-center gap-3">
-          <motion.div
-            whileHover={{ rotate: -8, scale: 1.08 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 14 }}
-            className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 shadow-[0_8px_22px_-6px_rgba(0,168,120,0.75),inset_0_1px_0_rgba(255,255,255,0.3)]"
-          >
-            <LooplyLogo className="h-5 w-5" light />
-          </motion.div>
           <AnimatePresence initial={false}>
-            {!mini && (
+            {!mini ? (
               <motion.div initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -8 }} transition={{ duration: 0.2 }}>
-                <h1 className="text-[16px] font-extrabold leading-none tracking-wide text-white">LOOPLY</h1>
+                <LooplyLogo animate={true} size="md" />
                 <p className="mt-1 text-[11.5px] leading-none text-gray-400">{role === 'hr' ? 'HR' : role.charAt(0).toUpperCase() + role.slice(1)} Panel</p>
               </motion.div>
+            ) : (
+              <LooplyLogo animate={true} size="sm" />
             )}
           </AnimatePresence>
         </Link>
