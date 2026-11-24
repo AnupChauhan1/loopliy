@@ -129,25 +129,50 @@ export default function LoginPage() {
 
   const allCredentials = [...loginCredentials, ...extraCreds];
 
-  const signInWithGoogle = async () => {
-    setSuErr(''); setGoogleLoading(true);
-    try {
-      const { signInWithPopup } = await import('firebase/auth');
-      const { auth, googleProvider } = await import('@/lib/firebase');
-      const cred = await signInWithPopup(auth, googleProvider);
+  const applyGoogleCred = (cred: any) => {
+    setEmailProof(''); // replaced below once token resolves
+    void (async () => {
       const idToken = await cred.user.getIdToken();
       setEmailProof(idToken);
       setEmailLocked(true);
       const email = cred.user.email ?? '';
       const name = cred.user.displayName ?? '';
-      setSu((s) => ({
-        ...s,
-        email,
-        fullName: s.fullName || name,
-      }));
-    } catch (err: any) {
-      if (err?.code !== 'auth/popup-closed-by-user' && err?.code !== 'auth/cancelled-popup-request') {
-        setSuErr('Google sign-in failed — please try again or use email verification below.');
+      setSu((s) => ({ ...s, email, fullName: s.fullName || name }));
+    })();
+  };
+
+  // Complete a Google redirect sign-in when the page loads
+  useEffect(() => {
+    (async () => {
+      try {
+        const { getRedirectResult } = await import('firebase/auth');
+        const { auth } = await import('@/lib/firebase');
+        const cred = await getRedirectResult(auth);
+        if (cred?.user) applyGoogleCred(cred);
+      } catch {
+        /* not a redirect return */
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const signInWithGoogle = async () => {
+    setSuErr(''); setGoogleLoading(true);
+    try {
+      const { signInWithPopup, signInWithRedirect } = await import('firebase/auth');
+      const { auth, googleProvider } = await import('@/lib/firebase');
+      try {
+        const cred = await signInWithPopup(auth, googleProvider);
+        applyGoogleCred(cred);
+      } catch (popupErr: any) {
+        const code = popupErr?.code ?? 'unknown';
+        if (['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment', 'auth/web-storage-unsupported', 'auth/unauthorized-domain'].includes(code)) {
+          await signInWithRedirect(auth, googleProvider);
+          return;
+        }
+        if (code !== 'auth/popup-closed-by-user' && code !== 'auth/cancelled-popup-request') {
+          setSuErr(`Google sign-in failed (${code}) — please try again or use email verification below.`);
+        }
       }
     } finally {
       setGoogleLoading(false);

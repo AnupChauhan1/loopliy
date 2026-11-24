@@ -139,7 +139,7 @@ export class AuthService {
 
     const passwordHash = await bcrypt.hash(dto.password, 12);
 
-    const accountType = dto.accountType ?? 'employee';
+    const accountType = (dto.accountType ?? 'employee').trim().toLowerCase();
     const roleName =
       accountType === 'client' ? 'Client'
       : accountType === 'hr' ? 'HR Manager'
