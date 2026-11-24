@@ -6,6 +6,18 @@ export function LooplySplashIntro() {
   const [stage, setStage] = useState<"enter" | "exit" | "done">("enter");
 
   useEffect(() => {
+    try {
+      const standalone = window.matchMedia("(display-mode: standalone)").matches;
+      if (standalone && window.outerWidth < window.screen.availWidth) {
+        window.moveTo(0, 0);
+        window.resizeTo(window.screen.availWidth, window.screen.availHeight);
+      }
+    } catch {
+      /* resize not permitted by this browser */
+    }
+  }, []);
+
+  useEffect(() => {
     const exitTimer = setTimeout(() => setStage("exit"), 1550);
     const doneTimer = setTimeout(() => setStage("done"), 2250);
     return () => {
@@ -18,7 +30,7 @@ export function LooplySplashIntro() {
 
   return (
     <div
-      className="fixed inset-0 z-[9999] flex flex-col items-center justify-center overflow-hidden"
+      className="fixed inset-0 w-screen h-screen min-h-[100dvh] z-[9999] flex flex-col items-center justify-center overflow-hidden"
       style={{
         backgroundColor: "#071114",
         backgroundImage:
