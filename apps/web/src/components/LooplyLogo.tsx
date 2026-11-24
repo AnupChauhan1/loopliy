@@ -5,11 +5,14 @@ interface LooplyLogoProps {
   size?: "sm" | "md" | "lg";
   animate?: boolean;
   className?: string;
+  theme?: "dark" | "light";
 }
 
-export function LooplyLogo({ size = "md", animate = true, className = "" }: LooplyLogoProps) {
+export function LooplyLogo({ size = "md", animate = true, className = "", theme = "dark" }: LooplyLogoProps) {
   const heights = { sm: 32, md: 42, lg: 76 };
   const h = heights[size];
+  const primary = theme === "dark" ? "#FFFFFF" : "#0B0F19";
+  const accent = theme === "dark" ? "#10B981" : "#059669";
 
   return (
     <div className={`inline-flex items-center select-none ${className}`} aria-label="Looply">
@@ -62,7 +65,7 @@ export function LooplyLogo({ size = "md", animate = true, className = "" }: Loop
         <g className={animate ? "looply-link-black" : ""}>
           <path
             d="M72 44H36C19.5 44 8 55.2 8 70C8 84.8 19.5 96 36 96H66C77.5 96 86.5 89 90.5 79H67C64.2 81.8 60.2 83.2 55.5 83.2H36C27.2 83.2 21 77.4 21 70C21 62.6 27.2 56.8 36 56.8H63.5L72 44Z"
-            fill="#0B0F19"
+            fill={primary}
           />
         </g>
 
@@ -70,7 +73,7 @@ export function LooplyLogo({ size = "md", animate = true, className = "" }: Loop
         <g className={animate ? "looply-link-green" : ""}>
           <path
             d="M44 68H80C96.5 68 108 56.8 108 42C108 27.2 96.5 16 80 16H50C38.5 16 29.5 23 25.5 33H49C51.8 30.2 55.8 28.8 60.5 28.8H80C88.8 28.8 95 34.6 95 42C95 49.4 88.8 55.2 80 55.2H52.5L44 68Z"
-            fill="#059669"
+            fill={accent}
           />
         </g>
 
@@ -78,7 +81,7 @@ export function LooplyLogo({ size = "md", animate = true, className = "" }: Loop
         <text
           x="124"
           y="82"
-          fill="#0B0F19"
+          fill={primary}
           className={animate ? "looply-wordmark" : ""}
           style={{
             fontFamily: "'Roboto Slab', Georgia, serif",

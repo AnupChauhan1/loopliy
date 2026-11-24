@@ -246,15 +246,11 @@ export function Sidebar({ isMobileSidebarOpen = false, setIsMobileSidebarOpen, c
           <AnimatePresence initial={false}>
             {!mini ? (
               <motion.div initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -8 }} transition={{ duration: 0.2 }}>
-                <div className="rounded-xl px-2.5 py-1" style={{ backgroundColor: '#ffffff' }}>
-                  <LooplyLogo animate={true} size="md" />
-                </div>
-                <p className="mt-1.5 text-[11.5px] leading-none text-gray-400">{role === 'hr' ? 'HR' : role.charAt(0).toUpperCase() + role.slice(1)} Panel</p>
+                <LooplyLogo animate={true} size="md" theme="dark" />
+                <p className="mt-1 text-[11.5px] leading-none text-gray-400">{role === 'hr' ? 'HR' : role.charAt(0).toUpperCase() + role.slice(1)} Panel</p>
               </motion.div>
             ) : (
-              <div className="rounded-xl p-1" style={{ backgroundColor: '#ffffff' }}>
-                <LooplyLogo animate={true} size="sm" />
-              </div>
+              <LooplyLogo animate={true} size="sm" theme="dark" />
             )}
           </AnimatePresence>
         </Link>

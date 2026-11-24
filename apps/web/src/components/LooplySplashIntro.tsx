@@ -20,12 +20,17 @@ export function LooplySplashIntro() {
 
   return (
     <div
-      className={`fixed inset-0 z-[300] flex items-center justify-center bg-white transition-opacity duration-500 ${
+      className={`fixed inset-0 z-[300] flex items-center justify-center transition-opacity duration-500 ${
         fading ? "opacity-0 pointer-events-none" : "opacity-100"
       }`}
-      style={{ backgroundColor: "#ffffff" }}
+      style={{
+        backgroundColor: "#0B191E",
+        backgroundImage:
+          "linear-gradient(rgba(156,163,175,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(156,163,175,0.06) 1px, transparent 1px)",
+        backgroundSize: "44px 44px",
+      }}
     >
-      <LooplyLogo animate={true} size="lg" />
+      <LooplyLogo animate={true} size="lg" theme="dark" />
     </div>
   );
 }
