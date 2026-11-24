@@ -21,8 +21,8 @@ export function LooplyLogo({ size = "md", animate = true, className = "" }: Loop
           50% { transform: translate(-2px, 1.5px); }
         }
         @keyframes looplyGreenSnap {
-          0%, 100% { transform: translate(0px, 0px); filter: drop-shadow(0 0 0px rgba(5,150,105,0)); }
-          50% { transform: translate(2px, -1.5px); filter: drop-shadow(0 0 6px rgba(5,150,105,0.4)); }
+          0%, 100% { transform: translate(0px, 0px); }
+          50% { transform: translate(2px, -1.5px); }
         }
         @keyframes looplyIntroLeft {
           0% { opacity: 0; transform: translateX(-26px) scale(0.9); }

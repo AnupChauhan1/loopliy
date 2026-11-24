@@ -311,39 +311,24 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex bg-white">
       {/* Brand panel */}
-      <div className="hidden lg:flex lg:w-[46%] xl:w-1/2 relative flex-col justify-between overflow-hidden bg-[#0b1220] p-12">
-        {/* Ambient glows */}
-        <div className="pointer-events-none absolute -top-32 -left-32 h-96 w-96 rounded-full bg-brand-500/20 blur-[120px] animate-float-slow" />
-        <div className="pointer-events-none absolute bottom-0 right-0 h-[28rem] w-[28rem] rounded-full bg-brand-400/10 blur-[140px] animate-float-slower" />
-        <div className="pointer-events-none absolute top-1/3 left-1/2 h-64 w-64 rounded-full bg-brand-400/10 blur-[100px] animate-float-slow" style={{ animationDelay: '-4s' }} />
-        <div
-          className="pointer-events-none absolute inset-0 opacity-[0.35]"
-          style={{
-            backgroundImage:
-              'linear-gradient(rgba(156,163,175,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(156,163,175,0.06) 1px, transparent 1px)',
-            backgroundSize: '44px 44px',
-          }}
-        />
-
+      <div className="hidden lg:flex lg:w-[46%] xl:w-1/2 relative flex-col justify-between overflow-hidden border-r border-gray-100 p-12" style={{ backgroundColor: '#ffffff' }}>
         <div className="relative flex items-center gap-3 animate-rotate-in">
-          <div className="rounded-2xl bg-white px-4 py-2 shadow-lg">
-            <LooplyLogo animate={true} size="md" />
-          </div>
+          <LooplyLogo animate={true} size="md" />
         </div>
 
         <div className="relative max-w-md animate-slide-up">
-          <h2 className="text-4xl font-semibold text-white leading-[1.15] tracking-tight">
+          <h2 className="text-4xl font-semibold text-gray-900 leading-[1.15] tracking-tight">
             Run your agency,
             <br />
             <span className="gradient-text-animated">beautifully organized.</span>
           </h2>
-          <p className="mt-4 text-[15px] leading-relaxed text-gray-400">
+          <p className="mt-4 text-[15px] leading-relaxed text-gray-500">
             The all-in-one operating system for digital agencies — from first proposal to final invoice.
           </p>
           <ul className="mt-8 space-y-3.5 stagger">
             {features.map((feature, idx) => (
-              <li key={feature} className="flex items-center gap-3 text-sm text-gray-300 smooth-transition hover:text-white hover:translate-x-1" style={{ animationDelay: `${idx * 100}ms` }}>
-                <CheckCircle2 className="h-[18px] w-[18px] text-brand-400 shrink-0 animate-icon-pop" style={{ animationDelay: `${idx * 100 + 200}ms` }} />
+              <li key={feature} className="flex items-center gap-3 text-sm text-gray-600 smooth-transition hover:text-gray-900 hover:translate-x-1" style={{ animationDelay: `${idx * 100}ms` }}>
+                <CheckCircle2 className="h-[18px] w-[18px] text-brand-600 shrink-0 animate-icon-pop" style={{ animationDelay: `${idx * 100 + 200}ms` }} />
                 {feature}
               </li>
             ))}
@@ -352,7 +337,7 @@ export default function LoginPage() {
 
         <div className="relative flex items-center gap-4 text-xs text-gray-500">
           <span>© 2026 Looply</span>
-          <span className="h-1 w-1 rounded-full bg-gray-600" />
+          <span className="h-1 w-1 rounded-full bg-gray-300" />
           <span>Trusted by modern agencies</span>
         </div>
       </div>
