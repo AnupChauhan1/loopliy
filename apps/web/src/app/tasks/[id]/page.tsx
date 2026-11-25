@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, use } from 'react';
+import { useState, use, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api-client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,7 +13,7 @@ import { useCompletionCelebration } from '@/lib/use-sound-prefs';
 import { fmtDate, fmtDateTime, fullName, initials, isOverdue, statusLabel, timeAgo } from '@/lib/format';
 import { useAuth } from '@/lib/auth-context';
 import { isManager } from '@/lib/roles';
-import { ArrowLeft, Paperclip, Send, MessageSquare, ListChecks, History, Upload, Trash2 } from 'lucide-react';
+import { ArrowLeft, Paperclip, Send, MessageSquare, ListChecks, History, Upload, Trash2, UserPlus, Check } from 'lucide-react';
 import Link from 'next/link';
 
 export default function TaskDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -25,6 +25,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
   const [comment, setComment] = useState('');
   const [newItem, setNewItem] = useState('');
   const [error, setError] = useState('');
+  const [assignOpen, setAssignOpen] = useState(false);
 
   const { data: task, isLoading } = useQuery({
     queryKey: ['task', id],
@@ -64,6 +65,46 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
     onSuccess: invalidate,
     onError: (e: any) => setError(e.response?.data?.message || 'Failed'),
   });
+
+  // People who can be assigned: project team members first, then all active employees
+  const { data: assignUsers } = useQuery({
+    queryKey: ['users', 'assign-picker'],
+    queryFn: () => api.get('/users').then((r) => r.data),
+    enabled: manager,
+  });
+  const { data: assignProject } = useQuery({
+    queryKey: ['project', 'assign-picker', task?.projectId],
+    queryFn: () => api.get(`/projects/${task!.projectId}`).then((r) => r.data),
+    enabled: manager && !!task?.projectId,
+  });
+
+  const assignTask = useMutation({
+    mutationFn: (userId: string) => api.put(`/tasks/${id}`, { assigneeIds: [userId] }).then((r) => r.data),
+    onSuccess: () => {
+      invalidate();
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      setAssignOpen(false);
+    },
+    onError: (e: any) => setError(e.response?.data?.message || 'Failed to update assignee'),
+  });
+
+  const assignOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const opts: { id: string; name: string; email?: string; member: boolean }[] = [];
+    for (const m of assignProject?.members ?? []) {
+      const u = m.user;
+      if (!u?.id || seen.has(u.id)) continue;
+      seen.add(u.id);
+      opts.push({ id: u.id, name: fullName(u) || u.email, email: u.email, member: true });
+    }
+    for (const u of assignUsers ?? []) {
+      if (!u?.id || !u.isActive || seen.has(u.id)) continue;
+      if ((u.roleNames ?? []).some((r: string) => ['Super Admin', 'Admin', 'Project Manager', 'HR Manager', 'Client'].includes(r))) continue;
+      seen.add(u.id);
+      opts.push({ id: u.id, name: fullName(u) || u.email, email: u.email, member: false });
+    }
+    return opts;
+  }, [assignProject, assignUsers]);
 
   const isAssignee = task?.assignees?.some((a: any) => a.userId === user?.id);
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -197,7 +238,18 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
         <div className="space-y-5">
           {/* Assignees */}
           <Card className="card-premium">
-            <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold text-gray-900">Assignees</CardTitle></CardHeader>
+            <CardHeader className="pb-2 flex flex-row items-center justify-between">
+              <CardTitle className="text-sm font-semibold text-gray-900">Assignees</CardTitle>
+              {manager && (
+                <button
+                  type="button"
+                  onClick={() => setAssignOpen((v) => !v)}
+                  className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100"
+                >
+                  <UserPlus className="h-3 w-3" /> {task.assignees?.length ? 'Change' : '+ Assign'}
+                </button>
+              )}
+            </CardHeader>
             <CardContent className="space-y-2.5">
               {task.assignees?.length ? task.assignees.map((a: any) => (
                 <div key={a.id} className="flex items-center gap-2.5">
@@ -208,6 +260,37 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
                   </div>
                 </div>
               )) : <p className="text-sm text-gray-400">Unassigned</p>}
+
+              {manager && assignOpen && (
+                <div className="relative pt-1">
+                  <div className="max-h-56 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-lg">
+                    {assignOptions.length === 0 && (
+                      <p className="px-3 py-2.5 text-[12px] text-gray-400">No assignable employees found</p>
+                    )}
+                    {assignOptions.map((o) => {
+                      const current = task.assignees?.some((a: any) => a.userId === o.id);
+                      return (
+                        <button
+                          key={o.id}
+                          type="button"
+                          disabled={assignTask.isPending}
+                          onClick={() => assignTask.mutate(o.id)}
+                          className={`flex w-full items-center gap-2.5 px-3 py-2 text-left transition hover:bg-emerald-50/60 ${current ? 'bg-emerald-50/40' : ''}`}
+                        >
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[9px] font-bold text-emerald-700">
+                            {initials(o.name.split(' ')[0] ?? '', o.name.split(' ').slice(1).join(' '))}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-[13px] font-medium text-gray-800">{o.name}</span>
+                            <span className="block truncate text-[10px] text-gray-400">{o.member ? 'Project team' : o.email}</span>
+                          </span>
+                          {current && <Check className="h-3.5 w-3.5 shrink-0 text-emerald-600" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 

@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useRef, Suspense } from 'react';
+import { useState, useRef, useMemo, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Plus, Search, List, LayoutGrid, X, CalendarDays, MoreVertical, Eye, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Search, List, LayoutGrid, X, CalendarDays, MoreVertical, Eye, Pencil, Trash2, UserPlus } from 'lucide-react';
 import api from '@/lib/api-client';
 import { Card, CardContent } from '@/components/ui/card';
 import { StatusBadge, PriorityBadge } from '@/components/ui/badge';
@@ -187,6 +187,30 @@ function TasksPageInner() {
 
   const tasks: any[] = data?.tasks ?? [];
 
+  // Projects with unassigned tasks → one-click auto-assign to the project team
+  const projectNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const p of projects?.projects ?? []) map.set(p.id, p.name);
+    return map;
+  }, [projects]);
+  const unassignedByProject = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const t of tasks) {
+      if (t.projectId && !(t.assignees?.length)) {
+        map.set(t.projectId, (map.get(t.projectId) ?? 0) + 1);
+      }
+    }
+    return [...map.entries()];
+  }, [tasks]);
+
+  const autoAssign = useMutation({
+    mutationFn: (projectId: string) => api.post(`/projects/${projectId}/auto-assign`).then((r) => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+    },
+  });
+
   return (
     <div className="space-y-5 animate-fade-in-blur">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -240,6 +264,24 @@ function TasksPageInner() {
           </select>
         </CardContent>
       </Card>
+
+      {manager && unassignedByProject.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/60 px-4 py-3">
+          <UserPlus className="h-4 w-4 text-emerald-600" />
+          <p className="text-[13px] font-medium text-emerald-800">Unassigned project tasks detected:</p>
+          {unassignedByProject.map(([pid, count]) => (
+            <button
+              key={pid}
+              type="button"
+              disabled={autoAssign.isPending}
+              onClick={() => autoAssign.mutate(pid)}
+              className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1 text-[11px] font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-60"
+            >
+              Auto-Assign ({count}) to {projectNameById.get(pid) ?? 'Project Team'}
+            </button>
+          ))}
+        </div>
+      )}
 
       {isLoading ? (
         <div className="flex h-48 items-center justify-center"><div className="h-5 w-5 rounded-full border-2 border-gray-300 border-t-brand-500 animate-spin" /></div>

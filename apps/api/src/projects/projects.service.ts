@@ -14,6 +14,31 @@ const TASK_INCLUDE = {
   },
 };
 
+interface AssigneeProfile {
+  id: string;
+  /** lowercase haystack: role names + department + designation + member role */
+  text: string;
+}
+
+const MEMBER_USER_SELECT = {
+  id: true,
+  roles: { include: { role: { select: { name: true } } } },
+  department: { select: { name: true } },
+  employeeProfile: { select: { designation: true } },
+} as const;
+
+function profileText(u: any, memberRole?: string | null): string {
+  return [
+    ...(u.roles ?? []).map((r: any) => r.role?.name),
+    u.department?.name,
+    u.employeeProfile?.designation,
+    memberRole,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+}
+
 @Injectable()
 export class ProjectsService {
   constructor(private prisma: PrismaService) {}
@@ -63,12 +88,39 @@ export class ProjectsService {
     return items.map((i) => ({ ...i, progress: map.get(i.id) ?? 0 }));
   }
 
+  /** All project members as assignable profiles (roles/dept/designation aware). */
+  private async memberProfiles(projectId: string): Promise<AssigneeProfile[]> {
+    const rows = await this.prisma.projectMember.findMany({
+      where: { projectId },
+      include: { user: { select: MEMBER_USER_SELECT } },
+    });
+    return rows.map((r) => ({ id: r.userId, text: profileText(r.user, r.role) }));
+  }
+
+  /**
+   * Smart distribution: match task-type keywords (reel/video → video editors,
+   * static/carousel → designers, onboarding/reporting → managers) and fall
+   * back to even round-robin across the pool.
+   */
+  private pickAssignee(title: string, members: AssigneeProfile[], index: number): string {
+    const t = title.toLowerCase();
+    let pool = members;
+    const narrow = (re: RegExp) => {
+      const m = members.filter((x) => re.test(x.text));
+      if (m.length) pool = m;
+    };
+    if (/reel|video|motion|short|edit/.test(t)) narrow(/video|reel|editor|motion/);
+    else if (/static|carousel|post|graphic|design|thumbnail|banner|creative|template/.test(t)) narrow(/design|creative|graphic|visual/);
+    else if (/onboard|setup|call|calendar|report|strategy|form|audit|plan|meeting|intro|kickoff/.test(t)) narrow(/manager|account|lead|project|strategy|coordinator|ops/);
+    return pool[index % pool.length].id;
+  }
+
   private async createCycleTasks(
     project: { id: string; organizationId: string; service?: string | null; planStructure?: string | null; projectType?: string | null; taskTemplate?: any; currentCycle?: number | null },
     cycle: number,
     cycleStart: Date,
     provided?: TemplateTaskSpec[],
-    defaultAssigneeId?: string,
+    assignees?: AssigneeProfile[],
   ) {
     const specs = this.specsFor(project, cycle, provided);
     if (!specs.length) return 0;
@@ -86,15 +138,20 @@ export class ProjectsService {
         deadline: dueDateFor(cycleStart, spec.dayOffset),
       })),
     });
-    // Single-employee projects auto-assign every generated task to that employee
-    if (defaultAssigneeId) {
+    // Auto-assign every generated task across the project's team (round-robin
+    // with role/dept keyword matching). One member → all tasks to them.
+    if (assignees?.length) {
       const created = await this.prisma.task.findMany({
         where: { projectId: project.id, cycle },
-        select: { id: true },
+        orderBy: [{ dayOffset: 'asc' }, { title: 'asc' }],
+        select: { id: true, title: true },
       });
       if (created.length) {
         await this.prisma.taskAssignee.createMany({
-          data: created.map((t) => ({ taskId: t.id, userId: defaultAssigneeId })),
+          data: created.map((t, i) => ({
+            taskId: t.id,
+            userId: this.pickAssignee(t.title, assignees, i),
+          })),
           skipDuplicates: true,
         });
       }
@@ -125,16 +182,17 @@ export class ProjectsService {
       });
       if (lead) leadId = lead.id;
     }
-    const memberIds = assignedEmployeeIds?.length
-      ? (
-          await this.prisma.user.findMany({
-            where: { id: { in: assignedEmployeeIds }, organizationId, isActive: true },
-            select: { id: true },
-          })
-        ).map((u) => u.id)
+    const memberUsers = assignedEmployeeIds?.length
+      ? await this.prisma.user.findMany({
+          where: { id: { in: assignedEmployeeIds }, organizationId, isActive: true },
+          select: MEMBER_USER_SELECT,
+        })
       : [];
-    // Exactly one selected employee → all generated tasks auto-assign to them
-    const soleAssigneeId = memberIds.length === 1 ? memberIds[0] : undefined;
+    const memberIds = memberUsers.map((u) => u.id);
+    const selectedProfiles: AssigneeProfile[] = memberUsers.map((u) => ({
+      id: u.id,
+      text: profileText(u),
+    }));
 
     const startDate = fields.startDate ?? new Date();
     const cycleStartDate = fields.startDate ?? new Date();
@@ -190,8 +248,11 @@ export class ProjectsService {
       skipDuplicates: true,
     });
 
-    // Auto-generate the first cycle's tasks (SMM fixed template or custom day-offset tasks)
-    await this.createCycleTasks(project, 1, cycleStartDate, taskTemplate?.length ? taskTemplate : undefined, soleAssigneeId);
+    // Auto-generate the first cycle's tasks (SMM fixed template or custom day-offset tasks).
+    // Every generated task is auto-assigned across the selected team (round-robin
+    // with role matching); falls back to all project members when none were picked.
+    const taskAssignees = selectedProfiles.length ? selectedProfiles : await this.memberProfiles(project.id);
+    await this.createCycleTasks(project, 1, cycleStartDate, taskTemplate?.length ? taskTemplate : undefined, taskAssignees);
 
     // Log to audit
     await this.prisma.auditLog.create({
@@ -439,7 +500,8 @@ export class ProjectsService {
     const base = project.cycleStartDate ?? project.startDate ?? new Date();
     const nextStart = addTenure(base, project.tenureUnit, project.tenureValue ?? 1);
 
-    const created = await this.createCycleTasks(project, cycle, nextStart);
+    const assignees = await this.memberProfiles(id);
+    const created = await this.createCycleTasks(project, cycle, nextStart, undefined, assignees);
 
     const updated = await this.prisma.project.update({
       where: { id },
@@ -468,6 +530,37 @@ export class ProjectsService {
 
     const [projectWithProgress] = await this.withProgress([updated]);
     return { project: projectWithProgress, cycle, tasksCreated: created };
+  }
+
+  /** Distribute all unassigned tasks of a project across its members. Returns count assigned. */
+  private async assignUnassignedTasks(projectId: string): Promise<number> {
+    const members = await this.memberProfiles(projectId);
+    if (!members.length) return 0;
+    const unassigned = await this.prisma.task.findMany({
+      where: { projectId, assignees: { none: {} } },
+      orderBy: [{ dayOffset: 'asc' }, { title: 'asc' }],
+      select: { id: true, title: true },
+    });
+    if (!unassigned.length) return 0;
+    await this.prisma.taskAssignee.createMany({
+      data: unassigned.map((t, i) => ({
+        taskId: t.id,
+        userId: this.pickAssignee(t.title, members, i),
+      })),
+      skipDuplicates: true,
+    });
+    return unassigned.length;
+  }
+
+  /** One-click "Auto-Assign to Project Team" — owner/manager/admin only. */
+  async autoAssign(projectId: string, user: any, organizationId: string) {
+    const project = await this.prisma.project.findFirst({ where: { id: projectId, organizationId } });
+    if (!project) throw new NotFoundException('Project not found');
+    if (project.ownerId !== user.id && !hasAnyRole(user, MANAGER_ROLES)) {
+      throw new ForbiddenException('Only the project lead or a manager can auto-assign tasks');
+    }
+    const assigned = await this.assignUnassignedTasks(projectId);
+    return { assigned };
   }
 
   async addMember(projectId: string, userId: string, requestingUser: any, organizationId: string) {
@@ -500,7 +593,10 @@ export class ProjectsService {
       },
     });
 
-    return member;
+    // New member joins → immediately distribute any still-unassigned tasks
+    const autoAssigned = await this.assignUnassignedTasks(projectId);
+
+    return { ...member, autoAssigned };
   }
 
   async removeMember(projectId: string, userId: string, requestingUser: any, organizationId: string) {
