@@ -48,7 +48,7 @@ export default function ClientLoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#0b1220] px-4 py-10">
+    <div className="flex min-h-[100dvh] w-full items-center justify-center overflow-y-auto overflow-x-hidden bg-[#0b1220] px-4 py-8 pb-20">
       <div className="pointer-events-none absolute -top-32 left-1/4 h-96 w-96 rounded-full bg-brand-500/20 blur-[120px]" />
       <div className="pointer-events-none absolute bottom-0 right-1/4 h-80 w-80 rounded-full bg-brand-400/10 blur-[120px]" />
       <div className="relative w-full max-w-md">

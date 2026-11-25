@@ -30,7 +30,7 @@ export function LooplySplashIntro() {
 
   return (
     <div
-      className="fixed inset-0 w-screen h-screen min-h-[100dvh] z-[9999] flex flex-col items-center justify-center overflow-hidden"
+      className="pointer-events-none fixed inset-0 w-screen h-screen min-h-[100dvh] z-[9999] flex flex-col items-center justify-center overflow-hidden"
       style={{
         backgroundColor: "#071114",
         backgroundImage:

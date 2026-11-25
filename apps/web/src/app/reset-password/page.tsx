@@ -41,7 +41,7 @@ function ResetInner() {
 
   if (!token) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-white px-6 text-center">
+      <div className="flex min-h-[100dvh] w-full items-center justify-center overflow-y-auto overflow-x-hidden bg-white px-4 py-8 pb-20 text-center">
         <div>
           <XCircleIcon />
           <p className="mt-4 text-sm text-gray-600">This reset link is invalid or incomplete.</p>
@@ -52,7 +52,7 @@ function ResetInner() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-white px-6">
+    <div className="flex min-h-[100dvh] w-full items-center justify-center overflow-y-auto overflow-x-hidden bg-white px-4 py-8 pb-20">
       <div className="w-full max-w-md animate-fade-in-blur">
         <div className="mb-8 text-center">
           <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl gradient-brand shadow-lg shadow-brand-500/25">
@@ -104,7 +104,7 @@ function XCircleIcon() {
 
 export default function ResetPasswordPage() {
   return (
-    <Suspense fallback={<div className="flex min-h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-brand-500" /></div>}>
+    <Suspense fallback={<div className="flex min-h-[100dvh] items-center justify-center overflow-y-auto"><Loader2 className="h-8 w-8 animate-spin text-brand-500" /></div>}>
       <ResetInner />
     </Suspense>
   );

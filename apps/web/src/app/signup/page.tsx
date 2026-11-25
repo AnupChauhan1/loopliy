@@ -171,7 +171,7 @@ export default function SignupPage() {
 
   if (done) {
     return (
-      <div className="flex min-h-[100dvh] items-center justify-center overflow-y-auto bg-white px-4 py-8">
+      <div className="flex min-h-[100dvh] w-full flex-col items-center justify-center overflow-y-auto overflow-x-hidden bg-white px-4 py-8 pb-20">
         <div className="w-full max-w-md animate-fade-in-blur text-center">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl gradient-brand shadow-lg shadow-brand-500/25">
             <CheckCircle2 className="h-7 w-7 text-white" />
@@ -188,7 +188,7 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center overflow-y-auto bg-white px-4 py-8">
+    <div className="flex min-h-[100dvh] w-full flex-col items-center justify-start overflow-y-auto overflow-x-hidden bg-white px-4 py-8 pb-20 lg:justify-center">
       <div className="w-full max-w-md animate-fade-in-blur">
         <div className="mb-8 text-center">
           <LooplyLogo animate={true} size="md" theme="light" className="mx-auto" />

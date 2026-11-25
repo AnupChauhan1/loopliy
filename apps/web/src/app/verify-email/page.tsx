@@ -30,7 +30,7 @@ function VerifyInner() {
   }, [params]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-white px-6">
+    <div className="flex min-h-[100dvh] w-full items-center justify-center overflow-y-auto overflow-x-hidden bg-white px-4 py-8 pb-20">
       <div className="w-full max-w-md text-center animate-fade-in-blur">
         {state === 'loading' && <Loader2 className="mx-auto h-10 w-10 animate-spin text-brand-500" />}
         {state === 'ok' && <CheckCircle2 className="mx-auto h-12 w-12 text-brand-500" />}
@@ -51,7 +51,7 @@ function VerifyInner() {
 
 export default function VerifyEmailPage() {
   return (
-    <Suspense fallback={<div className="flex min-h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-brand-500" /></div>}>
+    <Suspense fallback={<div className="flex min-h-[100dvh] items-center justify-center overflow-y-auto"><Loader2 className="h-8 w-8 animate-spin text-brand-500" /></div>}>
       <VerifyInner />
     </Suspense>
   );
