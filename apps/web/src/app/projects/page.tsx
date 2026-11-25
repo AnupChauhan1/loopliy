@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Plus, Filter, Search, MoreHorizontal, Calendar, Users, TrendingUp, FolderKanban, X, Pencil, Trash2, Loader2, RefreshCw } from 'lucide-react';
@@ -10,6 +10,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import Link from 'next/link';
 import { SMM_CYCLE_1, PROJECT_SERVICES, SmmTaskSpec, dueDateFor, fmtShortDate, todayInputValue } from '@/lib/smm-template';
+import { useAuth } from '@/lib/auth-context';
+import { isManager } from '@/lib/roles';
+import { fullName } from '@/lib/format';
+
+const LEAD_ROLE_NAMES = ['Super Admin', 'Admin', 'Project Manager', 'HR Manager'];
+const NON_EMPLOYEE_ROLES = [...LEAD_ROLE_NAMES, 'Client'];
 
 interface Project {
   id: string;
@@ -60,6 +66,8 @@ const SECTIONS = [
 ];
 
 export default function ProjectsPage() {
+  const { user, role } = useAuth();
+  const currentUserIsManager = isManager(role);
   const [filter, setFilter] = useState('all');
   const [sectionFilter, setSectionFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -89,6 +97,8 @@ export default function ProjectsPage() {
     tenureValue: 1,
     planStructure: 'fixed',
     service: 'smm',
+    managerId: '',
+    employeeIds: [] as string[],
   };
   const [smart, setSmart] = useState(emptySmart);
   const [smmTasks, setSmmTasks] = useState<SmmTaskSpec[]>(SMM_CYCLE_1);
@@ -107,6 +117,28 @@ export default function ProjectsPage() {
       }
     }).then(res => res.data),
   });
+
+  // Team directory for the Assign Project section (only needed while the modal is open)
+  const { data: usersData } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => api.get('/users').then((r) => r.data),
+    enabled: showCreateModal,
+  });
+
+  const allUsers: any[] = usersData ?? [];
+  const leadOptions = allUsers.filter(
+    (u) => u.isActive !== false && (u.roleNames ?? []).some((r: string) => LEAD_ROLE_NAMES.includes(r)),
+  );
+  const employeeOptions = allUsers.filter(
+    (u) => u.isActive !== false && !(u.roleNames ?? []).some((r: string) => NON_EMPLOYEE_ROLES.includes(r)),
+  );
+
+  // Auto-select the logged-in manager/admin as project lead when the modal opens
+  useEffect(() => {
+    if (showCreateModal && currentUserIsManager && user?.id && !smart.managerId) {
+      setSmart((s) => ({ ...s, managerId: user.id }));
+    }
+  }, [showCreateModal, currentUserIsManager, user?.id, smart.managerId]);
 
   const createProjectMutation = useMutation({
     mutationFn: (projectData: any) => api.post('/projects', projectData).then(res => res.data),
@@ -428,6 +460,8 @@ export default function ProjectsPage() {
                   projectType: smart.projectType,
                   planStructure: smart.planStructure,
                   service: smart.service,
+                  managerId: smart.managerId || undefined,
+                  assignedEmployeeIds: smart.employeeIds.length ? smart.employeeIds : undefined,
                   ...(smart.projectType === 'recurring' && {
                     tenureUnit: smart.tenureUnit,
                     tenureValue: Number(smart.tenureValue) || 1,
@@ -536,6 +570,71 @@ export default function ProjectsPage() {
                         {s.label}
                       </button>
                     ))}
+                  </div>
+                </div>
+
+                {/* Step 4b — assign project lead & team */}
+                <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-4">
+                  <p className="text-sm font-semibold text-gray-900 mb-3">Assign Project</p>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-xs font-medium text-gray-600 mb-1 block">Assign Manager / Lead</label>
+                      <select
+                        value={smart.managerId}
+                        onChange={(e) => setSmart({ ...smart, managerId: e.target.value })}
+                        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      >
+                        <option value="">No lead — defaults to you</option>
+                        {leadOptions.map((u) => (
+                          <option key={u.id} value={u.id}>
+                            {fullName(u)}{u.id === user?.id ? ' (you)' : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-gray-600 mb-1.5 block">
+                        Assign Team Employees{smart.employeeIds.length > 0 && (
+                          <span className="ml-1.5 rounded-full bg-brand-100 px-2 py-0.5 text-[10px] font-semibold text-brand-700">{smart.employeeIds.length} selected</span>
+                        )}
+                      </label>
+                      {employeeOptions.length === 0 ? (
+                        <p className="text-xs text-gray-400 py-1">No employees available to assign.</p>
+                      ) : (
+                        <div className="flex max-h-36 flex-wrap gap-1.5 overflow-y-auto pr-1">
+                          {employeeOptions.map((u) => {
+                            const selected = smart.employeeIds.includes(u.id);
+                            return (
+                              <button
+                                key={u.id}
+                                type="button"
+                                onClick={() =>
+                                  setSmart({
+                                    ...smart,
+                                    employeeIds: selected
+                                      ? smart.employeeIds.filter((id) => id !== u.id)
+                                      : [...smart.employeeIds, u.id],
+                                  })
+                                }
+                                className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-all ${
+                                  selected
+                                    ? 'border-brand-500 bg-brand-600 text-white shadow-sm'
+                                    : 'border-gray-200 bg-white text-gray-600 hover:border-brand-300 hover:text-brand-700'
+                                }`}
+                              >
+                                {fullName(u)}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {smart.employeeIds.length === 1 && (
+                        <p className="mt-1.5 text-[11px] text-brand-700">All generated tasks will be auto-assigned to this employee.</p>
+                      )}
+                      {smart.employeeIds.length > 1 && (
+                        <p className="mt-1.5 text-[11px] text-gray-500">Selected employees join the project team — assign tasks to them from the Tasks page.</p>
+                      )}
+                    </div>
                   </div>
                 </div>
 

@@ -34,12 +34,12 @@ export class ProjectsController {
 
   @Put(':id')
   update(@Param('id') id: string, @Body() updateProjectDto: UpdateProjectDto, @Request() req: RequestWithUser) {
-    return this.projectsService.update(id, updateProjectDto, req.user.id, req.user.organizationId);
+    return this.projectsService.update(id, updateProjectDto, req.user, req.user.organizationId);
   }
 
   @Delete(':id')
   remove(@Param('id') id: string, @Request() req: RequestWithUser) {
-    return this.projectsService.remove(id, req.user.id, req.user.organizationId);
+    return this.projectsService.remove(id, req.user, req.user.organizationId);
   }
 
   @Post(':id/cycles')
@@ -49,11 +49,11 @@ export class ProjectsController {
 
   @Post(':id/members')
   addMember(@Param('id') id: string, @Body('userId') userId: string, @Request() req: RequestWithUser) {
-    return this.projectsService.addMember(id, userId, req.user.id, req.user.organizationId);
+    return this.projectsService.addMember(id, userId, req.user, req.user.organizationId);
   }
 
   @Delete(':id/members/:userId')
   removeMember(@Param('id') id: string, @Param('userId') userId: string, @Request() req: RequestWithUser) {
-    return this.projectsService.removeMember(id, userId, req.user.id, req.user.organizationId);
+    return this.projectsService.removeMember(id, userId, req.user, req.user.organizationId);
   }
 }

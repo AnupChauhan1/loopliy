@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { SMM_CYCLE_1, SMM_CYCLE_2_PLUS, TemplateTaskSpec, addDays, addTenure, dueDateFor } from './smm-template';
-import { hasAnyRole, MANAGER_ROLES } from '../common/roles';
+import { hasAnyRole, MANAGER_ROLES, PRIVILEGED_ROLES } from '../common/roles';
 import { projectProgress, projectProgressFromGroups } from '../common/progress';
 
 const TASK_INCLUDE = {
@@ -68,6 +68,7 @@ export class ProjectsService {
     cycle: number,
     cycleStart: Date,
     provided?: TemplateTaskSpec[],
+    defaultAssigneeId?: string,
   ) {
     const specs = this.specsFor(project, cycle, provided);
     if (!specs.length) return 0;
@@ -85,6 +86,19 @@ export class ProjectsService {
         deadline: dueDateFor(cycleStart, spec.dayOffset),
       })),
     });
+    // Single-employee projects auto-assign every generated task to that employee
+    if (defaultAssigneeId) {
+      const created = await this.prisma.task.findMany({
+        where: { projectId: project.id, cycle },
+        select: { id: true },
+      });
+      if (created.length) {
+        await this.prisma.taskAssignee.createMany({
+          data: created.map((t) => ({ taskId: t.id, userId: defaultAssigneeId })),
+          skipDuplicates: true,
+        });
+      }
+    }
     return specs.length;
   }
 
@@ -100,7 +114,28 @@ export class ProjectsService {
       }
     }
 
-    const { taskTemplate, ...fields } = createProjectDto;
+    const { taskTemplate, managerId, assignedEmployeeIds, ...fields } = createProjectDto;
+
+    // Resolve optional assignment: project lead + team members must be active org users
+    let leadId = userId;
+    if (managerId && managerId !== userId) {
+      const lead = await this.prisma.user.findFirst({
+        where: { id: managerId, organizationId, isActive: true },
+        select: { id: true },
+      });
+      if (lead) leadId = lead.id;
+    }
+    const memberIds = assignedEmployeeIds?.length
+      ? (
+          await this.prisma.user.findMany({
+            where: { id: { in: assignedEmployeeIds }, organizationId, isActive: true },
+            select: { id: true },
+          })
+        ).map((u) => u.id)
+      : [];
+    // Exactly one selected employee → all generated tasks auto-assign to them
+    const soleAssigneeId = memberIds.length === 1 ? memberIds[0] : undefined;
+
     const startDate = fields.startDate ?? new Date();
     const cycleStartDate = fields.startDate ?? new Date();
     const isRecurring = fields.projectType === 'recurring';
@@ -117,7 +152,7 @@ export class ProjectsService {
         cycleStartDate,
         deadline,
         taskTemplate: taskTemplate?.length ? (taskTemplate as any) : undefined,
-        ownerId: userId,
+        ownerId: leadId,
         organizationId,
       },
       include: {
@@ -146,16 +181,17 @@ export class ProjectsService {
       },
     });
 
-    // Add the creator as a project member
-    await this.prisma.projectMember.create({
-      data: {
+    // Add the creator (or assigned lead) plus any selected team members as project members
+    await this.prisma.projectMember.createMany({
+      data: [...new Set([leadId, ...memberIds])].map((memberUserId) => ({
         projectId: project.id,
-        userId,
-      },
+        userId: memberUserId,
+      })),
+      skipDuplicates: true,
     });
 
     // Auto-generate the first cycle's tasks (SMM fixed template or custom day-offset tasks)
-    await this.createCycleTasks(project, 1, cycleStartDate, taskTemplate?.length ? taskTemplate : undefined);
+    await this.createCycleTasks(project, 1, cycleStartDate, taskTemplate?.length ? taskTemplate : undefined, soleAssigneeId);
 
     // Log to audit
     await this.prisma.auditLog.create({
@@ -294,7 +330,7 @@ export class ProjectsService {
     return { ...project, progress: projectProgress(project.tasks) };
   }
 
-  async update(id: string, updateProjectDto: UpdateProjectDto, userId: string, organizationId: string) {
+  async update(id: string, updateProjectDto: UpdateProjectDto, user: any, organizationId: string) {
     const project = await this.prisma.project.findFirst({
       where: { id, organizationId },
     });
@@ -303,8 +339,8 @@ export class ProjectsService {
       throw new NotFoundException('Project not found');
     }
 
-    if (project.ownerId !== userId) {
-      throw new ForbiddenException('Only project owner can update the project');
+    if (project.ownerId !== user.id && !hasAnyRole(user, PRIVILEGED_ROLES)) {
+      throw new ForbiddenException('Only project owner or admin can update the project');
     }
 
     // Progress is computed from tasks — never accept it as an input
@@ -341,7 +377,7 @@ export class ProjectsService {
     await this.prisma.auditLog.create({
       data: {
         organizationId,
-        userId,
+        userId: user.id,
         action: 'update',
         resource: 'project',
         resourceId: id,
@@ -353,7 +389,7 @@ export class ProjectsService {
     return withProgress;
   }
 
-  async remove(id: string, userId: string, organizationId: string) {
+  async remove(id: string, user: any, organizationId: string) {
     const project = await this.prisma.project.findFirst({
       where: { id, organizationId },
     });
@@ -362,8 +398,8 @@ export class ProjectsService {
       throw new NotFoundException('Project not found');
     }
 
-    if (project.ownerId !== userId) {
-      throw new ForbiddenException('Only project owner can delete the project');
+    if (project.ownerId !== user.id && !hasAnyRole(user, PRIVILEGED_ROLES)) {
+      throw new ForbiddenException('Only project owner or admin can delete the project');
     }
 
     await this.prisma.project.delete({
@@ -374,7 +410,7 @@ export class ProjectsService {
     await this.prisma.auditLog.create({
       data: {
         organizationId,
-        userId,
+        userId: user.id,
         action: 'delete',
         resource: 'project',
         resourceId: id,
@@ -434,7 +470,7 @@ export class ProjectsService {
     return { project: projectWithProgress, cycle, tasksCreated: created };
   }
 
-  async addMember(projectId: string, userId: string, requestingUserId: string, organizationId: string) {
+  async addMember(projectId: string, userId: string, requestingUser: any, organizationId: string) {
     const project = await this.prisma.project.findFirst({
       where: { id: projectId, organizationId },
     });
@@ -443,8 +479,8 @@ export class ProjectsService {
       throw new NotFoundException('Project not found');
     }
 
-    if (project.ownerId !== requestingUserId) {
-      throw new ForbiddenException('Only project owner can add members');
+    if (project.ownerId !== requestingUser.id && !hasAnyRole(requestingUser, PRIVILEGED_ROLES)) {
+      throw new ForbiddenException('Only project owner or admin can add members');
     }
 
     const member = await this.prisma.projectMember.create({
@@ -467,7 +503,7 @@ export class ProjectsService {
     return member;
   }
 
-  async removeMember(projectId: string, userId: string, requestingUserId: string, organizationId: string) {
+  async removeMember(projectId: string, userId: string, requestingUser: any, organizationId: string) {
     const project = await this.prisma.project.findFirst({
       where: { id: projectId, organizationId },
     });
@@ -476,8 +512,8 @@ export class ProjectsService {
       throw new NotFoundException('Project not found');
     }
 
-    if (project.ownerId !== requestingUserId) {
-      throw new ForbiddenException('Only project owner can remove members');
+    if (project.ownerId !== requestingUser.id && !hasAnyRole(requestingUser, PRIVILEGED_ROLES)) {
+      throw new ForbiddenException('Only project owner or admin can remove members');
     }
 
     await this.prisma.projectMember.deleteMany({

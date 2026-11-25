@@ -87,6 +87,16 @@ export class CreateProjectDto {
   @IsString()
   service?: string;
 
+  /** Project lead / manager overseeing the project (defaults to creator). */
+  @IsOptional()
+  @IsString()
+  managerId?: string;
+
+  /** Employees assigned to the project team at creation time. */
+  @IsOptional()
+  @IsArray()
+  assignedEmployeeIds?: string[];
+
   /** Auto-dated task specs ({ title, dayOffset }) — due dates are computed from the cycle start date. */
   @IsOptional()
   @IsArray()
