@@ -19,6 +19,11 @@ class VerifyEmailDto {
   token: string;
 }
 
+class FirebaseLoginDto {
+  @IsString()
+  firebaseIdToken: string;
+}
+
 class ForgotPasswordDto {
   @IsEmail()
   email: string;
@@ -110,6 +115,12 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
+  }
+
+  @Post('firebase-login')
+  @HttpCode(HttpStatus.OK)
+  async firebaseLogin(@Body() dto: FirebaseLoginDto) {
+    return this.authService.loginWithFirebase(dto.firebaseIdToken);
   }
 
   @Get('validate')

@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, OAuthProvider } from 'firebase/auth';
 
 // Production Firebase web config for project looply-crm-2fa19.
 // Hardcoded on purpose: Render does not define NEXT_PUBLIC_FIREBASE_*
@@ -18,6 +18,11 @@ const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
+
+// Zoho mail via Firebase OpenID Connect (provider id: oidc.zoho)
+export const zohoProvider = new OAuthProvider('oidc.zoho');
+zohoProvider.addScope('email');
+zohoProvider.addScope('profile');
 
 const FIREBASE_ERRORS: Record<string, string> = {
   'auth/unauthorized-domain': 'This website is not authorized for sign-in yet. Add this domain under Firebase Console → Authentication → Settings → Authorized domains.',

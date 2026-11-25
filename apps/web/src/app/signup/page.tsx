@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { LooplyLogo } from '@/components/LooplyLogo';
+import { ZohoIcon } from '@/components/zoho-icon';
 import { Mail, Lock, User, Phone, AlertCircle, CheckCircle2, Loader2, Camera, Eye, EyeOff } from 'lucide-react';
 
 const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/+$/, '');
@@ -23,13 +24,15 @@ export default function SignupPage() {
   const [emailProof, setEmailProof] = useState('');
   const [emailLocked, setEmailLocked] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [zohoLoading, setZohoLoading] = useState(false);
   const fbUser = useRef<any>(null);
 
   const [googleVerified, setGoogleVerified] = useState(false);
+  const [zohoVerified, setZohoVerified] = useState(false);
 
   const resetEmailVerification = () => {
     setFbSent(false); setFbLoading(false); setFbMsg('');
-    setEmailProof(''); setEmailLocked(false); setGoogleVerified(false); fbUser.current = null;
+    setEmailProof(''); setEmailLocked(false); setGoogleVerified(false); setZohoVerified(false); fbUser.current = null;
   };
 
   const fbError = async (err: unknown, fallback: string) =>
@@ -117,13 +120,32 @@ export default function SignupPage() {
     })();
   };
 
+  const applyZohoCred = (cred: any) => {
+    void (async () => {
+      const idToken = await cred.user.getIdToken();
+      setEmailProof(idToken);
+      setEmailLocked(true);
+      setZohoVerified(true);
+      setFbSent(false);
+      setFbMsg('');
+      setForm((f) => ({
+        ...f,
+        email: cred.user.email ?? f.email,
+        fullName: f.fullName || cred.user.displayName || '',
+      }));
+    })();
+  };
+
   useEffect(() => {
     (async () => {
       try {
         const { getRedirectResult } = await import('firebase/auth');
         const { auth } = await import('@/lib/firebase');
         const cred = await getRedirectResult(auth);
-        if (cred?.user) applyGoogleCred(cred);
+        if (cred?.user) {
+          if (cred.providerId === 'oidc.zoho') applyZohoCred(cred);
+          else applyGoogleCred(cred);
+        }
       } catch (err: unknown) {
         if ((err as { code?: string })?.code) setError(await fbError(err, 'Google sign-in failed.'));
       }
@@ -153,6 +175,31 @@ export default function SignupPage() {
       setError(await fbError(err, 'Google sign-in failed.'));
     } finally {
       setGoogleLoading(false);
+    }
+  };
+
+  const signInWithZoho = async () => {
+    setError(''); setZohoLoading(true);
+    try {
+      const { signInWithPopup, signInWithRedirect } = await import('firebase/auth');
+      const { auth, zohoProvider } = await import('@/lib/firebase');
+      try {
+        const cred = await signInWithPopup(auth, zohoProvider);
+        applyZohoCred(cred);
+      } catch (popupErr: any) {
+        const code = popupErr?.code ?? 'unknown';
+        if (['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment', 'auth/web-storage-unsupported'].includes(code)) {
+          await signInWithRedirect(auth, zohoProvider);
+          return;
+        }
+        if (code !== 'auth/popup-closed-by-user' && code !== 'auth/cancelled-popup-request') {
+          setError(await fbError(popupErr, 'Zoho sign-in failed — please try again or use email verification below.'));
+        }
+      }
+    } catch (err: unknown) {
+      setError(await fbError(err, 'Zoho sign-in failed.'));
+    } finally {
+      setZohoLoading(false);
     }
   };
 
@@ -233,6 +280,19 @@ export default function SignupPage() {
             )}
             {googleLoading ? 'Connecting to Google...' : 'Verify & Sign up with Google'}
           </button>
+          <button
+            type="button"
+            onClick={signInWithZoho}
+            disabled={zohoLoading}
+            className="flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:opacity-60"
+          >
+            {zohoLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <ZohoIcon />
+            )}
+            {zohoLoading ? 'Connecting to Zoho...' : 'Verify & Sign up with Zoho'}
+          </button>
           <div className="flex items-center gap-3">
             <span className="h-px flex-1 bg-gray-200" />
             <span className="text-[11px] font-medium text-gray-400">or use email</span>
@@ -282,8 +342,8 @@ export default function SignupPage() {
                   {fbLoading ? '...' : fbSent ? 'Resend email' : 'Verify Email'}
                 </button>
               ) : (
-                <span className="flex shrink-0 items-center gap-1 rounded-xl bg-brand-50 px-3 text-[12px] font-semibold text-brand-700 ring-1 ring-brand-200">
-                  <CheckCircle2 className="h-3.5 w-3.5" /> {googleVerified ? 'Google Email Verified ✓' : 'Verified'}
+                <span className="flex shrink-0 items-center gap-1 rounded-xl bg-emerald-50 px-3 text-[12px] font-semibold text-emerald-700 ring-1 ring-emerald-200">
+                  <CheckCircle2 className="h-3.5 w-3.5" /> {googleVerified ? 'Google Email Verified ✓' : zohoVerified ? 'Zoho Mail Verified ✓' : 'Verified'}
                 </span>
               )}
             </div>

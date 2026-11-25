@@ -422,6 +422,33 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    return this.completeLogin(user);
+  }
+
+  /** OAuth sign-in (Google / Zoho OIDC via Firebase): verifies the Firebase ID
+   *  token, looks the user up by verified email, and applies the same
+   *  approval gates as password login. */
+  async loginWithFirebase(firebaseIdToken: string) {
+    const claims = firebaseIdToken ? await verifyFirebaseIdToken(firebaseIdToken) : null;
+    const email = claims?.email?.toLowerCase();
+    if (!claims || !email || claims.email_verified !== true) {
+      throw new UnauthorizedException('Email verification failed — please verify your email and try again');
+    }
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      include: {
+        organization: true,
+        roles: { include: { role: true } },
+        clientProfile: { select: { id: true } },
+      },
+    });
+    if (!user) {
+      throw new UnauthorizedException('No account found for this email — please create an account first');
+    }
+    return this.completeLogin(user);
+  }
+
+  private async completeLogin(user: any) {
     // Email verification is informational only — approval (HR + admin) is the real gate.
     // Self-heal: mark approved users as verified so records stay consistent.
     if (!user.emailVerified && (user.approvedAt || user.adminApprovedAt)) {

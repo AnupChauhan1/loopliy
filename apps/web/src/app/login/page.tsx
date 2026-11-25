@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/auth-context';
 import { panelRoleOf, homeFor } from '@/lib/roles';
 import Link from 'next/link';
 import { LooplyLogo } from '@/components/LooplyLogo';
+import { ZohoIcon } from '@/components/zoho-icon';
 
 const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/+$/, '');
 
@@ -73,13 +74,15 @@ export default function LoginPage() {
   const [emailProof, setEmailProof] = useState(''); // Firebase ID token proving a verified inbox
   const [emailLocked, setEmailLocked] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [zohoLoading, setZohoLoading] = useState(false);
   const fbUser = useRef<any>(null);
 
   const [googleVerified, setGoogleVerified] = useState(false);
+  const [zohoVerified, setZohoVerified] = useState(false);
 
   const resetEmailVerification = () => {
     setFbSent(false); setFbLoading(false); setFbMsg('');
-    setEmailProof(''); setEmailLocked(false); setGoogleVerified(false); fbUser.current = null;
+    setEmailProof(''); setEmailLocked(false); setGoogleVerified(false); setZohoVerified(false); fbUser.current = null;
   };
 
   const fbError = async (err: unknown, fallback: string) =>
@@ -163,14 +166,33 @@ export default function LoginPage() {
     })();
   };
 
-  // Complete a Google redirect sign-in when the page loads
+  const applyZohoCred = (cred: any) => {
+    setEmailProof(''); // replaced below once token resolves
+    void (async () => {
+      const idToken = await cred.user.getIdToken();
+      setEmailProof(idToken);
+      setEmailLocked(true);
+      setZohoVerified(true);
+      setFbSent(false);
+      setFbMsg('');
+      const email = cred.user.email ?? '';
+      const name = cred.user.displayName ?? '';
+      setSu((s) => ({ ...s, email, fullName: s.fullName || name }));
+    })();
+  };
+
+  // Complete an OAuth redirect sign-in when the page loads
   useEffect(() => {
     (async () => {
       try {
         const { getRedirectResult } = await import('firebase/auth');
         const { auth } = await import('@/lib/firebase');
         const cred = await getRedirectResult(auth);
-        if (cred?.user) { setAuthMode('signup'); applyGoogleCred(cred); }
+        if (cred?.user) {
+          setAuthMode('signup');
+          if (cred.providerId === 'oidc.zoho') applyZohoCred(cred);
+          else applyGoogleCred(cred);
+        }
       } catch (err: unknown) {
         if ((err as { code?: string })?.code) {
           setAuthMode('signup');
@@ -203,6 +225,70 @@ export default function LoginPage() {
       setSuErr(await fbError(err, 'Google sign-in failed.'));
     } finally {
       setGoogleLoading(false);
+    }
+  };
+
+  const signInWithZoho = async () => {
+    setSuErr(''); setZohoLoading(true);
+    try {
+      const { signInWithPopup, signInWithRedirect } = await import('firebase/auth');
+      const { auth, zohoProvider } = await import('@/lib/firebase');
+      try {
+        const cred = await signInWithPopup(auth, zohoProvider);
+        applyZohoCred(cred);
+      } catch (popupErr: any) {
+        const code = popupErr?.code ?? 'unknown';
+        if (['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment', 'auth/web-storage-unsupported'].includes(code)) {
+          await signInWithRedirect(auth, zohoProvider);
+          return;
+        }
+        if (code !== 'auth/popup-closed-by-user' && code !== 'auth/cancelled-popup-request') {
+          setSuErr(await fbError(popupErr, 'Zoho sign-in failed — please try again or use email verification below.'));
+        }
+      }
+    } catch (err: unknown) {
+      setSuErr(await fbError(err, 'Zoho sign-in failed.'));
+    } finally {
+      setZohoLoading(false);
+    }
+  };
+
+  // "Continue with Zoho" on the login form: Firebase OIDC → backend session.
+  const continueWithZoho = async () => {
+    setError(''); setLoading(true);
+    try {
+      const { signInWithPopup, signInWithRedirect } = await import('firebase/auth');
+      const { auth, zohoProvider } = await import('@/lib/firebase');
+      let cred;
+      try {
+        cred = await signInWithPopup(auth, zohoProvider);
+      } catch (popupErr: any) {
+        const code = popupErr?.code ?? 'unknown';
+        if (['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment', 'auth/web-storage-unsupported'].includes(code)) {
+          await signInWithRedirect(auth, zohoProvider);
+          return;
+        }
+        if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') return;
+        throw popupErr;
+      }
+      const idToken = await cred.user.getIdToken();
+      const res = await fetch(`${API_URL}/api/v1/auth/firebase-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ firebaseIdToken: idToken }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Zoho sign-in failed');
+      await login(data.token, data.user);
+      router.push(homeFor(panelRoleOf(data.user.roles, data.user.primaryRole)));
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error && err.message
+          ? err.message
+          : await fbError(err, 'Zoho sign-in failed. Please try again.'),
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -514,6 +600,16 @@ export default function LoginPage() {
             </Button>
           </form>
 
+          <button
+            type="button"
+            onClick={continueWithZoho}
+            disabled={loading}
+            className="mt-3 flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:opacity-60"
+          >
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ZohoIcon />}
+            {loading ? 'Connecting to Zoho...' : 'Continue with Zoho'}
+          </button>
+
           {allCredentials.length > 0 && (
           <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 text-center">
@@ -605,6 +701,19 @@ export default function LoginPage() {
                 )}
                 {googleLoading ? 'Connecting to Google...' : 'Verify & Sign up with Google'}
               </button>
+              <button
+                type="button"
+                onClick={signInWithZoho}
+                disabled={zohoLoading}
+                className="flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:opacity-60"
+              >
+                {zohoLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ZohoIcon />
+                )}
+                {zohoLoading ? 'Connecting to Zoho...' : 'Verify & Sign up with Zoho'}
+              </button>
               <div className="flex items-center gap-3">
                 <span className="h-px flex-1 bg-gray-200" />
                 <span className="text-[11px] font-medium text-gray-400">or use email</span>
@@ -682,8 +791,8 @@ export default function LoginPage() {
                       {fbLoading ? '...' : fbSent ? 'Resend email' : 'Verify Email'}
                     </button>
                   ) : (
-                    <span className="flex shrink-0 items-center gap-1 rounded-xl bg-brand-50 px-3 text-[12px] font-semibold text-brand-700 ring-1 ring-brand-200">
-                      <CheckCircle2 className="h-3.5 w-3.5" /> {googleVerified ? 'Google Email Verified ✓' : 'Verified'}
+                    <span className="flex shrink-0 items-center gap-1 rounded-xl bg-emerald-50 px-3 text-[12px] font-semibold text-emerald-700 ring-1 ring-emerald-200">
+                      <CheckCircle2 className="h-3.5 w-3.5" /> {googleVerified ? 'Google Email Verified ✓' : zohoVerified ? 'Zoho Mail Verified ✓' : 'Verified'}
                     </span>
                   )}
                 </div>
