@@ -72,66 +72,68 @@ export function StatusChart() {
   const GRID_LINES = 4;
 
   return (
-    <div className="flex h-full flex-col">
-      {/* Header */}
+    <div className="flex h-full min-h-0 flex-col gap-4">
+      {/* Row 1 — Header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="text-[17px] font-bold tracking-tight text-gray-900">Tasks by status</h3>
           <p className="mt-0.5 text-[12px] text-gray-500">Task distribution across workflow stages</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {period === 'custom' && (
-            <div className="flex items-center gap-1.5">
-              <input
-                type="date"
-                value={customFrom}
-                max={customTo || undefined}
-                onChange={(e) => setCustomFrom(e.target.value)}
-                className="rounded-lg border border-gray-200 px-2 py-1.5 text-[11px] text-gray-600 focus:border-brand-400 focus:outline-none"
-                aria-label="From date"
-              />
-              <span className="text-[11px] text-gray-400">→</span>
-              <input
-                type="date"
-                value={customTo}
-                min={customFrom || undefined}
-                onChange={(e) => setCustomTo(e.target.value)}
-                className="rounded-lg border border-gray-200 px-2 py-1.5 text-[11px] text-gray-600 focus:border-brand-400 focus:outline-none"
-                aria-label="To date"
-              />
-            </div>
-          )}
-          <div className="flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
-            {PERIODS.map((p) => (
-              <button
-                key={p.value}
-                type="button"
-                onClick={() => pickPeriod(p.value)}
-                className={cn(
-                  'rounded-md px-2.5 py-1 text-[11px] font-semibold transition',
-                  period === p.value ? 'bg-white text-brand-700 shadow-sm' : 'text-gray-500 hover:text-gray-800',
-                )}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
 
       {isError && (
-        <p className="mt-3 flex items-center gap-1.5 rounded-lg bg-rose-50 px-3 py-2 text-[11px] font-medium text-rose-600">
+        <p className="flex items-center gap-1.5 rounded-lg bg-rose-50 px-3 py-2 text-[11px] font-medium text-rose-600">
           <AlertTriangle className="h-3.5 w-3.5" /> Task statistics unavailable — showing last known data.
         </p>
       )}
 
-      {/* Bar chart */}
-      <div className="relative mt-5 flex-1">
+      {/* Row 2 — Period filter pills (scrollable on narrow screens) */}
+      <div className="flex w-full items-center gap-2 overflow-x-auto pb-0.5">
+        {period === 'custom' && (
+          <div className="flex shrink-0 items-center gap-1.5">
+            <input
+              type="date"
+              value={customFrom}
+              max={customTo || undefined}
+              onChange={(e) => setCustomFrom(e.target.value)}
+              className="rounded-lg border border-gray-200 px-2 py-1.5 text-[11px] text-gray-600 focus:border-brand-400 focus:outline-none"
+              aria-label="From date"
+            />
+            <span className="text-[11px] text-gray-400">→</span>
+            <input
+              type="date"
+              value={customTo}
+              min={customFrom || undefined}
+              onChange={(e) => setCustomTo(e.target.value)}
+              className="rounded-lg border border-gray-200 px-2 py-1.5 text-[11px] text-gray-600 focus:border-brand-400 focus:outline-none"
+              aria-label="To date"
+            />
+          </div>
+        )}
+        <div className="flex shrink-0 rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+          {PERIODS.map((p) => (
+            <button
+              key={p.value}
+              type="button"
+              onClick={() => pickPeriod(p.value)}
+              className={cn(
+                'whitespace-nowrap rounded-md px-2.5 py-1 text-[11px] font-semibold transition',
+                period === p.value ? 'bg-white text-brand-700 shadow-sm' : 'text-gray-500 hover:text-gray-800',
+              )}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Row 3 — Chart in its own self-contained box */}
+      <div className="relative h-44 w-full overflow-hidden pt-4">
         {/* horizontal gridlines */}
-        <div className="absolute inset-x-0 bottom-8 top-6 flex flex-col justify-between">
+        <div className="absolute inset-x-0 bottom-8 top-4 flex flex-col justify-between">
           {Array.from({ length: GRID_LINES + 1 }, (_, i) => (
             <div key={i} className="flex items-center">
-              <span className="w-8 text-right text-[10px] font-medium tabular-nums text-gray-400">
+              <span className="w-8 shrink-0 text-right text-[10px] font-medium tabular-nums text-gray-400">
                 {Math.round(axisMax - (axisMax / GRID_LINES) * i)}
               </span>
               <div className="ml-2 h-px flex-1 bg-gray-100" />
@@ -140,23 +142,22 @@ export function StatusChart() {
         </div>
 
         {/* bars */}
-        <div className="absolute inset-x-0 bottom-8 top-6 flex items-end justify-around gap-3 pl-10">
+        <div className="absolute inset-x-0 bottom-8 top-4 flex items-end justify-around gap-3 pl-10">
           {rows.map((row) => {
             const meta = STATUS_META[row.key];
-            const Icon = meta.icon;
             const heightPct = animate ? (row.value / axisMax) * 100 : 0;
             return (
               <button
                 key={row.key}
                 type="button"
                 onClick={() => router.push(`/tasks?status=${row.key}`)}
-                className="group relative flex h-full w-full max-w-[130px] flex-col items-center justify-end"
+                className="group relative flex h-full w-full max-w-[130px] min-w-0 flex-col items-center justify-end"
                 title={`${meta.label}: ${row.value} task${row.value === 1 ? '' : 's'}${row.pct !== null ? ` (${row.pct}%)` : ''}`}
               >
                 {/* value label */}
                 <span
                   className={cn(
-                    'absolute z-10 rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums shadow-sm',
+                    'absolute z-10 whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums shadow-sm',
                     meta.chip,
                     row.value === 0 && 'opacity-50',
                   )}
@@ -173,7 +174,6 @@ export function StatusChart() {
                   )}
                   style={{ height: `${Math.max(heightPct, row.value > 0 ? 2 : 0.5)}%` }}
                 />
-                {/* baseline handled by gridline */}
               </button>
             );
           })}
@@ -189,18 +189,18 @@ export function StatusChart() {
                 key={row.key}
                 type="button"
                 onClick={() => router.push(`/tasks?status=${row.key}`)}
-                className="flex w-full max-w-[130px] flex-col items-center gap-1 rounded-lg px-1 py-1.5 transition hover:bg-gray-50"
+                className="flex w-full max-w-[130px] min-w-0 flex-col items-center gap-1 rounded-lg px-1 py-1.5 transition hover:bg-gray-50"
               >
-                <Icon className="h-3.5 w-3.5 text-gray-400" />
-                <span className="text-[11px] font-semibold text-gray-600">{meta.label}</span>
+                <Icon className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+                <span className="w-full truncate text-center text-[11px] font-semibold text-gray-600">{meta.label}</span>
               </button>
             );
           })}
         </div>
       </div>
 
-      {/* Summary cards */}
-      <div className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+      {/* Row 4 — Status summary cards */}
+      <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {rows.map((row) => {
           const meta = STATUS_META[row.key];
           const Icon = meta.icon;

@@ -292,7 +292,7 @@ export function Header({ setIsMobileSidebarOpen, isMobileSidebarOpen = false }: 
         >
           <Menu className="h-5 w-5" />
         </motion.button>
-        <Link href="/" className="flex shrink-0 items-center lg:hidden" aria-label="Looply home">
+        <Link href="/" className="flex shrink-0 items-center overflow-hidden lg:hidden" aria-label="Looply home">
           <LooplyLogo animate={false} size="sm" theme="light" />
         </Link>
         <div className="group relative hidden min-w-0 w-full max-w-[22rem] transition-[max-width] duration-300 focus-within:max-w-[28rem] sm:block">
@@ -318,7 +318,7 @@ export function Header({ setIsMobileSidebarOpen, isMobileSidebarOpen = false }: 
             whileHover={{ y: -2 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => router.push('/tasks?create=1')}
-            className="group gradient-brand-btn flex h-10 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold sm:px-4"
+            className="group gradient-brand-btn hidden h-10 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold sm:inline-flex sm:px-4"
           >
             <Plus className="h-4 w-4 transition-transform duration-300 group-hover:rotate-90" />
             <span className="hidden sm:inline">New Task</span>

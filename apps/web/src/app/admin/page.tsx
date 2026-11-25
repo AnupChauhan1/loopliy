@@ -26,7 +26,7 @@ import { useToast } from '@/components/ui/toast';
 
 const StatusChart = dynamic(() => import('@/components/status-chart').then((module) => module.StatusChart), {
   ssr: false,
-  loading: () => <div className="h-[320px] w-full animate-pulse rounded-xl bg-gray-100/70" />,
+  loading: () => <div className="h-[540px] w-full animate-pulse rounded-xl bg-gray-100/70 sm:h-[470px]" />,
 });
 const TrendChart = dynamic(() => import('@/components/trend-chart').then((module) => module.TrendChart), {
   ssr: false,
@@ -59,7 +59,7 @@ function DeferredStatusChart(props: ComponentProps<typeof StatusChart>) {
   }, []);
 
   return (
-    <div ref={containerRef} className="h-[320px]">
+    <div ref={containerRef} className="h-[540px] sm:h-[470px]">
       {shouldLoad ? (
         <StatusChart {...props} />
       ) : (
@@ -256,7 +256,7 @@ export default function AdminDashboard() {
               <h3 className="text-[19px] font-bold tracking-tight text-gray-900">Department workload</h3>
               <p className="mt-0.5 text-[12.5px] text-gray-500">Active tasks by department</p>
             </div>
-            <Link href="/departments" className="group inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-[12px] font-semibold text-gray-700 transition hover:border-brand-200 hover:text-gray-900 hover:shadow-sm">
+            <Link href="/departments" className="group inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-[12px] font-semibold text-gray-700 transition hover:border-brand-200 hover:text-gray-900 hover:shadow-sm">
               View all <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
             </Link>
           </div>
