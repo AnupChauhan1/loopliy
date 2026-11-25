@@ -218,13 +218,13 @@ export default function ProjectsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-2xl font-semibold text-gray-900">Projects</h1>
           <p className="text-sm text-gray-500 mt-1">Manage and track your projects</p>
         </div>
         <Button
-          className="bg-brand-600 hover:bg-brand-700 text-white shadow-sm"
+          className="w-full justify-center bg-brand-600 hover:bg-brand-700 text-white shadow-sm sm:w-auto"
           onClick={() => setShowCreateModal(true)}
         >
           <Plus className="mr-2 h-4 w-4" />
@@ -234,8 +234,8 @@ export default function ProjectsPage() {
 
       <Card className="border-gray-200 shadow-sm">
         <CardContent className="p-4">
-          <div className="flex items-center gap-4 flex-wrap">
-            <div className="relative flex-1 min-w-[200px] max-w-md">
+          <div className="flex w-full flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
+            <div className="relative w-full sm:min-w-[200px] sm:max-w-md sm:flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
               <input
                 type="search"
@@ -245,12 +245,12 @@ export default function ProjectsPage() {
                 className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
               />
             </div>
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-gray-500" />
+            <div className="flex w-full items-center gap-2 sm:w-auto">
+              <Filter className="h-4 w-4 shrink-0 text-gray-500" />
               <select
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
-                className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
+                className="w-full min-w-0 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
               >
                 <option value="all">All Status</option>
                 <option value="planning">Planning</option>
@@ -260,12 +260,12 @@ export default function ProjectsPage() {
                 <option value="cancelled">Cancelled</option>
               </select>
             </div>
-            <div className="flex items-center gap-2">
-              <FolderKanban className="h-4 w-4 text-gray-500" />
+            <div className="flex w-full items-center gap-2 sm:w-auto">
+              <FolderKanban className="h-4 w-4 shrink-0 text-gray-500" />
               <select
                 value={sectionFilter}
                 onChange={(e) => setSectionFilter(e.target.value)}
-                className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
+                className="w-full min-w-0 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
               >
                 {SECTIONS.map(section => (
                   <option key={section.value} value={section.value}>{section.label}</option>
@@ -397,14 +397,15 @@ export default function ProjectsPage() {
 
       {/* Create Project Modal — smart auto-dated wizard */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-50 p-4 animate-fade-in">
-          <Card className="w-[95vw] sm:w-full max-w-2xl max-h-[90vh] overflow-y-auto border-gray-200 shadow-2xl animate-scale-in">
-            <CardHeader className="pb-4">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg font-semibold">Create New Project</CardTitle>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-50 p-2 sm:p-4 animate-fade-in">
+          <Card className="w-[95vw] max-w-xl max-h-[90dvh] overflow-y-auto overflow-x-hidden border-gray-200 shadow-2xl animate-scale-in">
+            <CardHeader className="p-4 pb-4 sm:p-6 sm:pb-4">
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle className="min-w-0 text-lg font-semibold">Create New Project</CardTitle>
                 <Button
                   variant="ghost"
                   size="icon"
+                  className="shrink-0"
                   onClick={() => setShowCreateModal(false)}
                 >
                   <X className="h-4 w-4" />
@@ -412,7 +413,7 @@ export default function ProjectsPage() {
               </div>
               <p className="text-xs text-gray-500">All task due dates are auto-computed from the start date — no manual date entry.</p>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
               <form onSubmit={(e) => {
                 e.preventDefault();
                 setFormError('');
@@ -494,12 +495,12 @@ export default function ProjectsPage() {
                     ))}
                   </div>
                   {smart.projectType === 'recurring' && (
-                    <div className="mt-3 flex items-center gap-2 rounded-xl border border-brand-100 bg-brand-50/50 p-3">
-                      <span className="text-xs font-medium text-gray-600">Tenure:</span>
+                    <div className="mt-3 flex w-full flex-wrap items-center gap-2 rounded-xl border border-brand-100 bg-brand-50/50 p-3 sm:flex-nowrap">
+                      <span className="shrink-0 text-xs font-medium text-gray-600">Tenure:</span>
                       <select
                         value={smart.tenureUnit}
                         onChange={(e) => setSmart({ ...smart, tenureUnit: e.target.value })}
-                        className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        className="min-w-[110px] flex-1 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                       >
                         <option value="days">Days</option>
                         <option value="weeks">Weeks</option>
@@ -510,9 +511,9 @@ export default function ProjectsPage() {
                         min={1}
                         value={smart.tenureValue}
                         onChange={(e) => setSmart({ ...smart, tenureValue: Number(e.target.value) })}
-                        className="w-20 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        className="w-20 shrink-0 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                       />
-                      <span className="text-xs text-gray-500">
+                      <span className="w-full text-xs leading-snug text-gray-500 sm:w-auto">
                         {smart.tenureUnit === 'days' ? 'day(s)' : smart.tenureUnit === 'weeks' ? 'week(s)' : 'month(s)'} per cycle — use “Generate Next Cycle” on the project card to renew.
                       </span>
                     </div>
@@ -545,7 +546,7 @@ export default function ProjectsPage() {
                         key={s.value}
                         type="button"
                         onClick={() => setSmart({ ...smart, service: s.value })}
-                        className={`rounded-xl border px-3 py-2.5 text-sm font-semibold transition-all ${smart.service === s.value ? 'border-brand-500 bg-brand-50 text-brand-700 shadow-sm' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
+                        className={`min-w-0 rounded-xl border px-2.5 py-2.5 text-center text-xs font-semibold leading-snug break-words transition-all sm:text-sm ${smart.service === s.value ? 'border-brand-500 bg-brand-50 text-brand-700 shadow-sm' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
                       >
                         {s.label}
                       </button>
@@ -555,8 +556,8 @@ export default function ProjectsPage() {
 
                 {/* Step 5 — auto-generated task preview */}
                 {showTemplatePreview ? (
-                  <div className="rounded-xl border border-brand-200 bg-brand-50/40 p-4">
-                    <div className="flex items-center justify-between mb-2">
+                  <div className="rounded-xl border border-brand-200 bg-brand-50/40 p-3 sm:p-4">
+                    <div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                       <p className="text-sm font-semibold text-gray-900">
                         Auto-generated SMM schedule — {smmTasks.length} tasks
                       </p>
@@ -567,8 +568,13 @@ export default function ProjectsPage() {
                     </p>
                     <div className="max-h-64 space-y-1.5 overflow-y-auto pr-1">
                       {smmTasks.map((t, i) => (
-                        <div key={t.dayOffset} className="flex items-center gap-2 rounded-lg bg-white/80 px-2.5 py-1.5 border border-gray-100">
-                          <span className="w-14 shrink-0 text-[11px] font-bold text-brand-600">Day {t.dayOffset}</span>
+                        <div key={t.dayOffset} className="flex flex-col justify-between gap-1 rounded-lg border border-gray-100 bg-white/80 p-2.5 text-xs sm:flex-row sm:items-center sm:gap-2 sm:px-2.5 sm:py-1.5">
+                          <div className="flex items-center justify-between gap-2 sm:contents">
+                            <span className="shrink-0 text-[11px] font-bold text-brand-600 sm:order-1 sm:w-14">Day {t.dayOffset}</span>
+                            <span className="shrink-0 text-right text-[11px] text-gray-400 sm:order-3 sm:w-20">
+                              {fmtShortDate(dueDateFor(smart.startDate, t.dayOffset))}
+                            </span>
+                          </div>
                           <input
                             type="text"
                             value={t.title}
@@ -577,11 +583,8 @@ export default function ProjectsPage() {
                               next[i] = { ...next[i], title: e.target.value };
                               setSmmTasks(next);
                             }}
-                            className="flex-1 min-w-0 rounded-md border border-transparent bg-transparent px-1.5 py-1 text-xs text-gray-800 hover:border-gray-200 focus:border-brand-400 focus:bg-white focus:outline-none"
+                            className="w-full min-w-0 rounded-md border border-transparent bg-transparent px-0 py-1 !text-xs font-medium text-gray-800 hover:border-gray-200 focus:border-brand-400 focus:bg-white focus:outline-none sm:order-2 sm:w-auto sm:flex-1 sm:px-1.5 sm:font-normal"
                           />
-                          <span className="w-20 shrink-0 text-right text-[11px] text-gray-400">
-                            {fmtShortDate(dueDateFor(smart.startDate, t.dayOffset))}
-                          </span>
                         </div>
                       ))}
                     </div>
@@ -656,18 +659,18 @@ export default function ProjectsPage() {
                   />
                 </div>
 
-                <div className="flex gap-3 pt-2">
+                <div className="grid w-full grid-cols-2 gap-2.5 pt-3">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => setShowCreateModal(false)}
-                    className="flex-1"
+                    className="w-full justify-center px-3 py-2.5 text-xs font-semibold sm:text-sm"
                   >
                     Cancel
                   </Button>
                   <Button
                     type="submit"
-                    className="flex-1 bg-brand-600 hover:bg-brand-700 text-white"
+                    className="w-full justify-center bg-brand-600 px-3 py-2.5 text-xs font-semibold text-white hover:bg-brand-700 sm:text-sm"
                     disabled={createProjectMutation.isPending || !smart.name.trim()}
                   >
                     {createProjectMutation.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating...</> : 'Create Project'}
@@ -780,18 +783,18 @@ export default function ProjectsPage() {
                     />
                   </div>
                 </div>
-                <div className="flex gap-3 pt-4">
+                <div className="grid w-full grid-cols-2 gap-2.5 pt-4">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => setShowEditModal(false)}
-                    className="flex-1"
+                    className="w-full justify-center px-3 py-2.5 text-xs font-semibold sm:text-sm"
                   >
                     Cancel
                   </Button>
                   <Button
                     type="submit"
-                    className="flex-1 bg-brand-600 hover:bg-brand-700 text-white"
+                    className="w-full justify-center bg-brand-600 px-3 py-2.5 text-xs font-semibold text-white hover:bg-brand-700 sm:text-sm"
                     disabled={updateProjectMutation.isPending}
                   >
                     {updateProjectMutation.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Updating...</> : 'Update Project'}
