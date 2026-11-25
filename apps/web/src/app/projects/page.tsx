@@ -13,6 +13,7 @@ import { SMM_CYCLE_1, PROJECT_SERVICES, SmmTaskSpec, dueDateFor, fmtShortDate, t
 import { useAuth } from '@/lib/auth-context';
 import { isManager } from '@/lib/roles';
 import { fullName } from '@/lib/format';
+import { SlimProgressBar, buildProjectStats } from '@/components/team-progress-overview';
 
 const LEAD_ROLE_NAMES = ['Super Admin', 'Admin', 'Project Manager', 'HR Manager'];
 const NON_EMPLOYEE_ROLES = [...LEAD_ROLE_NAMES, 'Client'];
@@ -193,6 +194,15 @@ export default function ProjectsPage() {
 
   const projects = projectsData?.projects || [];
 
+  // Live task data powers the auto-calculated per-project progress bars
+  const { data: tasksData } = useQuery({
+    queryKey: ['tasks', 'progress-overview'],
+    queryFn: () => api.get('/tasks', { params: { limit: 500 } }).then((r) => r.data),
+  });
+  const projectStats = new Map(
+    buildProjectStats(tasksData?.tasks ?? [], projects).map((s) => [s.projectId, s]),
+  );
+
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
       planning: 'bg-gray-100 text-gray-700 border-gray-200',
@@ -212,13 +222,6 @@ export default function ProjectsPage() {
       urgent: 'bg-gray-900 text-white border-gray-900',
     };
     return colors[priority] || colors.medium;
-  };
-
-  const getProgressColor = (progress: number) => {
-    if (progress >= 75) return 'bg-brand-600';
-    if (progress >= 50) return 'bg-brand-500';
-    if (progress >= 25) return 'bg-brand-500';
-    return 'bg-gray-400';
   };
 
   const filteredProjects = projects.filter((project: Project) =>
@@ -380,21 +383,33 @@ export default function ProjectsPage() {
                   )}
                 </div>
 
-                <div className="space-y-3 mb-4">
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2 text-gray-600">
-                      <TrendingUp className="h-4 w-4" />
-                      <span>Progress</span>
+                {(() => {
+                  const stat = projectStats.get(project.id);
+                  const pct = stat?.progress ?? project.progress ?? 0;
+                  const done = stat?.done ?? 0;
+                  const total = stat?.total ?? project._count?.tasks ?? 0;
+                  const isDone = project.status === 'completed' || pct >= 100;
+                  const isLate = !isDone && project.deadline && new Date(project.deadline) < new Date();
+                  const badge = isDone
+                    ? { label: 'Completed', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' }
+                    : isLate
+                      ? { label: 'Overdue', cls: 'bg-rose-50 text-rose-700 border-rose-200' }
+                      : { label: 'On Track', cls: 'bg-slate-50 text-slate-600 border-slate-200' };
+                  return (
+                    <div className="space-y-3 mb-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 text-gray-600">
+                          <TrendingUp className="h-4 w-4" />
+                          <span>Progress</span>
+                        </div>
+                        <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${badge.cls}`}>
+                          {badge.label}
+                        </span>
+                      </div>
+                      <SlimProgressBar percent={pct} done={done} total={total} />
                     </div>
-                    <span className="font-medium text-gray-900">{project.progress}%</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-                    <div
-                      className={`h-2 rounded-full progress-fill ${getProgressColor(project.progress)}`}
-                      style={{ width: `${project.progress}%` }}
-                    />
-                  </div>
-                </div>
+                  );
+                })()}
 
                 <div className="space-y-2 pt-4 border-t border-gray-200">
                   {project.deadline && (

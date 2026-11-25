@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { StatCard } from '@/components/ui/stat-card';
 import { PendingApprovals } from '@/components/pending-approvals';
+import { TeamProgressOverview } from '@/components/team-progress-overview';
 import { Stagger, Reveal } from '@/components/ui/motion';
 import { EmptyState, PageLoader } from '@/components/ui/empty-state';
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
@@ -248,6 +249,9 @@ export default function AdminDashboard() {
 
       {/* ---------- Pending account approvals ---------- */}
       <PendingApprovals />
+
+      {/* ---------- Live team & project progress analytics ---------- */}
+      <TeamProgressOverview />
 
       {/* ---------- Tasks by status + department workload ---------- */}
       <div className="grid items-stretch gap-5 xl:grid-cols-[1.55fr_1fr]">

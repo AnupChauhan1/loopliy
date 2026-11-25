@@ -5,6 +5,7 @@ import api from '@/lib/api-client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { StatusBadge, PriorityBadge } from '@/components/ui/badge';
 import { RemoteTaskControls } from '@/components/remote-task-controls';
+import { SlimProgressBar } from '@/components/team-progress-overview';
 import { UrgentAlarm } from '@/components/urgent-alarm';
 import { CelebrationBurst } from '@/components/ui/celebration';
 import { useCompletionCelebration } from '@/lib/use-sound-prefs';
@@ -107,10 +108,7 @@ export default function EmployeeDashboard() {
                         </p>
                       </div>
                       <div className="shrink-0 w-20">
-                        <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                          <div className="h-full rounded-full bg-gradient-to-r from-brand-600 to-brand-400 progress-fill" style={{ width: `${task.progress}%` }} />
-                        </div>
-                        <p className="text-[10px] text-gray-400 text-right mt-1">{task.progress}%</p>
+                        <SlimProgressBar percent={task.progress ?? 0} />
                       </div>
                     </div>
                     <div className="mt-3">

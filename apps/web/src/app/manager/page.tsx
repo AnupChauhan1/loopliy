@@ -16,6 +16,7 @@ import { StatCard } from '@/components/ui/stat-card';
 import { Stagger } from '@/components/ui/motion';
 import { PageHeader } from '@/components/ui/page-header';
 import { useManagerDashboardStats } from '@/lib/hooks/dashboard';
+import { TeamProgressOverview } from '@/components/team-progress-overview';
 
 const MANAGER_ROLE_NAMES = ['Super Admin', 'Admin', 'Project Manager', 'HR Manager', 'Client'];
 const DONE_STATUSES = ['completed', 'approved', 'cancelled'];
@@ -253,6 +254,9 @@ export default function ManagerDashboard() {
         </Card>
       </div>
 
+      {/* Live team & project progress analytics */}
+      <TeamProgressOverview tasks={allTasks} projects={projects} />
+
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Review queue */}
         <Card className="card-premium">
@@ -323,8 +327,8 @@ export default function ManagerDashboard() {
                       <StatusBadge status={p.status} />
                     </div>
                     <div className="mt-2 flex items-center gap-2">
-                      <div className="h-1.5 flex-1 rounded-full bg-gray-100 overflow-hidden">
-                        <div className="h-full rounded-full bg-gradient-to-r from-brand-600 to-brand-400 progress-fill" style={{ width: `${p.progress}%` }} />
+                      <div className="h-1.5 flex-1 rounded-full bg-slate-100 overflow-hidden">
+                        <div className="h-full rounded-full bg-emerald-600 progress-fill" style={{ width: `${p.progress}%` }} />
                       </div>
                       <span className="text-[11px] text-gray-500">{p.progress}%</span>
                     </div>

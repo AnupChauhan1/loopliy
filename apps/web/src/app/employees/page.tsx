@@ -9,6 +9,7 @@ import { fmtDate, fullName, initials, avatarSrc } from '@/lib/format';
 import { useAuth } from '@/lib/auth-context';
 import { Search, Plus, X, Pencil, UserX, UserCheck, Trash2, CheckCircle2, XCircle } from 'lucide-react';
 import { useDebouncedValue } from '@/lib/hooks/use-debounced-value';
+import { TeamProgressOverview, SlimProgressBar, buildEmployeeStats } from '@/components/team-progress-overview';
 
 export default function EmployeesPage() {
   const { role } = useAuth();
@@ -39,6 +40,12 @@ export default function EmployeesPage() {
     queryFn: () => api.get('/users/registration-stats').then((r) => r.data),
     enabled: canManage,
   });
+  const { data: tasksData } = useQuery({
+    queryKey: ['tasks', 'progress-overview'],
+    queryFn: () => api.get('/tasks', { params: { limit: 500 } }).then((r) => r.data),
+  });
+  const tasks: any[] = tasksData?.tasks ?? [];
+  const employeeStats = new Map(buildEmployeeStats(tasks).map((s) => [s.userId, s]));
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['users'] });
@@ -174,6 +181,8 @@ export default function EmployeesPage() {
         </div>
       )}
 
+      <TeamProgressOverview tasks={tasks} />
+
       {isLoading ? (
         <div className="flex h-48 items-center justify-center"><div className="h-5 w-5 rounded-full border-2 border-gray-300 border-t-brand-500 animate-spin" /></div>
       ) : (
@@ -254,6 +263,11 @@ export default function EmployeesPage() {
                   <p>Manager: {u.employeeProfile?.reportingManager ?? '—'} · Leave balance: {u.employeeProfile?.leaveBalance ?? '—'}</p>
                   {!u.isActive && <p className="font-medium text-rose-600">Account deactivated</p>}
                 </div>
+                {(() => {
+                  const stat = employeeStats.get(u.id);
+                  if (!stat) return null;
+                  return <SlimProgressBar percent={stat.pct} done={stat.done} total={stat.total} className="mt-3" />;
+                })()}
               </CardContent>
             </Card>
           ))}

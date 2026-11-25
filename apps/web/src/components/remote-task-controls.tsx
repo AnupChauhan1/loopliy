@@ -89,8 +89,8 @@ export function RemoteTaskControls({ task, readOnly = false }: { task: any; read
           <span className="text-gray-500">Progress</span>
           <span className="font-semibold text-gray-800">{task.progress ?? 0}%</span>
         </div>
-        <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
-          <div className="h-full rounded-full bg-gradient-to-r from-brand-600 to-brand-400 progress-fill" style={{ width: `${task.progress ?? 0}%` }} />
+        <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+          <div className="h-full rounded-full bg-emerald-600 progress-fill" style={{ width: `${task.progress ?? 0}%` }} />
         </div>
         {(task.workNote || task.deliverableUrl) && (
           <div className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600 space-y-1">
@@ -131,8 +131,8 @@ export function RemoteTaskControls({ task, readOnly = false }: { task: any; read
             <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Progress</span>
             <span className="text-xs font-semibold text-gray-800">{task.progress ?? 0}%</span>
           </div>
-          <div className="mt-2 h-1.5 rounded-full bg-gray-100 overflow-hidden">
-            <div className="h-full rounded-full bg-gradient-to-r from-brand-600 to-brand-400 progress-fill" style={{ width: `${task.progress ?? 0}%` }} />
+          <div className="mt-2 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+            <div className="h-full rounded-full bg-emerald-600 progress-fill" style={{ width: `${task.progress ?? 0}%` }} />
           </div>
           <p className="mt-1 text-[10px] text-gray-400">Auto-calculated from task status</p>
         </div>

@@ -315,11 +315,11 @@ function TasksPageInner() {
                         {fmtDate(task.deadline)}
                       </td>
                       <td className="py-3.5 px-4">
-                        <div className="flex items-center gap-2">
-                          <div className="h-1.5 w-16 rounded-full bg-gray-100 overflow-hidden">
-                            <div className="h-full rounded-full bg-gradient-to-r from-brand-600 to-brand-400 progress-fill smooth-transition" style={{ width: `${task.progress}%` }} />
+                        <div className="flex items-center gap-2" title={`Auto progress: ${task.progress}%`}>
+                          <div className="h-1.5 w-20 rounded-full bg-slate-100 overflow-hidden">
+                            <div className="h-full rounded-full bg-emerald-600 progress-fill smooth-transition" style={{ width: `${task.progress ?? 0}%` }} />
                           </div>
-                          <span className="text-[11px] text-gray-400">{task.progress}%</span>
+                          <span className="text-[11px] text-gray-400">{task.progress ?? 0}%</span>
                         </div>
                       </td>
                       <td className="py-3.5 px-4">
@@ -369,6 +369,14 @@ function TasksPageInner() {
                             <CalendarDays className="h-3 w-3" /> {fmtDate(task.deadline)}
                           </p>
                         )}
+                        <div className="mt-2.5">
+                          <div className="mb-1 flex items-center justify-end text-[10px] font-medium text-gray-400">
+                            {task.progress ?? 0}%
+                          </div>
+                          <div className="h-1 w-full rounded-full bg-slate-100 overflow-hidden">
+                            <div className="h-full rounded-full bg-emerald-600 progress-fill" style={{ width: `${task.progress ?? 0}%` }} />
+                          </div>
+                        </div>
                       </Link>
                       <div className="absolute right-2 top-2 rounded-lg bg-white/90 opacity-70 backdrop-blur-sm transition-opacity group-hover:opacity-100 focus-within:opacity-100">
                         <TaskMenu task={task} manager={manager} onEdit={openEdit} onDelete={confirmDelete} />
