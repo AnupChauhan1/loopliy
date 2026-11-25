@@ -218,13 +218,13 @@ export default function ProjectsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <h1 className="text-2xl font-semibold text-gray-900">Projects</h1>
           <p className="text-sm text-gray-500 mt-1">Manage and track your projects</p>
         </div>
         <Button
-          className="w-full justify-center bg-brand-600 hover:bg-brand-700 text-white shadow-sm sm:w-auto"
+          className="w-full shrink-0 justify-center whitespace-nowrap bg-brand-600 px-3.5 py-2 text-xs text-white shadow-sm hover:bg-brand-700 sm:w-auto sm:text-sm"
           onClick={() => setShowCreateModal(true)}
         >
           <Plus className="mr-2 h-4 w-4" />
@@ -398,7 +398,7 @@ export default function ProjectsPage() {
       {/* Create Project Modal — smart auto-dated wizard */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-50 p-2 sm:p-4 animate-fade-in">
-          <Card className="w-[95vw] max-w-xl max-h-[90dvh] overflow-y-auto overflow-x-hidden border-gray-200 shadow-2xl animate-scale-in">
+          <Card className="mx-auto w-[94vw] max-w-lg max-h-[88dvh] overflow-y-auto overflow-x-hidden border-gray-200 shadow-2xl animate-scale-in">
             <CardHeader className="p-4 pb-4 sm:p-6 sm:pb-4">
               <div className="flex items-center justify-between gap-2">
                 <CardTitle className="min-w-0 text-lg font-semibold">Create New Project</CardTitle>
@@ -495,12 +495,12 @@ export default function ProjectsPage() {
                     ))}
                   </div>
                   {smart.projectType === 'recurring' && (
-                    <div className="mt-3 flex w-full flex-wrap items-center gap-2 rounded-xl border border-brand-100 bg-brand-50/50 p-3 sm:flex-nowrap">
-                      <span className="shrink-0 text-xs font-medium text-gray-600">Tenure:</span>
+                    <div className="mt-3 grid w-full grid-cols-12 items-center gap-2 rounded-xl border border-brand-100 bg-brand-50/50 p-3">
+                      <span className="col-span-12 text-xs font-medium text-gray-600 sm:col-span-3">Tenure:</span>
                       <select
                         value={smart.tenureUnit}
                         onChange={(e) => setSmart({ ...smart, tenureUnit: e.target.value })}
-                        className="min-w-[110px] flex-1 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        className="col-span-8 w-full min-w-0 rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 sm:col-span-6"
                       >
                         <option value="days">Days</option>
                         <option value="weeks">Weeks</option>
@@ -511,9 +511,9 @@ export default function ProjectsPage() {
                         min={1}
                         value={smart.tenureValue}
                         onChange={(e) => setSmart({ ...smart, tenureValue: Number(e.target.value) })}
-                        className="w-20 shrink-0 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        className="col-span-4 w-full min-w-0 rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-center text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 sm:col-span-3"
                       />
-                      <span className="w-full text-xs leading-snug text-gray-500 sm:w-auto">
+                      <span className="col-span-12 text-xs leading-snug text-gray-500">
                         {smart.tenureUnit === 'days' ? 'day(s)' : smart.tenureUnit === 'weeks' ? 'week(s)' : 'month(s)'} per cycle — use “Generate Next Cycle” on the project card to renew.
                       </span>
                     </div>
@@ -540,13 +540,13 @@ export default function ProjectsPage() {
                 {/* Step 4 — service */}
                 <div>
                   <label className="text-sm font-medium text-gray-700 mb-2 block">Service</label>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  <div className="grid w-full grid-cols-2 gap-2">
                     {PROJECT_SERVICES.map((s) => (
                       <button
                         key={s.value}
                         type="button"
                         onClick={() => setSmart({ ...smart, service: s.value })}
-                        className={`min-w-0 rounded-xl border px-2.5 py-2.5 text-center text-xs font-semibold leading-snug break-words transition-all sm:text-sm ${smart.service === s.value ? 'border-brand-500 bg-brand-50 text-brand-700 shadow-sm' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
+                        className={`w-full min-w-0 whitespace-normal break-words rounded-xl border px-2 py-2.5 text-center text-xs font-semibold leading-tight transition-all ${smart.service === s.value ? 'border-brand-500 bg-brand-50 text-brand-700 shadow-sm' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
                       >
                         {s.label}
                       </button>
@@ -557,7 +557,7 @@ export default function ProjectsPage() {
                 {/* Step 5 — auto-generated task preview */}
                 {showTemplatePreview ? (
                   <div className="rounded-xl border border-brand-200 bg-brand-50/40 p-3 sm:p-4">
-                    <div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="mb-2 flex flex-col gap-1">
                       <p className="text-sm font-semibold text-gray-900">
                         Auto-generated SMM schedule — {smmTasks.length} tasks
                       </p>
@@ -568,10 +568,10 @@ export default function ProjectsPage() {
                     </p>
                     <div className="max-h-64 space-y-1.5 overflow-y-auto pr-1">
                       {smmTasks.map((t, i) => (
-                        <div key={t.dayOffset} className="flex flex-col justify-between gap-1 rounded-lg border border-gray-100 bg-white/80 p-2.5 text-xs sm:flex-row sm:items-center sm:gap-2 sm:px-2.5 sm:py-1.5">
-                          <div className="flex items-center justify-between gap-2 sm:contents">
-                            <span className="shrink-0 text-[11px] font-bold text-brand-600 sm:order-1 sm:w-14">Day {t.dayOffset}</span>
-                            <span className="shrink-0 text-right text-[11px] text-gray-400 sm:order-3 sm:w-20">
+                        <div key={t.dayOffset} className="flex w-full flex-col gap-0.5 rounded-lg border border-gray-100 bg-white/80 p-2.5 text-xs">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="shrink-0 text-[11px] font-bold text-brand-600">Day {t.dayOffset}</span>
+                            <span className="shrink-0 text-right text-[11px] text-gray-400">
                               {fmtShortDate(dueDateFor(smart.startDate, t.dayOffset))}
                             </span>
                           </div>
@@ -583,7 +583,7 @@ export default function ProjectsPage() {
                               next[i] = { ...next[i], title: e.target.value };
                               setSmmTasks(next);
                             }}
-                            className="w-full min-w-0 rounded-md border border-transparent bg-transparent px-0 py-1 !text-xs font-medium text-gray-800 hover:border-gray-200 focus:border-brand-400 focus:bg-white focus:outline-none sm:order-2 sm:w-auto sm:flex-1 sm:px-1.5 sm:font-normal"
+                            className="w-full min-w-0 rounded-md border border-transparent bg-transparent px-0 py-1 !text-xs font-medium text-gray-800 hover:border-gray-200 focus:border-brand-400 focus:bg-white focus:outline-none"
                           />
                         </div>
                       ))}
@@ -664,13 +664,13 @@ export default function ProjectsPage() {
                     type="button"
                     variant="outline"
                     onClick={() => setShowCreateModal(false)}
-                    className="w-full justify-center px-3 py-2.5 text-xs font-semibold sm:text-sm"
+                    className="w-full justify-center whitespace-nowrap px-3 py-2.5 text-xs font-semibold"
                   >
                     Cancel
                   </Button>
                   <Button
                     type="submit"
-                    className="w-full justify-center bg-brand-600 px-3 py-2.5 text-xs font-semibold text-white hover:bg-brand-700 sm:text-sm"
+                    className="w-full justify-center whitespace-nowrap bg-brand-600 px-3 py-2.5 text-xs font-semibold text-white hover:bg-brand-700"
                     disabled={createProjectMutation.isPending || !smart.name.trim()}
                   >
                     {createProjectMutation.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating...</> : 'Create Project'}
@@ -788,13 +788,13 @@ export default function ProjectsPage() {
                     type="button"
                     variant="outline"
                     onClick={() => setShowEditModal(false)}
-                    className="w-full justify-center px-3 py-2.5 text-xs font-semibold sm:text-sm"
+                    className="w-full justify-center whitespace-nowrap px-3 py-2.5 text-xs font-semibold"
                   >
                     Cancel
                   </Button>
                   <Button
                     type="submit"
-                    className="w-full justify-center bg-brand-600 px-3 py-2.5 text-xs font-semibold text-white hover:bg-brand-700 sm:text-sm"
+                    className="w-full justify-center whitespace-nowrap bg-brand-600 px-3 py-2.5 text-xs font-semibold text-white hover:bg-brand-700"
                     disabled={updateProjectMutation.isPending}
                   >
                     {updateProjectMutation.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Updating...</> : 'Update Project'}

@@ -499,7 +499,7 @@
 
 @media (max-width: 639px) {
   html {
-    font-size: 13.5px;
+    font-size: 13px !important;
   }
 
   input:not([type='checkbox']):not([type='radio']):not([type='range']),
