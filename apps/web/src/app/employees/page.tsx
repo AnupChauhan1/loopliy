@@ -9,7 +9,7 @@ import { fmtDate, fullName, initials, avatarSrc } from '@/lib/format';
 import { useAuth } from '@/lib/auth-context';
 import { Search, Plus, X, Pencil, UserX, UserCheck, Trash2, CheckCircle2, XCircle } from 'lucide-react';
 import { useDebouncedValue } from '@/lib/hooks/use-debounced-value';
-import { TeamProgressOverview, SlimProgressBar, buildEmployeeStats } from '@/components/team-progress-overview';
+import { TeamProgressOverview, buildEmployeeStats } from '@/components/team-progress-overview';
 
 export default function EmployeesPage() {
   const { role } = useAuth();
@@ -181,7 +181,7 @@ export default function EmployeesPage() {
         </div>
       )}
 
-      <TeamProgressOverview tasks={tasks} />
+      <TeamProgressOverview tasks={tasks} users={users ?? []} />
 
       {isLoading ? (
         <div className="flex h-48 items-center justify-center"><div className="h-5 w-5 rounded-full border-2 border-gray-300 border-t-brand-500 animate-spin" /></div>
@@ -265,8 +265,15 @@ export default function EmployeesPage() {
                 </div>
                 {(() => {
                   const stat = employeeStats.get(u.id);
-                  if (!stat) return null;
-                  return <SlimProgressBar percent={stat.pct} done={stat.done} total={stat.total} className="mt-3" />;
+                  const pct = stat?.pct ?? 0;
+                  return (
+                    <div className="mt-3 pt-2 flex items-center gap-3">
+                      <div className="flex-1 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                        <div className="h-full rounded-full bg-emerald-600 progress-fill transition-all duration-500" style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className="shrink-0 text-xs font-medium text-slate-600">Performance: {pct}%</span>
+                    </div>
+                  );
                 })()}
               </CardContent>
             </Card>

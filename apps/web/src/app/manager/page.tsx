@@ -255,7 +255,7 @@ export default function ManagerDashboard() {
       </div>
 
       {/* Live team & project progress analytics */}
-      <TeamProgressOverview tasks={allTasks} projects={projects} />
+      <TeamProgressOverview tasks={allTasks} projects={projects} users={employees} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Review queue */}
