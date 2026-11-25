@@ -4,6 +4,7 @@ import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { SMM_CYCLE_1, SMM_CYCLE_2_PLUS, TemplateTaskSpec, addDays, addTenure, dueDateFor } from './smm-template';
 import { hasAnyRole, MANAGER_ROLES } from '../common/roles';
+import { projectProgress, projectProgressFromGroups } from '../common/progress';
 
 const TASK_INCLUDE = {
   assignees: {
@@ -30,6 +31,36 @@ export class ProjectsService {
     if (isFixedSmm) return cycle <= 1 ? SMM_CYCLE_1 : SMM_CYCLE_2_PLUS;
     const stored = Array.isArray(project.taskTemplate) ? (project.taskTemplate as TemplateTaskSpec[]) : [];
     return stored.filter((t) => t && typeof t.dayOffset === 'number' && t.title);
+  }
+
+  /**
+   * Project progress is NEVER stored — it is always computed live from the
+   * statuses of the project's tasks (weighted average of task progress %).
+   */
+  private async progressByProject(projectIds: string[]) {
+    const map = new Map<string, number>();
+    if (!projectIds.length) return map;
+    const groups = await this.prisma.task.groupBy({
+      by: ['projectId', 'status'],
+      where: { projectId: { in: projectIds } },
+      _count: { _all: true },
+    });
+    const byProject = new Map<string, typeof groups>();
+    for (const g of groups) {
+      if (!g.projectId) continue;
+      const rows = byProject.get(g.projectId) ?? [];
+      rows.push(g);
+      byProject.set(g.projectId, rows);
+    }
+    for (const [projectId, rows] of byProject) {
+      map.set(projectId, projectProgressFromGroups(rows));
+    }
+    return map;
+  }
+
+  private async withProgress<T extends { id: string }>(items: T[]) {
+    const map = await this.progressByProject(items.map((i) => i.id));
+    return items.map((i) => ({ ...i, progress: map.get(i.id) ?? 0 }));
   }
 
   private async createCycleTasks(
@@ -138,7 +169,8 @@ export class ProjectsService {
       },
     });
 
-    return project;
+    const [withProgress] = await this.withProgress([project]);
+    return withProgress;
   }
 
   async findAll(query: any, organizationId: string) {
@@ -194,8 +226,9 @@ export class ProjectsService {
       this.prisma.project.count({ where }),
     ]);
 
+    const projectsWithProgress = await this.withProgress(projects);
     return {
-      projects,
+      projects: projectsWithProgress,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
@@ -258,7 +291,7 @@ export class ProjectsService {
       throw new NotFoundException('Project not found');
     }
 
-    return project;
+    return { ...project, progress: projectProgress(project.tasks) };
   }
 
   async update(id: string, updateProjectDto: UpdateProjectDto, userId: string, organizationId: string) {
@@ -274,9 +307,11 @@ export class ProjectsService {
       throw new ForbiddenException('Only project owner can update the project');
     }
 
+    // Progress is computed from tasks — never accept it as an input
+    const { progress: _ignoredProgress, ...safeUpdate } = updateProjectDto as any;
     const updated = await this.prisma.project.update({
       where: { id },
-      data: updateProjectDto as any,
+      data: safeUpdate,
       include: {
         client: true,
         owner: {
@@ -314,7 +349,8 @@ export class ProjectsService {
       },
     });
 
-    return updated;
+    const [withProgress] = await this.withProgress([updated]);
+    return withProgress;
   }
 
   async remove(id: string, userId: string, organizationId: string) {
@@ -394,7 +430,8 @@ export class ProjectsService {
       },
     });
 
-    return { project: updated, cycle, tasksCreated: created };
+    const [projectWithProgress] = await this.withProgress([updated]);
+    return { project: projectWithProgress, cycle, tasksCreated: created };
   }
 
   async addMember(projectId: string, userId: string, requestingUserId: string, organizationId: string) {

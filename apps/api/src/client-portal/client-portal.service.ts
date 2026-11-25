@@ -11,6 +11,7 @@ import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { MANAGER_ROLES } from '../common/roles';
+import { projectProgressFromGroups, taskProgress } from '../common/progress';
 
 type PortalUser = {
   id: string;
@@ -187,10 +188,31 @@ export class ClientPortalService {
       .filter(Boolean)
       .sort((a: any, b: any) => new Date(b.latestVersion.createdAt).getTime() - new Date(a.latestVersion.createdAt).getTime());
 
+    // Progress is derived live from task statuses — never the stored column
+    const progressGroups = projectIds.length
+      ? await this.prisma.task.groupBy({
+          by: ['projectId', 'status'],
+          where: { projectId: { in: projectIds } },
+          _count: { _all: true },
+        })
+      : [];
+    const progressByProject = new Map<string, typeof progressGroups>();
+    for (const g of progressGroups) {
+      if (!g.projectId) continue;
+      const rows = progressByProject.get(g.projectId) ?? [];
+      rows.push(g);
+      progressByProject.set(g.projectId, rows);
+    }
+    const projectsWithProgress = projects.map((p) => ({
+      ...p,
+      progress: projectProgressFromGroups(progressByProject.get(p.id) ?? []),
+    }));
+    const tasksWithProgress = tasks.map((t) => ({ ...t, progress: taskProgress(t.status) }));
+
     return {
       client: { id: client.id, name: client.name },
-      projects,
-      tasks,
+      projects: projectsWithProgress,
+      tasks: tasksWithProgress,
       deliverables,
       files: files.map((file) => ({
         ...file,
@@ -576,11 +598,29 @@ export class ClientPortalService {
       where: { id: user.id },
       select: { email: true, firstName: true, lastName: true, avatar: true, createdAt: true },
     });
-    const projects = await this.prisma.project.findMany({
+    const rawProjects = await this.prisma.project.findMany({
       where: { organizationId: user.organizationId, clientId: client.id },
       select: { id: true, name: true, status: true, progress: true, deadline: true },
       orderBy: { updatedAt: 'desc' },
     });
+    const progressGroups = rawProjects.length
+      ? await this.prisma.task.groupBy({
+          by: ['projectId', 'status'],
+          where: { projectId: { in: rawProjects.map((p) => p.id) } },
+          _count: { _all: true },
+        })
+      : [];
+    const progressByProject = new Map<string, typeof progressGroups>();
+    for (const g of progressGroups) {
+      if (!g.projectId) continue;
+      const rows = progressByProject.get(g.projectId) ?? [];
+      rows.push(g);
+      progressByProject.set(g.projectId, rows);
+    }
+    const projects = rawProjects.map((p) => ({
+      ...p,
+      progress: projectProgressFromGroups(progressByProject.get(p.id) ?? []),
+    }));
     return {
       client: {
         id: client.id,

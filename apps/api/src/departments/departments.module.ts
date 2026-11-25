@@ -4,6 +4,7 @@ import { Module } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard, Roles, MANAGER_ROLES, PRIVILEGED_ROLES, hasAnyRole } from '../common/roles';
+import { projectProgressFromGroups } from '../common/progress';
 
 @Injectable()
 export class DepartmentsService {
@@ -41,7 +42,29 @@ export class DepartmentsService {
       },
     });
     if (!dept) throw new NotFoundException('Department not found');
-    return dept;
+    // Project progress is derived live from task statuses
+    const projectIds = dept.projects.map((p) => p.id);
+    const groups = projectIds.length
+      ? await this.prisma.task.groupBy({
+          by: ['projectId', 'status'],
+          where: { projectId: { in: projectIds } },
+          _count: { _all: true },
+        })
+      : [];
+    const byProject = new Map<string, typeof groups>();
+    for (const g of groups) {
+      if (!g.projectId) continue;
+      const rows = byProject.get(g.projectId) ?? [];
+      rows.push(g);
+      byProject.set(g.projectId, rows);
+    }
+    return {
+      ...dept,
+      projects: dept.projects.map((p) => ({
+        ...p,
+        progress: projectProgressFromGroups(byProject.get(p.id) ?? []),
+      })),
+    };
   }
 
   async stats(id: string, organizationId: string) {

@@ -6,7 +6,7 @@ import api from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { useCompletionCelebration } from '@/lib/use-sound-prefs';
 import { CelebrationBurst } from '@/components/ui/celebration';
-import { Play, Send, Percent, Loader2 } from 'lucide-react';
+import { Play, Send, Loader2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { isManager } from '@/lib/roles';
 
@@ -14,9 +14,7 @@ import { isManager } from '@/lib/roles';
 export function TaskActions({ task, compact = false }: { task: any; compact?: boolean }) {
   const queryClient = useQueryClient();
   const { celebrate, celebrating } = useCompletionCelebration();
-  const [progressValue, setProgressValue] = useState(task.progress ?? 0);
   const [note, setNote] = useState('');
-  const [showProgress, setShowProgress] = useState(false);
   const [error, setError] = useState('');
 
   const invalidate = () => {
@@ -32,12 +30,6 @@ export function TaskActions({ task, compact = false }: { task: any; compact?: bo
     onError: (e: any) => setError(e.response?.data?.message || 'Failed to start'),
   });
 
-  const progress = useMutation({
-    mutationFn: (p: number) => api.post(`/tasks/${task.id}/progress`, { progress: p }),
-    onSuccess: () => { invalidate(); setShowProgress(false); },
-    onError: (e: any) => setError(e.response?.data?.message || 'Failed'),
-  });
-
   const submit = useMutation({
     mutationFn: () => api.post(`/tasks/${task.id}/submit`, { note }).then((r) => r.data),
     onSuccess: (data) => {
@@ -50,7 +42,7 @@ export function TaskActions({ task, compact = false }: { task: any; compact?: bo
     onError: (e: any) => setError(e.response?.data?.message || 'Submit failed'),
   });
 
-  const busy = start.isPending || progress.isPending || submit.isPending;
+  const busy = start.isPending || submit.isPending;
 
   if (!['todo', 'in_progress', 'changes_requested', 'on_hold'].includes(task.status)) return null;
 
@@ -72,29 +64,7 @@ export function TaskActions({ task, compact = false }: { task: any; compact?: bo
       )}
 
       {task.status === 'in_progress' && !compact && (
-        <>
-          {showProgress ? (
-            <div className="flex items-center gap-2">
-              <input
-                type="range"
-                min={0}
-                max={100}
-                step={5}
-                value={progressValue}
-                onChange={(e) => setProgressValue(Number(e.target.value))}
-                className="flex-1 accent-brand-600"
-              />
-              <span className="text-sm font-medium text-gray-700 w-10">{progressValue}%</span>
-              <Button size="sm" onClick={() => progress.mutate(progressValue)} disabled={busy} className="rounded-lg">
-                Save
-              </Button>
-            </div>
-          ) : (
-            <Button size="sm" variant="outline" onClick={() => setShowProgress(true)} className="rounded-xl border-gray-200">
-              <Percent className="h-4 w-4" /> Update progress
-            </Button>
-          )}
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
             <input
               type="text"
               value={note}
@@ -110,8 +80,7 @@ export function TaskActions({ task, compact = false }: { task: any; compact?: bo
               {submit.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               {task.requiresApproval ? 'Submit for review' : 'Complete task'}
             </Button>
-          </div>
-        </>
+        </div>
       )}
 
       {task.status === 'in_progress' && compact && (

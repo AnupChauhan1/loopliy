@@ -72,10 +72,6 @@ export class CreateProjectDto {
   budget?: number;
 
   @IsOptional()
-  @IsNumber()
-  progress?: number;
-
-  @IsOptional()
   @IsEnum(['recurring', 'one_time'])
   projectType?: string;
 

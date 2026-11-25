@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
@@ -18,24 +18,21 @@ function selectValue(status: string) {
 }
 
 /**
- * Remote-work controls for an assigned task: status selector, live progress
- * slider, and a work note / deliverable link that managers and admins see
- * immediately. Set `readOnly` for manager inspection views.
+ * Remote-work controls for an assigned task: status selector (progress is
+ * derived automatically from status), and a work note / deliverable link that
+ * managers and admins see immediately. Set `readOnly` for manager inspection views.
  */
 export function RemoteTaskControls({ task, readOnly = false }: { task: any; readOnly?: boolean }) {
   const queryClient = useQueryClient();
   const { celebrate, celebrating } = useCompletionCelebration();
-  const [progress, setProgress] = useState(task.progress ?? 0);
   const [workNote, setWorkNote] = useState(task.workNote ?? '');
   const [deliverableUrl, setDeliverableUrl] = useState(task.deliverableUrl ?? '');
   const [error, setError] = useState('');
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    setProgress(task.progress ?? 0);
     setWorkNote(task.workNote ?? '');
     setDeliverableUrl(task.deliverableUrl ?? '');
-  }, [task.id, task.progress, task.workNote, task.deliverableUrl]);
+  }, [task.id, task.workNote, task.deliverableUrl]);
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['tasks'] });
@@ -69,12 +66,6 @@ export function RemoteTaskControls({ task, readOnly = false }: { task: any; read
     onError,
   });
 
-  const saveProgress = useMutation({
-    mutationFn: (p: number) => api.post(`/tasks/${task.id}/progress`, { progress: p }),
-    onSuccess: invalidate,
-    onError,
-  });
-
   const saveNote = useMutation({
     mutationFn: () =>
       api.put(`/tasks/${task.id}`, { workNote, deliverableUrl }).then((r) => r.data),
@@ -88,13 +79,7 @@ export function RemoteTaskControls({ task, readOnly = false }: { task: any; read
     advance.mutate(value);
   };
 
-  const queueProgressSave = (value: number) => {
-    setProgress(value);
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => saveProgress.mutate(value), 600);
-  };
-
-  const busy = advance.isPending || saveProgress.isPending || saveNote.isPending;
+  const busy = advance.isPending || saveNote.isPending;
   const finished = DONE_STATUSES.includes(task.status);
 
   if (readOnly) {
@@ -144,18 +129,12 @@ export function RemoteTaskControls({ task, readOnly = false }: { task: any; read
         <div>
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Progress</span>
-            <span className="text-xs font-semibold text-gray-800">{progress}%</span>
+            <span className="text-xs font-semibold text-gray-800">{task.progress ?? 0}%</span>
           </div>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            step={5}
-            value={progress}
-            disabled={busy || finished}
-            onChange={(e) => queueProgressSave(Number(e.target.value))}
-            className="mt-2 w-full accent-brand-600 disabled:opacity-60"
-          />
+          <div className="mt-2 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+            <div className="h-full rounded-full bg-gradient-to-r from-brand-600 to-brand-400 progress-fill" style={{ width: `${task.progress ?? 0}%` }} />
+          </div>
+          <p className="mt-1 text-[10px] text-gray-400">Auto-calculated from task status</p>
         </div>
       </div>
 

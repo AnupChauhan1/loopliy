@@ -60,11 +60,6 @@ export class TasksController {
     return this.tasksService.start(id, req.user);
   }
 
-  @Post(':id/progress')
-  progress(@Param('id') id: string, @Body('progress') progress: number, @Request() req: any) {
-    return this.tasksService.updateProgress(id, Number(progress), req.user);
-  }
-
   @Post(':id/submit')
   submit(@Param('id') id: string, @Body('note') note: string | undefined, @Request() req: any) {
     return this.tasksService.submit(id, note, req.user);

@@ -4,6 +4,7 @@ import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { hasAnyRole, MANAGER_ROLES } from '../common/roles';
+import { taskProgress } from '../common/progress';
 
 const ASSIGNEE_INCLUDE = {
   assignees: {
@@ -55,7 +56,12 @@ export class TasksService {
     });
     return this.prisma.task.update({
       where: { id: taskId },
-      data: { status: toStatus, ...(toStatus === 'completed' ? { isOverdue: false } : {}), ...extra },
+      data: {
+        status: toStatus,
+        progress: taskProgress(toStatus),
+        ...(toStatus === 'completed' ? { isOverdue: false } : {}),
+        ...extra,
+      },
       include: ASSIGNEE_INCLUDE,
     });
   }
@@ -133,6 +139,7 @@ export class TasksService {
         ...fields,
         deadline,
         dayOffset: dayOffset ?? null,
+        progress: taskProgress(fields.status ?? 'todo'),
         isIndividual: dto.isIndividual || !dto.projectId,
         organizationId,
         taskNumber: await this.generateTaskNumber(),
@@ -209,7 +216,9 @@ export class TasksService {
       this.prisma.task.count({ where }),
     ]);
 
-    return { tasks, pagination: { page: parseInt(page), limit: parseInt(limit), total, totalPages: Math.ceil(total / limit) } };
+    // Progress is always derived from workflow status, never stored manually
+    const withProgress = tasks.map((t) => ({ ...t, progress: taskProgress(t.status) }));
+    return { tasks: withProgress, pagination: { page: parseInt(page), limit: parseInt(limit), total, totalPages: Math.ceil(total / limit) } };
   }
 
   async findMyTasks(query: any, user: any) {
@@ -245,7 +254,7 @@ export class TasksService {
     });
     if (!task) throw new NotFoundException('Task not found');
     if (task.project && task.project.organizationId !== organizationId) throw new ForbiddenException('Access denied');
-    return task;
+    return { ...task, progress: taskProgress(task.status) };
   }
 
   async update(id: string, dto: UpdateTaskDto & { assigneeIds?: string[] }, user: any) {
@@ -309,18 +318,6 @@ export class TasksService {
     return this.changeStatus(id, task.status, 'in_progress', user.id, { startDate: task.startDate ?? new Date() });
   }
 
-  /** Employee updates progress % (must be in_progress). */
-  async updateProgress(id: string, progress: number, user: any) {
-    const task = await this.getTask(id, user.organizationId);
-    if (!this.isAssignee(task, user.id) && !this.isManager(user)) throw new ForbiddenException('Not your task');
-    if (!['in_progress', 'todo'].includes(task.status)) throw new BadRequestException('Task is not in progress');
-    const status = task.status === 'todo' ? 'in_progress' : task.status;
-    if (task.status === 'todo') {
-      await this.prisma.taskStatusHistory.create({ data: { taskId: id, fromStatus: 'todo', toStatus: 'in_progress', changedBy: user.id } });
-    }
-    return this.prisma.task.update({ where: { id }, data: { progress: Math.min(100, Math.max(0, progress)), status }, include: ASSIGNEE_INCLUDE });
-  }
-
   /**
    * Employee submits work. If approval required → in_review (notifies reviewers).
    * Otherwise → completed. Returns whether the completion sound should play.
@@ -336,7 +333,7 @@ export class TasksService {
     }
 
     if (task.requiresApproval) {
-      const updated = await this.changeStatus(id, task.status, 'in_review', user.id, { progress: 100 });
+      const updated = await this.changeStatus(id, task.status, 'in_review', user.id);
       // Notify reviewers: task creator, project owner, admins/PMs
       const reviewers = await this.notifications.userIdsWithRoles(user.organizationId, MANAGER_ROLES);
       if (task.createdById) reviewers.push(task.createdById);
@@ -350,7 +347,7 @@ export class TasksService {
       return { task: updated, completed: false, playCompletionSound: false };
     }
 
-    const updated = await this.changeStatus(id, task.status, 'completed', user.id, { progress: 100, completedAt: new Date() });
+    const updated = await this.changeStatus(id, task.status, 'completed', user.id, { completedAt: new Date() });
     if (task.createdById && task.createdById !== user.id) {
       await this.notifications.notify(task.createdById, 'task_completed', 'Task completed', `"${task.title}" (${task.taskNumber}) was completed`, `/tasks/${id}`);
     }
@@ -365,7 +362,7 @@ export class TasksService {
 
     if (action === 'changes') {
       if (!feedback?.trim()) throw new BadRequestException('Feedback is required when requesting changes');
-      const updated = await this.changeStatus(id, task.status, 'changes_requested', user.id, { progress: 0 });
+      const updated = await this.changeStatus(id, task.status, 'changes_requested', user.id);
       await this.prisma.taskComment.create({ data: { taskId: id, userId: user.id, content: `🔁 Changes requested: ${feedback}` } });
       await this.notifications.notifyMany(
         task.assignees.map((a) => a.userId),
@@ -377,7 +374,7 @@ export class TasksService {
       return { task: updated, completed: false };
     }
 
-    const updated = await this.changeStatus(id, task.status, 'completed', user.id, { progress: 100, completedAt: new Date() });
+    const updated = await this.changeStatus(id, task.status, 'completed', user.id, { completedAt: new Date() });
     await this.prisma.taskComment.create({ data: { taskId: id, userId: user.id, content: `✅ Approved${feedback ? `: ${feedback}` : ''}` } });
     await this.notifications.notifyMany(
       task.assignees.map((a) => a.userId).filter((u) => u !== user.id),
@@ -408,7 +405,6 @@ export class TasksService {
     const completed = status === 'completed';
     return this.changeStatus(id, task.status, status, user.id, {
       completedAt: completed ? new Date() : status === 'in_progress' ? task.completedAt : null,
-      progress: completed ? 100 : undefined,
     });
   }
 
