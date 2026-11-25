@@ -111,7 +111,7 @@ export default function LeavePage() {
 
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4 animate-fade-in" onClick={() => setShowForm(false)}>
-          <Card className="w-full max-w-md animate-scale-in shadow-2xl" onClick={(e: any) => e.stopPropagation()}>
+          <Card className="w-[95vw] sm:w-full max-w-md max-h-[90vh] overflow-y-auto animate-scale-in shadow-2xl" onClick={(e: any) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 pt-5 pb-3">
               <h2 className="text-lg font-semibold">Apply for leave</h2>
               <button onClick={() => setShowForm(false)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100"><X className="h-5 w-5" /></button>

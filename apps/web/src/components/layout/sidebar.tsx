@@ -229,7 +229,7 @@ export function Sidebar({ isMobileSidebarOpen = false, setIsMobileSidebarOpen, c
   return (
     <motion.aside
       initial={false}
-      animate={{ width: desktop ? (mini ? COLLAPSED : EXPANDED) : EXPANDED, x: desktop || isMobileSidebarOpen ? 0 : -EXPANDED - 8 }}
+      animate={{ width: desktop ? (mini ? COLLAPSED : EXPANDED) : 288, x: desktop || isMobileSidebarOpen ? 0 : -296 }}
       transition={{ type: 'spring', stiffness: 320, damping: 34 }}
       id="primary-navigation"
       aria-label="Primary navigation"

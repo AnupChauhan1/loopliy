@@ -33,7 +33,7 @@ export default function NotificationsPage() {
 
   return (
     <div className="space-y-5 animate-fade-in max-w-3xl">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-[26px] font-semibold text-gray-900 tracking-tight">Notifications</h1>
           <p className="text-sm text-gray-500 mt-1">{notifications?.filter((n: any) => !n.read).length ?? 0} unread</p>

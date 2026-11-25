@@ -16,6 +16,7 @@ import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { TimeTrackerButton } from '@/components/time-tracker';
 import { usePwaInstall } from '@/lib/pwa-install-provider';
+import { LooplyLogo } from '@/components/LooplyLogo';
 
 interface HeaderProps {
   setIsMobileSidebarOpen?: (open: boolean) => void;
@@ -284,14 +285,17 @@ export function Header({ setIsMobileSidebarOpen, isMobileSidebarOpen = false }: 
           type="button"
           whileTap={{ scale: 0.9 }}
           onClick={() => setIsMobileSidebarOpen?.(true)}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800 lg:hidden"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800 lg:hidden"
           aria-label="Open menu"
           aria-controls="primary-navigation"
           aria-expanded={isMobileSidebarOpen}
         >
           <Menu className="h-5 w-5" />
         </motion.button>
-        <div className="group relative min-w-0 w-full max-w-[22rem] transition-[max-width] duration-300 focus-within:max-w-[28rem]">
+        <Link href="/" className="flex shrink-0 items-center lg:hidden" aria-label="Looply home">
+          <LooplyLogo animate={false} size="sm" theme="light" />
+        </Link>
+        <div className="group relative hidden min-w-0 w-full max-w-[22rem] transition-[max-width] duration-300 focus-within:max-w-[28rem] sm:block">
           <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 transition-colors group-focus-within:text-brand-500" />
           <input
             ref={searchRef}

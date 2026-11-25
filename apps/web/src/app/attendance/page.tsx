@@ -262,7 +262,7 @@ function ProtectedPhotoDialog({ url, onClose }: { url: string; onClose: () => vo
 
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center bg-gray-950/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Attendance photo">
-      <div className="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div className="w-[95vw] sm:w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
           <h2 className="font-semibold text-gray-900">Attendance verification photo</h2>
           <Button type="button" variant="ghost" size="icon" aria-label="Close photo" onClick={onClose}><X className="h-4 w-4" /></Button>
@@ -934,7 +934,7 @@ export default function AttendancePage() {
       {selectedPhoto && <ProtectedPhotoDialog url={selectedPhoto} onClose={() => setSelectedPhoto('')} />}
       {editingRecord && (
         <div className="fixed inset-0 z-[90] flex items-center justify-center bg-gray-950/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="edit-attendance-title">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl">
+          <div className="w-[95vw] sm:w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl">
             <div className="flex items-center justify-between"><div><h2 id="edit-attendance-title" className="font-semibold text-gray-900">Correct attendance record</h2><p className="mt-1 text-xs text-gray-500">{editingRecord.user?.firstName} {editingRecord.user?.lastName} · {formatDate(editingRecord.date, timeZone)}</p></div><Button type="button" variant="ghost" size="icon" onClick={() => setEditingRecord(null)} aria-label="Close"><X className="h-4 w-4" /></Button></div>
             <form className="mt-5 space-y-4" onSubmit={(event) => {
               event.preventDefault();

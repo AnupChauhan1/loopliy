@@ -132,7 +132,7 @@ export default function ClientAccountsPage() {
 
       {selectedClient && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/50 p-4" onClick={() => setSelectedClient(null)}>
-          <section className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl" onClick={(event) => event.stopPropagation()}>
+          <section className="w-[95vw] sm:w-full max-w-md max-h-[90vh] overflow-y-auto rounded-xl bg-white p-5 shadow-xl" onClick={(event) => event.stopPropagation()}>
             <h2 className="text-lg font-semibold text-gray-900">Create access for {selectedClient.name}</h2>
             <form
               className="mt-4 space-y-3"

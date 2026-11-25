@@ -45,7 +45,7 @@ export default function ModulesPage() {
 
   return (
     <div className="space-y-5 animate-fade-in">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-[26px] font-semibold text-gray-900 tracking-tight">Module Registry</h1>
           <p className="text-sm text-gray-500 mt-1">Create and configure functional modules</p>

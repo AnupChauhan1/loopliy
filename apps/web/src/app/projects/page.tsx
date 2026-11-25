@@ -398,7 +398,7 @@ export default function ProjectsPage() {
       {/* Create Project Modal — smart auto-dated wizard */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-50 p-4 animate-fade-in">
-          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto border-gray-200 shadow-2xl animate-scale-in">
+          <Card className="w-[95vw] sm:w-full max-w-2xl max-h-[90vh] overflow-y-auto border-gray-200 shadow-2xl animate-scale-in">
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg font-semibold">Create New Project</CardTitle>
@@ -682,7 +682,7 @@ export default function ProjectsPage() {
       {/* Edit Project Modal */}
       {showEditModal && selectedProject && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-50 p-4 animate-fade-in">
-          <Card className="w-full max-w-md border-gray-200 shadow-2xl animate-scale-in">
+          <Card className="w-[95vw] sm:w-full max-w-md max-h-[90vh] overflow-y-auto border-gray-200 shadow-2xl animate-scale-in">
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg font-semibold">Edit Project</CardTitle>

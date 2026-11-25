@@ -108,7 +108,7 @@ export default function AttendanceCamera({
 
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center bg-gray-950/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="attendance-camera-title">
-      <div className="w-full max-w-xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div className="w-[95vw] sm:w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
           <div>
             <h2 id="attendance-camera-title" className="font-semibold text-gray-900">

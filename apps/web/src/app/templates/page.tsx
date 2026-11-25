@@ -158,7 +158,7 @@ export default function TemplatesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">Issue Templates</h1>
           <p className="text-sm text-gray-500 mt-1">Create reusable issue templates for consistency</p>
@@ -296,7 +296,7 @@ export default function TemplatesPage() {
       {/* Create Template Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-lg border-gray-200 shadow-2xl">
+          <Card className="w-[95vw] sm:w-full max-w-lg max-h-[90vh] overflow-y-auto border-gray-200 shadow-2xl">
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg font-semibold">Create New Template</CardTitle>
@@ -425,7 +425,7 @@ export default function TemplatesPage() {
       {/* Edit Template Modal */}
       {showEditModal && selectedTemplate && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-lg border-gray-200 shadow-2xl">
+          <Card className="w-[95vw] sm:w-full max-w-lg max-h-[90vh] overflow-y-auto border-gray-200 shadow-2xl">
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg font-semibold">Edit Template</CardTitle>
