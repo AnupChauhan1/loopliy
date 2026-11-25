@@ -35,10 +35,6 @@ export class CreateProjectDto {
 
   @IsOptional()
   @IsString()
-  clientName?: string;
-
-  @IsOptional()
-  @IsString()
   section?: string;
 
   @IsOptional()

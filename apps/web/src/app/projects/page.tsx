@@ -40,7 +40,6 @@ interface Project {
   _count?: {
     tasks: number;
   };
-  clientName?: string;
   projectType?: string;
   tenureUnit?: string;
   tenureValue?: number;
@@ -82,7 +81,6 @@ export default function ProjectsPage() {
 
   // Smart create-project wizard state (zero manual task-date entry)
   const emptySmart = {
-    clientName: '',
     name: '',
     description: '',
     startDate: todayInputValue(),
@@ -422,7 +420,6 @@ export default function ProjectsPage() {
                   : customTasks.filter((t) => t.title.trim() && t.dayOffset > 0);
                 const projectData: any = {
                   name: smart.name,
-                  clientName: smart.clientName || undefined,
                   description: smart.description || undefined,
                   status: 'active',
                   priority: 'medium',
@@ -443,29 +440,17 @@ export default function ProjectsPage() {
                   <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] font-medium text-rose-700">{formError}</div>
                 )}
 
-                {/* Step 1 — client & title */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-700 mb-1 block">Client Name</label>
-                    <input
-                      type="text"
-                      value={smart.clientName}
-                      onChange={(e) => setSmart({ ...smart, clientName: e.target.value })}
-                      placeholder="e.g. Acme Corp"
-                      className="w-full rounded-lg border border-gray-200 bg-white py-2 px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-700 mb-1 block">Project Title *</label>
-                    <input
-                      type="text"
-                      value={smart.name}
-                      onChange={(e) => setSmart({ ...smart, name: e.target.value })}
-                      placeholder="e.g. Monthly SMM — Acme"
-                      className="w-full rounded-lg border border-gray-200 bg-white py-2 px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
-                      required
-                    />
-                  </div>
+                {/* Step 1 — title */}
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-1 block">Project Title *</label>
+                  <input
+                    type="text"
+                    value={smart.name}
+                    onChange={(e) => setSmart({ ...smart, name: e.target.value })}
+                    placeholder="e.g. Monthly SMM — Acme"
+                    className="w-full rounded-lg border border-gray-200 bg-white py-2 px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    required
+                  />
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-700 mb-1 block">Start Date</label>
