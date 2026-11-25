@@ -87,8 +87,8 @@ export function StatusChart() {
         </p>
       )}
 
-      {/* Row 2 — Period filter pills (scrollable on narrow screens) */}
-      <div className="flex w-full items-center gap-2 overflow-x-auto pb-0.5">
+      {/* Row 2 — Period filter pills (single clean row) */}
+      <div className="flex w-full items-center justify-between gap-2">
         {period === 'custom' && (
           <div className="flex shrink-0 items-center gap-1.5">
             <input
@@ -110,14 +110,14 @@ export function StatusChart() {
             />
           </div>
         )}
-        <div className="flex shrink-0 rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+        <div className="flex w-full justify-between rounded-lg border border-gray-200 bg-gray-50 p-0.5">
           {PERIODS.map((p) => (
             <button
               key={p.value}
               type="button"
               onClick={() => pickPeriod(p.value)}
               className={cn(
-                'whitespace-nowrap rounded-md px-2.5 py-1 text-[11px] font-semibold transition',
+                'whitespace-nowrap rounded-md px-2.5 py-1 text-[11px] font-semibold transition flex-1',
                 period === p.value ? 'bg-white text-brand-700 shadow-sm' : 'text-gray-500 hover:text-gray-800',
               )}
             >
@@ -128,7 +128,7 @@ export function StatusChart() {
       </div>
 
       {/* Row 3 — Chart in its own self-contained box */}
-      <div className="relative h-44 w-full overflow-hidden pt-4">
+      <div className="relative h-44 w-full overflow-hidden rounded-xl border border-gray-100 bg-gray-50/40 pt-2 pb-2">
         {/* horizontal gridlines */}
         <div className="absolute inset-x-0 bottom-8 top-4 flex flex-col justify-between">
           {Array.from({ length: GRID_LINES + 1 }, (_, i) => (
@@ -200,7 +200,7 @@ export function StatusChart() {
       </div>
 
       {/* Row 4 — Status summary cards */}
-      <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3">
         {rows.map((row) => {
           const meta = STATUS_META[row.key];
           const Icon = meta.icon;

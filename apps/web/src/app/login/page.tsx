@@ -309,7 +309,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex bg-white">
+    <div className="min-h-[100dvh] flex bg-white overflow-y-auto">
       {/* Brand panel */}
       <div className="hidden lg:flex lg:w-[46%] xl:w-1/2 relative flex-col justify-between overflow-hidden bg-[#0b1220] p-12">
         {/* Ambient glows */}
@@ -356,7 +356,7 @@ export default function LoginPage() {
       </div>
 
       {/* Form panel */}
-      <div className="flex flex-1 items-center justify-center px-6 py-12 bg-white">
+      <div className="flex flex-1 items-center justify-center overflow-y-auto px-4 py-8 sm:px-6 sm:py-12 bg-white">
         <div className="w-full max-w-[400px] animate-fade-in-blur">
           <div className="lg:hidden flex items-center gap-3 mb-10 justify-center animate-rotate-in">
             <LooplyLogo animate={true} size="md" theme="light" />

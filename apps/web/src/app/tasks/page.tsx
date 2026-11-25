@@ -246,7 +246,39 @@ function TasksPageInner() {
       ) : view === 'list' ? (
         <Card className="card-premium card-hover-premium animate-scale-in">
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
+            {/* Mobile stacked cards */}
+            <div className="divide-y divide-gray-100 md:hidden">
+              {tasks.map((task) => (
+                <div key={task.id} className="flex items-start justify-between gap-3 p-4">
+                  <div className="min-w-0 flex-1">
+                    <Link href={`/tasks/${task.id}`} className="block text-sm font-semibold text-gray-900 hover:text-brand-700">{task.title}</Link>
+                    <p className="mt-0.5 text-[11px] text-gray-400">{task.taskNumber}{task.department ? ` · ${task.department.name}` : ''}</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      <StatusBadge status={task.status} />
+                      <PriorityBadge priority={task.priority} />
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-500">
+                      <span className={isOverdue(task.deadline, task.status) ? 'font-medium text-rose-600' : ''}>
+                        <CalendarDays className="mr-1 inline h-3 w-3" />{fmtDate(task.deadline)}
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        {task.assignees.slice(0, 3).map((a: any) => (
+                          <span key={a.id} title={fullName(a.user)} className="flex h-6 w-6 items-center justify-center rounded-full gradient-brand text-[8px] font-semibold text-white ring-2 ring-white">
+                            {initials(a.user.firstName, a.user.lastName)}
+                          </span>
+                        ))}
+                        {!task.assignees.length && <span className="text-gray-400">Unassigned</span>}
+                      </span>
+                    </div>
+                  </div>
+                  <TaskMenu task={task} manager={manager} onEdit={openEdit} onDelete={confirmDelete} />
+                </div>
+              ))}
+              {!tasks.length && (
+                <p className="py-12 text-center text-sm text-gray-400">No tasks match your filters</p>
+              )}
+            </div>
+            <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[720px] stagger-rows">
                 <thead>
                   <tr className="border-b border-gray-100 text-left">

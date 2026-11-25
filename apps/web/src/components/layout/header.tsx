@@ -318,10 +318,10 @@ export function Header({ setIsMobileSidebarOpen, isMobileSidebarOpen = false }: 
             whileHover={{ y: -2 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => router.push('/tasks?create=1')}
-            className="group gradient-brand-btn hidden h-10 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold sm:inline-flex sm:px-4"
+            className="group gradient-brand-btn hidden h-10 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold lg:inline-flex lg:px-4"
           >
             <Plus className="h-4 w-4 transition-transform duration-300 group-hover:rotate-90" />
-            <span className="hidden sm:inline">New Task</span>
+            <span className="hidden lg:inline">New Task</span>
           </motion.button>
         )}
         <TimeTrackerButton />

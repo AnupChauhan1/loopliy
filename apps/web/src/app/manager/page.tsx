@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api-client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,7 +9,7 @@ import { StatusBadge, PriorityBadge } from '@/components/ui/badge';
 import { ReviewActions } from '@/components/task-actions';
 import { RemoteTaskControls } from '@/components/remote-task-controls';
 import { fmtDate, fullName, initials, isOverdue } from '@/lib/format';
-import { FolderKanban, CheckSquare, Send, AlertTriangle, Palette, Clapperboard, Users, UserCheck, TrendingUp } from 'lucide-react';
+import { FolderKanban, CheckSquare, Send, AlertTriangle, Palette, Clapperboard, Users, UserCheck, TrendingUp, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import { StatCard } from '@/components/ui/stat-card';
@@ -137,6 +138,7 @@ function EmployeeLiveView({ userId }: { userId: string }) {
 
 export default function ManagerDashboard() {
   const { user } = useAuth();
+  const router = useRouter();
   const [selectedEmployee, setSelectedEmployee] = useState('');
 
   const { data: stats } = useManagerDashboardStats();
@@ -186,7 +188,21 @@ export default function ManagerDashboard() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <PageHeader eyebrow={`Welcome back, ${user?.firstName ?? ''}`} title="Manager" highlight="Dashboard" description="Your projects, reviews and team workload." />
+      <PageHeader
+        eyebrow={`Welcome back, ${user?.firstName ?? ''}`}
+        title="Manager"
+        highlight="Dashboard"
+        description="Your projects, reviews and team workload."
+        actions={
+          <button
+            type="button"
+            onClick={() => router.push('/tasks?create=1')}
+            className="gradient-brand-btn flex h-10 items-center gap-1.5 rounded-xl px-4 text-sm font-semibold whitespace-nowrap lg:hidden"
+          >
+            <Plus className="h-4 w-4" /> New
+          </button>
+        }
+      />
 
       <Stagger className="grid grid-cols-1 gap-4 min-[520px]:grid-cols-2 xl:grid-cols-3" stagger={0.07}>
         {cards.map((c) => (

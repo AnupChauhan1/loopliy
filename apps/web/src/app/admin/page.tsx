@@ -198,6 +198,13 @@ export default function AdminDashboard() {
           transition={{ delay: 0.15, duration: 0.5 }}
           className="flex shrink-0 items-center gap-2.5 self-start"
         >
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={() => router.push('/tasks?create=1')}
+            className="gradient-brand-btn flex h-10 items-center gap-1.5 rounded-xl px-4 text-sm font-semibold whitespace-nowrap lg:hidden"
+          >
+            <Plus className="h-4 w-4" /> New
+          </motion.button>
           <div className="flex items-center gap-3 rounded-2xl border border-gray-200/80 bg-white/90 px-4 py-2.5 shadow-[0_6px_20px_-12px_rgba(17,24,39,0.25)] backdrop-blur smooth-transition hover:shadow-lg hover:scale-105 cursor-default">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-50 text-brand-600 ring-1 ring-brand-100 smooth-transition hover:bg-brand-100">
               <CalendarDays className="h-[18px] w-[18px]" />
@@ -374,7 +381,35 @@ export default function AdminDashboard() {
         {deadlines.length === 0 ? (
           <EmptyState animation="success" compact title="No upcoming deadlines" description="Nothing is due for you right now." className="pb-6" />
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          {/* Mobile stacked cards */}
+          <div className="divide-y divide-gray-100 md:hidden">
+            {deadlines.map((t) => {
+              const a = t.assignees?.[0]?.user;
+              return (
+                <div key={t.id} className="flex items-start justify-between gap-3 p-4">
+                  <div className="min-w-0 flex-1">
+                    <Link href={`/tasks/${t.id}`} className="block text-sm font-semibold text-gray-900 hover:text-brand-700">{t.title}</Link>
+                    <p className="mt-0.5 text-[11px] text-gray-400">{t.taskNumber ?? ''}{t.project?.name ? ` · ${t.project.name}` : ''}</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      <StatusBadge status={t.status} />
+                      <PriorityBadge priority={t.priority} />
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-500">
+                      <span className={isOverdue(t.deadline, t.status) ? 'font-medium text-rose-600' : ''}>
+                        <CalendarDays className="mr-1 inline h-3 w-3" />{fmtDate(t.deadline)}
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="avatar h-6 w-6 text-[8px]">{initials(a?.firstName, a?.lastName)}</span>
+                        <span className="text-gray-600">{fullName(a)}</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="hidden overflow-x-auto md:block">
             <table className="table-premium min-w-[640px]">
               <thead>
                 <tr>
@@ -403,6 +438,7 @@ export default function AdminDashboard() {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </Reveal>
     </div>
