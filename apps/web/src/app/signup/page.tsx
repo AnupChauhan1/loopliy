@@ -25,10 +25,15 @@ export default function SignupPage() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const fbUser = useRef<any>(null);
 
+  const [googleVerified, setGoogleVerified] = useState(false);
+
   const resetEmailVerification = () => {
     setFbSent(false); setFbLoading(false); setFbMsg('');
-    setEmailProof(''); setEmailLocked(false); fbUser.current = null;
+    setEmailProof(''); setEmailLocked(false); setGoogleVerified(false); fbUser.current = null;
   };
+
+  const fbError = async (err: unknown, fallback: string) =>
+    (await import('@/lib/firebase')).firebaseErrorMessage(err, fallback);
 
   const set = (k: string) => (e: any) => {
     setForm({ ...form, [k]: e.target.value });
@@ -55,39 +60,55 @@ export default function SignupPage() {
       if (!cred.user.emailVerified) await sendEmailVerification(cred.user);
       setFbSent(true);
       setFbMsg('Verification link sent to your email inbox. Please open your email, click the verification link, and then click "I have verified" to continue.');
-    } catch (err: any) {
-      setFbMsg(err?.message || 'Could not send verification email');
+    } catch (err: unknown) {
+      setFbMsg(await fbError(err, 'Could not send verification email.'));
     } finally {
       setFbLoading(false);
     }
+  };
+
+  // Reloads the Firebase user and unlocks signup once the inbox link was clicked
+  const checkVerified = async () => {
+    const user = fbUser.current;
+    if (!user) return false;
+    await user.reload();
+    if (!user.emailVerified) return false;
+    const token = await user.getIdToken(true);
+    setEmailProof(token);
+    setEmailLocked(true);
+    setFbSent(false);
+    setFbMsg('');
+    return true;
   };
 
   const confirmVerified = async () => {
     setFbMsg(''); setFbLoading(true);
     try {
       if (!fbUser.current) { setFbMsg('Request a verification email first'); return; }
-      await fbUser.current.reload();
-      if (!fbUser.current.emailVerified) {
-        setFbMsg('Not verified yet — open the email, click the link, then try again.');
-        return;
-      }
-      const token = await fbUser.current.getIdToken(true);
-      setEmailProof(token);
-      setEmailLocked(true);
-      setFbSent(false);
-      setFbMsg('');
-    } catch (err: any) {
-      setFbMsg(err?.message || 'Could not confirm verification');
+      if (!(await checkVerified())) setFbMsg('Not verified yet — open the email, click the link, then try again.');
+    } catch (err: unknown) {
+      setFbMsg(await fbError(err, 'Could not confirm verification.'));
     } finally {
       setFbLoading(false);
     }
   };
+
+  // Auto-check every 4 seconds while waiting for the inbox link to be clicked
+  useEffect(() => {
+    if (!fbSent || emailProof) return;
+    const id = setInterval(() => { void checkVerified().catch(() => {}); }, 4000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fbSent, emailProof]);
 
   const applyGoogleCred = (cred: any) => {
     void (async () => {
       const idToken = await cred.user.getIdToken();
       setEmailProof(idToken);
       setEmailLocked(true);
+      setGoogleVerified(true);
+      setFbSent(false);
+      setFbMsg('');
       setForm((f) => ({
         ...f,
         email: cred.user.email ?? f.email,
@@ -103,8 +124,8 @@ export default function SignupPage() {
         const { auth } = await import('@/lib/firebase');
         const cred = await getRedirectResult(auth);
         if (cred?.user) applyGoogleCred(cred);
-      } catch {
-        /* not a redirect return */
+      } catch (err: unknown) {
+        if ((err as { code?: string })?.code) setError(await fbError(err, 'Google sign-in failed.'));
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -120,14 +141,16 @@ export default function SignupPage() {
         applyGoogleCred(cred);
       } catch (popupErr: any) {
         const code = popupErr?.code ?? 'unknown';
-        if (['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment', 'auth/web-storage-unsupported', 'auth/unauthorized-domain'].includes(code)) {
+        if (['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment', 'auth/web-storage-unsupported'].includes(code)) {
           await signInWithRedirect(auth, googleProvider);
           return;
         }
         if (code !== 'auth/popup-closed-by-user' && code !== 'auth/cancelled-popup-request') {
-          setError(`Google sign-in failed (${code}) — please try again or use email verification below.`);
+          setError(await fbError(popupErr, 'Google sign-in failed — please try again or use email verification below.'));
         }
       }
+    } catch (err: unknown) {
+      setError(await fbError(err, 'Google sign-in failed.'));
     } finally {
       setGoogleLoading(false);
     }
@@ -260,7 +283,7 @@ export default function SignupPage() {
                 </button>
               ) : (
                 <span className="flex shrink-0 items-center gap-1 rounded-xl bg-brand-50 px-3 text-[12px] font-semibold text-brand-700 ring-1 ring-brand-200">
-                  <CheckCircle2 className="h-3.5 w-3.5" /> Verified
+                  <CheckCircle2 className="h-3.5 w-3.5" /> {googleVerified ? 'Google Email Verified ✓' : 'Verified'}
                 </span>
               )}
             </div>
@@ -272,7 +295,7 @@ export default function SignupPage() {
                 className="flex w-full items-center justify-center gap-2 rounded-xl gradient-brand-btn px-4 py-2.5 text-[12px] font-semibold text-white shadow-md shadow-brand-500/25 disabled:opacity-50"
               >
                 {fbLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                I have verified — continue
+                I&apos;ve Verified — Check Status
               </button>
             )}
             {fbMsg && <p className="text-[11px] text-brand-700">{fbMsg}</p>}

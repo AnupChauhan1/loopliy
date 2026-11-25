@@ -5,13 +5,46 @@ import { MailService } from '../common/mail.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { HR_ROLES } from '../common/roles';
 import * as bcrypt from 'bcrypt';
-import { randomBytes } from 'crypto';
+import { randomBytes, createPublicKey, verify as verifySignature } from 'crypto';
 import { resolveMx } from 'dns/promises';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { SignupDto } from './dto/signup.dto';
 
 const DEFAULT_ORG_SLUG = 'epatang-agency';
+const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'looply-crm-2fa19';
+const FIREBASE_JWKS_URL = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
+
+let firebaseKeys: { keys: any[]; expiresAt: number } | null = null;
+
+async function firebaseSigningKey(kid: string) {
+  if (!firebaseKeys || firebaseKeys.expiresAt < Date.now() || !firebaseKeys.keys.some((k) => k.kid === kid)) {
+    const res = await fetch(FIREBASE_JWKS_URL);
+    if (!res.ok) return null;
+    firebaseKeys = { keys: (await res.json()).keys ?? [], expiresAt: Date.now() + 60 * 60 * 1000 };
+  }
+  return firebaseKeys.keys.find((k) => k.kid === kid) ?? null;
+}
+
+/** Verifies a Firebase Auth ID token (signature, issuer, audience, expiry) and returns its claims. */
+async function verifyFirebaseIdToken(token: string): Promise<{ email?: string; email_verified?: boolean } | null> {
+  const [headerB64, payloadB64, signatureB64] = token.split('.');
+  if (!headerB64 || !payloadB64 || !signatureB64) return null;
+  const header = JSON.parse(Buffer.from(headerB64, 'base64url').toString());
+  const payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString());
+  if (header.alg !== 'RS256' || !header.kid) return null;
+  if (payload.aud !== FIREBASE_PROJECT_ID || payload.iss !== `https://securetoken.google.com/${FIREBASE_PROJECT_ID}`) return null;
+  if (!payload.sub || typeof payload.exp !== 'number' || payload.exp * 1000 < Date.now()) return null;
+  const jwk = await firebaseSigningKey(header.kid);
+  if (!jwk) return null;
+  const valid = verifySignature(
+    'RSA-SHA256',
+    Buffer.from(`${headerB64}.${payloadB64}`),
+    createPublicKey({ key: jwk, format: 'jwk' }),
+    Buffer.from(signatureB64, 'base64url'),
+  );
+  return valid ? payload : null;
+}
 
 @Injectable()
 export class AuthService {
@@ -113,10 +146,15 @@ export class AuthService {
     let firebaseVerified = false;
     if (fbToken) {
       try {
-        const res = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(fbToken)}`);
-        if (res.ok) {
-          const payload: any = await res.json();
-          firebaseVerified = payload.email === email && payload.email_verified === 'true';
+        const claims = await verifyFirebaseIdToken(fbToken);
+        if (claims) {
+          firebaseVerified = claims.email?.toLowerCase() === email && claims.email_verified === true;
+        } else {
+          const res = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(fbToken)}`);
+          if (res.ok) {
+            const payload: any = await res.json();
+            firebaseVerified = payload.email === email && payload.email_verified === 'true';
+          }
         }
       } catch {
         firebaseVerified = false;
