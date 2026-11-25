@@ -181,7 +181,11 @@ export default function ProjectsPage() {
       setSmmTasks(SMM_CYCLE_1);
       setCustomTasks([]);
       setFormError('');
-      toast.success('Project created', `"${created?.name ?? 'Project'}" is now in your projects list.`);
+      const auto = created?.autoAssigned;
+      const roleSummary = auto?.byRole && Object.keys(auto.byRole).length
+        ? ` Auto-assigned ${auto.count} tasks by role: ${Object.entries(auto.byRole).map(([r, n]) => `${r} ×${n}`).join(', ')}.`
+        : '';
+      toast.success('Project created', `"${created?.name ?? 'Project'}" is now in your projects list.${roleSummary}`);
     },
     onError: (e: any) => setFormError(errorMessage(e)),
   });
@@ -193,6 +197,16 @@ export default function ProjectsPage() {
       toast.success('Next cycle generated', `${data?.tasksCreated ?? 0} auto-dated tasks scheduled for cycle ${data?.cycle}.`);
     },
     onError: (e: any) => toast.error('Could not generate cycle', errorMessage(e)),
+  });
+
+  const smartAssignMutation = useMutation({
+    mutationFn: (id: string) => api.post(`/projects/${id}/smart-assign`).then((r) => r.data),
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      toast.success('Smart auto-assign complete', `${data?.assigned ?? 0} tasks assigned by role.`);
+    },
+    onError: (e: any) => toast.error('Smart auto-assign failed', errorMessage(e)),
   });
 
   const updateProjectMutation = useMutation({
@@ -380,6 +394,7 @@ export default function ProjectsPage() {
             const doneCount = cardTasks.filter((t) => ['completed', 'approved'].includes(t.status)).length;
             const activeCount = cardTasks.filter((t) => ['in_progress', 'in_review', 'changes_requested'].includes(t.status)).length;
             const todoCount = cardTasks.filter((t) => ['todo', 'on_hold'].includes(t.status)).length;
+            const unassignedPreview = cardTasks.filter((t) => !(t.assignees?.length)).length;
             return (
             <Card
               key={project.id}
@@ -480,6 +495,7 @@ export default function ProjectsPage() {
                         const assignees: any[] = t.assignees ?? [];
                         const first = assignees[0]?.user;
                         const extra = assignees.length - 1;
+                        const role = first?.employeeProfile?.designation ?? first?.roles?.[0]?.role?.name;
                         const tooltip = assignees.map((a: any) => fullName(a.user)).join(', ');
                         return (
                           <div key={t.id} className="flex items-center gap-2 rounded-lg px-1.5 py-1 hover:bg-white/70">
@@ -487,13 +503,13 @@ export default function ProjectsPage() {
                             <span className="min-w-0 flex-1 truncate text-xs font-medium text-slate-700">{t.title}</span>
                             {first ? (
                               <span
-                                title={tooltip}
-                                className="inline-flex max-w-[110px] shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700 ring-1 ring-emerald-200"
+                                title={`${tooltip}${role ? ` • ${role}` : ''}`}
+                                className="inline-flex max-w-[120px] shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700 ring-1 ring-emerald-200"
                               >
                                 <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-200/70 text-[7px] font-bold">
                                   {initials(first.firstName, first.lastName)}
                                 </span>
-                                <span className="truncate">{first.firstName}{extra > 0 ? ` +${extra}` : ''}</span>
+                                <span className="truncate">{first.firstName}{role ? ` (${role})` : ''}{extra > 0 ? ` +${extra}` : ''}</span>
                               </span>
                             ) : (
                               <span className="shrink-0 rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold text-slate-400 ring-1 ring-slate-200">Unassigned</span>
@@ -503,19 +519,32 @@ export default function ProjectsPage() {
                         );
                       })}
                     </div>
-                    <div className="mt-1.5 flex items-center justify-between px-1">
+                    <div className="mt-1.5 flex items-center justify-between gap-2 px-1">
                       <span className="text-[10px] text-slate-400 tabular-nums">
                         {doneCount} Done • {activeCount} Active • {todoCount} To Do
                       </span>
-                      {remainingTasks > 0 && (
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); setTaskProject(project); }}
-                          className="text-[10px] font-semibold text-emerald-700 hover:text-emerald-800 hover:underline"
-                        >
-                          + {remainingTasks} more tasks
-                        </button>
-                      )}
+                      <span className="flex items-center gap-2">
+                        {unassignedPreview > 0 && currentUserIsManager && (
+                          <button
+                            type="button"
+                            disabled={smartAssignMutation.isPending}
+                            onClick={(e) => { e.stopPropagation(); smartAssignMutation.mutate(project.id); }}
+                            className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[9px] font-bold text-violet-700 ring-1 ring-violet-200 hover:bg-violet-100 disabled:opacity-60"
+                            title="Assign all project tasks by role"
+                          >
+                            ✨ Smart Assign
+                          </button>
+                        )}
+                        {remainingTasks > 0 && (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setTaskProject(project); }}
+                            className="text-[10px] font-semibold text-emerald-700 hover:text-emerald-800 hover:underline"
+                          >
+                            + {remainingTasks} more tasks
+                          </button>
+                        )}
+                      </span>
                     </div>
                   </div>
                 )}

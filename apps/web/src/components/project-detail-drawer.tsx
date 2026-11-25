@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api-client';
 import { Card, CardContent } from '@/components/ui/card';
-import { X, Calendar, Users, TrendingUp, UserPlus, Wand2, Check } from 'lucide-react';
+import { X, Calendar, Users, TrendingUp, UserPlus, Wand2, Check, Sparkles } from 'lucide-react';
 import { fullName, initials, fmtDate } from '@/lib/format';
 import { SlimProgressBar } from './team-progress-overview';
 import { StatusBadge, PriorityBadge } from '@/components/ui/badge';
@@ -50,6 +50,7 @@ export function ProjectDetailDrawer({
   const queryClient = useQueryClient();
   const [addOpen, setAddOpen] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ['tasks'] });
@@ -78,6 +79,17 @@ export function ProjectDetailDrawer({
     mutationFn: () => api.post(`/projects/${project.id}/auto-assign`).then((r) => r.data),
     onSuccess: refresh,
     onError: (e: any) => setError(e.response?.data?.message || 'Auto-assign failed'),
+  });
+
+  const smartAssign = useMutation({
+    mutationFn: () => api.post(`/projects/${project.id}/smart-assign`).then((r) => r.data),
+    onSuccess: (data: any) => {
+      const roles = data?.byRole ? `: ${Object.entries(data.byRole).map(([r, n]) => `${r} ×${n}`).join(', ')}` : '';
+      setNotice(`${data?.assigned ?? 0} tasks auto-assigned by role${roles}`);
+      setError('');
+      refresh();
+    },
+    onError: (e: any) => setError(e.response?.data?.message || 'Smart auto-assign failed'),
   });
 
   const addMember = useMutation({
@@ -179,6 +191,14 @@ export function ProjectDetailDrawer({
                     </div>
                   )}
                 </div>
+                <button
+                  type="button"
+                  disabled={smartAssign.isPending}
+                  onClick={() => smartAssign.mutate()}
+                  className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-violet-700 disabled:opacity-60"
+                >
+                  <Sparkles className="h-3 w-3" /> {smartAssign.isPending ? 'Assigning…' : 'Smart Auto-Assign by Role'}
+                </button>
                 {unassigned > 0 && (
                   <button
                     type="button"
@@ -193,6 +213,7 @@ export function ProjectDetailDrawer({
             )}
           </div>
           {error && <p className="mt-2 text-[11px] font-medium text-rose-600">{error}</p>}
+          {notice && <p className="mt-2 text-[11px] font-semibold text-emerald-700">{notice}</p>}
         </div>
 
         {/* Task list */}
@@ -259,15 +280,18 @@ export function ProjectDetailDrawer({
                           }
                           const u = list[0].user;
                           const extra = list.length - 1;
+                          const role = u?.employeeProfile?.designation ?? u?.roles?.[0]?.role?.name ?? u?.roleNames?.[0];
                           return (
                             <span
-                              title={list.map((a: any) => fullName(a.user)).join(', ')}
-                              className="inline-flex max-w-[180px] items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-200"
+                              title={`${list.map((a: any) => fullName(a.user)).join(', ')}${role ? ` • ${role}` : ''}`}
+                              className="inline-flex max-w-[200px] items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-200"
                             >
                               <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-emerald-200/70 text-[8px] font-bold">
                                 {initials(u?.firstName, u?.lastName)}
                               </span>
-                              <span className="truncate">{fullName(u)}{extra > 0 ? ` +${extra}` : ''}</span>
+                              <span className="truncate">
+                                {fullName(u)}{role ? ` · ${role}` : ''}{extra > 0 ? ` +${extra}` : ''}
+                              </span>
                             </span>
                           );
                         })()}

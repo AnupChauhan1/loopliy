@@ -5,11 +5,21 @@ import { UpdateTaskDto } from './dto/update-task.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { hasAnyRole, MANAGER_ROLES } from '../common/roles';
 import { taskProgress } from '../common/progress';
+import { smartMatch, candidateFromUser } from '../common/auto-assign';
 
 const ASSIGNEE_INCLUDE = {
   assignees: {
     include: {
-      user: { select: { id: true, email: true, firstName: true, lastName: true } },
+      user: {
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          employeeProfile: { select: { designation: true } },
+          roles: { include: { role: { select: { name: true } } } },
+        },
+      },
     },
   },
   project: { select: { id: true, name: true, organizationId: true } },
@@ -113,6 +123,62 @@ export class TasksService {
     }
   }
 
+  /**
+   * Smart role auto-assign: match the task to the best employee by
+   * designation/role/department keywords, least-loaded wins. Project tasks
+   * prefer the project's team members; standalone tasks use all active staff.
+   */
+  private async smartAssigneeFor(dto: CreateTaskDto, organizationId: string): Promise<string | null> {
+    let candidates: { id: string; text: string; load?: number }[] = [];
+
+    if (dto.projectId) {
+      const members = await this.prisma.projectMember.findMany({
+        where: { projectId: dto.projectId },
+        include: {
+          user: {
+            select: {
+              id: true,
+              roles: { include: { role: { select: { name: true } } } },
+              department: { select: { name: true } },
+              employeeProfile: { select: { designation: true } },
+            },
+          },
+        },
+      });
+      candidates = members.map((m) => candidateFromUser(m.user, m.role));
+    }
+
+    if (!candidates.length) {
+      const users = await this.prisma.user.findMany({
+        where: { organizationId, isActive: true },
+        select: {
+          id: true,
+          roles: { include: { role: { select: { name: true } } } },
+          department: { select: { name: true } },
+          employeeProfile: { select: { designation: true } },
+        },
+        take: 200,
+      });
+      candidates = users.map((u) => candidateFromUser(u));
+    }
+    if (!candidates.length) return null;
+
+    // Load = open (non-done) task count per candidate for balance
+    const loads = await this.prisma.taskAssignee.groupBy({
+      by: ['userId'],
+      where: {
+        userId: { in: candidates.map((c) => c.id) },
+        task: { status: { notIn: ['completed', 'approved', 'cancelled'] } },
+      },
+      _count: { _all: true },
+    });
+    const loadMap = new Map(loads.map((l) => [l.userId, l._count._all]));
+    for (const c of candidates) c.load = loadMap.get(c.id) ?? 0;
+
+    const match = smartMatch(`${dto.title} ${dto.description ?? ''} ${dto.category ?? ''}`, candidates);
+    return match?.candidateId ?? null;
+  }
+
   async create(dto: CreateTaskDto & { assigneeIds?: string[] }, user: any) {
     const organizationId = user.organizationId;
     if (dto.projectId) {
@@ -148,13 +214,20 @@ export class TasksService {
       include: ASSIGNEE_INCLUDE,
     });
 
-    if (assigneeIds?.length) {
+    // Zero-manual mode: no assignees picked → smart role auto-assign
+    let effectiveAssigneeIds = assigneeIds;
+    if (!effectiveAssigneeIds?.length) {
+      const autoId = await this.smartAssigneeFor(dto, organizationId).catch(() => null);
+      if (autoId) effectiveAssigneeIds = [autoId];
+    }
+
+    if (effectiveAssigneeIds?.length) {
       await this.prisma.taskAssignee.createMany({
-        data: assigneeIds.map((userId) => ({ taskId: task.id, userId })),
+        data: effectiveAssigneeIds.map((userId) => ({ taskId: task.id, userId })),
         skipDuplicates: true,
       });
       await this.notifications.notifyMany(
-        assigneeIds.filter((id) => id !== user.id),
+        effectiveAssigneeIds.filter((id) => id !== user.id),
         'task_assigned',
         'New task assigned',
         `You were assigned "${task.title}" (${task.taskNumber})`,

@@ -5,6 +5,7 @@ import { UpdateProjectDto } from './dto/update-project.dto';
 import { SMM_CYCLE_1, SMM_CYCLE_2_PLUS, TemplateTaskSpec, addDays, addTenure, dueDateFor } from './smm-template';
 import { hasAnyRole, MANAGER_ROLES, PRIVILEGED_ROLES } from '../common/roles';
 import { projectProgress, projectProgressFromGroups } from '../common/progress';
+import { smartMatch } from '../common/auto-assign';
 
 const TASK_INCLUDE = {
   assignees: {
@@ -98,21 +99,25 @@ export class ProjectsService {
   }
 
   /**
-   * Smart distribution: match task-type keywords (reel/video → video editors,
-   * static/carousel → designers, onboarding/reporting → managers) and fall
-   * back to even round-robin across the pool.
+   * Distribute tasks across members using the smart role engine: role/keyword
+   * match first, least-loaded candidate wins, load tracked as we go.
    */
-  private pickAssignee(title: string, members: AssigneeProfile[], index: number): string {
-    const t = title.toLowerCase();
-    let pool = members;
-    const narrow = (re: RegExp) => {
-      const m = members.filter((x) => re.test(x.text));
-      if (m.length) pool = m;
-    };
-    if (/reel|video|motion|short|edit/.test(t)) narrow(/video|reel|editor|motion/);
-    else if (/static|carousel|post|graphic|design|thumbnail|banner|creative|template/.test(t)) narrow(/design|creative|graphic|visual/);
-    else if (/onboard|setup|call|calendar|report|strategy|form|audit|plan|meeting|intro|kickoff/.test(t)) narrow(/manager|account|lead|project|strategy|coordinator|ops/);
-    return pool[index % pool.length].id;
+  private distribute<T extends { id: string; title: string }>(
+    rows: T[],
+    members: AssigneeProfile[],
+  ): { taskId: string; userId: string; role: string }[] {
+    const loads = new Map(members.map((m) => [m.id, 0]));
+    return rows.map((t) => {
+      const match = smartMatch(
+        t.title,
+        members.map((m) => ({ id: m.id, text: m.text, load: loads.get(m.id) ?? 0 })),
+      );
+      const uid =
+        match?.candidateId ??
+        members.reduce((a, b) => ((loads.get(a.id) ?? 0) <= (loads.get(b.id) ?? 0) ? a : b)).id;
+      loads.set(uid, (loads.get(uid) ?? 0) + 1);
+      return { taskId: t.id, userId: uid, role: match?.role ?? 'Team' };
+    });
   }
 
   private async createCycleTasks(
@@ -123,7 +128,7 @@ export class ProjectsService {
     assignees?: AssigneeProfile[],
   ) {
     const specs = this.specsFor(project, cycle, provided);
-    if (!specs.length) return 0;
+    if (!specs.length) return { count: 0, byRole: {} as Record<string, number> };
     await this.prisma.task.createMany({
       data: specs.map((spec) => ({
         title: spec.title,
@@ -138,8 +143,9 @@ export class ProjectsService {
         deadline: dueDateFor(cycleStart, spec.dayOffset),
       })),
     });
-    // Auto-assign every generated task across the project's team (round-robin
-    // with role/dept keyword matching). One member → all tasks to them.
+    // Auto-assign every generated task across the project's team using the
+    // smart role engine (role keyword match + least-loaded balance).
+    const byRole: Record<string, number> = {};
     if (assignees?.length) {
       const created = await this.prisma.task.findMany({
         where: { projectId: project.id, cycle },
@@ -147,16 +153,15 @@ export class ProjectsService {
         select: { id: true, title: true },
       });
       if (created.length) {
+        const rows = this.distribute(created, assignees);
         await this.prisma.taskAssignee.createMany({
-          data: created.map((t, i) => ({
-            taskId: t.id,
-            userId: this.pickAssignee(t.title, assignees, i),
-          })),
+          data: rows.map((r) => ({ taskId: r.taskId, userId: r.userId })),
           skipDuplicates: true,
         });
+        for (const r of rows) byRole[r.role] = (byRole[r.role] ?? 0) + 1;
       }
     }
-    return specs.length;
+    return { count: specs.length, byRole };
   }
 
   async create(createProjectDto: CreateProjectDto, userId: string, organizationId: string) {
@@ -252,7 +257,7 @@ export class ProjectsService {
     // Every generated task is auto-assigned across the selected team (round-robin
     // with role matching); falls back to all project members when none were picked.
     const taskAssignees = selectedProfiles.length ? selectedProfiles : await this.memberProfiles(project.id);
-    await this.createCycleTasks(project, 1, cycleStartDate, taskTemplate?.length ? taskTemplate : undefined, taskAssignees);
+    const cycleResult = await this.createCycleTasks(project, 1, cycleStartDate, taskTemplate?.length ? taskTemplate : undefined, taskAssignees);
 
     // Log to audit
     await this.prisma.auditLog.create({
@@ -267,7 +272,7 @@ export class ProjectsService {
     });
 
     const [withProgress] = await this.withProgress([project]);
-    return withProgress;
+    return { ...withProgress, autoAssigned: cycleResult };
   }
 
   async findAll(query: any, organizationId: string) {
@@ -348,7 +353,7 @@ export class ProjectsService {
           const members = await this.memberProfiles(pid);
           if (!members.length) continue;
           await this.prisma.taskAssignee.createMany({
-            data: rows.map((t, i) => ({ taskId: t.id, userId: this.pickAssignee(t.title, members, i) })),
+            data: this.distribute(rows, members).map((r) => ({ taskId: r.taskId, userId: r.userId })),
             skipDuplicates: true,
           });
         }
@@ -533,7 +538,8 @@ export class ProjectsService {
     const nextStart = addTenure(base, project.tenureUnit, project.tenureValue ?? 1);
 
     const assignees = await this.memberProfiles(id);
-    const created = await this.createCycleTasks(project, cycle, nextStart, undefined, assignees);
+    const cycleResult = await this.createCycleTasks(project, cycle, nextStart, undefined, assignees);
+    const created = cycleResult.count;
 
     const updated = await this.prisma.project.update({
       where: { id },
@@ -575,10 +581,7 @@ export class ProjectsService {
     });
     if (!unassigned.length) return 0;
     await this.prisma.taskAssignee.createMany({
-      data: unassigned.map((t, i) => ({
-        taskId: t.id,
-        userId: this.pickAssignee(t.title, members, i),
-      })),
+      data: this.distribute(unassigned, members).map((r) => ({ taskId: r.taskId, userId: r.userId })),
       skipDuplicates: true,
     });
     return unassigned.length;
@@ -593,6 +596,34 @@ export class ProjectsService {
     }
     const assigned = await this.assignUnassignedTasks(projectId);
     return { assigned };
+  }
+
+  /** "✨ Smart Auto-Assign by Role" — re-balances ALL project tasks across the
+   *  team using role/designation keyword matching with least-loaded balancing. */
+  async smartAssign(projectId: string, user: any, organizationId: string) {
+    const project = await this.prisma.project.findFirst({ where: { id: projectId, organizationId } });
+    if (!project) throw new NotFoundException('Project not found');
+    if (project.ownerId !== user.id && !hasAnyRole(user, MANAGER_ROLES)) {
+      throw new ForbiddenException('Only the project lead or a manager can smart-assign tasks');
+    }
+    const members = await this.memberProfiles(projectId);
+    if (!members.length) return { assigned: 0, byRole: {} };
+    const tasks = await this.prisma.task.findMany({
+      where: { projectId, status: { not: 'cancelled' } },
+      orderBy: [{ dayOffset: 'asc' }, { title: 'asc' }],
+      select: { id: true, title: true },
+    });
+    if (!tasks.length) return { assigned: 0, byRole: {} };
+
+    const rows = this.distribute(tasks, members);
+    await this.prisma.taskAssignee.deleteMany({ where: { taskId: { in: tasks.map((t) => t.id) } } });
+    await this.prisma.taskAssignee.createMany({
+      data: rows.map((r) => ({ taskId: r.taskId, userId: r.userId })),
+      skipDuplicates: true,
+    });
+    const byRole: Record<string, number> = {};
+    for (const r of rows) byRole[r.role] = (byRole[r.role] ?? 0) + 1;
+    return { assigned: rows.length, byRole };
   }
 
   async addMember(projectId: string, userId: string, requestingUser: any, organizationId: string) {

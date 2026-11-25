@@ -14,6 +14,7 @@ import { fmtDate, fullName, initials, isOverdue } from '@/lib/format';
 import { useAuth } from '@/lib/auth-context';
 import { isManager } from '@/lib/roles';
 import { useDebouncedValue } from '@/lib/hooks/use-debounced-value';
+import { smartAutoAssignTask, candidateText } from '@/lib/autoAssign';
 import Link from 'next/link';
 
 const STATUS_COLUMNS = ['todo', 'in_progress', 'in_review', 'changes_requested', 'completed'];
@@ -130,6 +131,15 @@ function TasksPageInner() {
     requiresApproval: true, clientVisible: false, assigneeIds: [] as string[],
   };
   const [form, setForm] = useState(emptyForm);
+
+  // Live preview of the backend's smart role auto-assign when nothing is picked manually
+  const autoSuggestion = useMemo(() => {
+    if (form.assigneeIds.length) return null;
+    const cands = (users ?? [])
+      .filter((u: any) => u.isActive)
+      .map((u: any) => ({ id: u.id, name: fullName(u), text: candidateText(u) }));
+    return smartAutoAssignTask({ title: form.title, description: form.description, category: form.category }, cands);
+  }, [form.assigneeIds, form.title, form.description, form.category, users]);
 
   const invalidateTasks = () => {
     queryClient.invalidateQueries({ queryKey: ['tasks'] });
@@ -497,7 +507,19 @@ function TasksPageInner() {
                   </div>
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-xs font-medium text-gray-600">Assign to</label>
+                  <label className="mb-1.5 flex items-center justify-between text-xs font-medium text-gray-600">
+                    <span>Assign to</span>
+                    {!form.assigneeIds.length && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 ring-1 ring-emerald-200">
+                        ✨ Auto-Assign by Role (Recommended)
+                      </span>
+                    )}
+                  </label>
+                  {autoSuggestion && !form.assigneeIds.length && (
+                    <p className="mb-2 text-[11px] font-medium text-emerald-700">
+                      Will auto-assign to <span className="font-semibold">{autoSuggestion.candidate.name}</span> ({autoSuggestion.role})
+                    </p>
+                  )}
                   <div className="flex flex-wrap gap-1.5">
                     {(users ?? []).filter((u: any) => u.isActive).map((u: any) => {
                       const selected = form.assigneeIds.includes(u.id);

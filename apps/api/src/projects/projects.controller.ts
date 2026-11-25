@@ -52,6 +52,11 @@ export class ProjectsController {
     return this.projectsService.autoAssign(id, req.user, req.user.organizationId);
   }
 
+  @Post(':id/smart-assign')
+  smartAssign(@Param('id') id: string, @Request() req: RequestWithUser) {
+    return this.projectsService.smartAssign(id, req.user, req.user.organizationId);
+  }
+
   @Post(':id/members')
   addMember(@Param('id') id: string, @Body('userId') userId: string, @Request() req: RequestWithUser) {
     return this.projectsService.addMember(id, userId, req.user, req.user.organizationId);
