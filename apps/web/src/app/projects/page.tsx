@@ -447,7 +447,7 @@ export default function ProjectsPage() {
                     type="text"
                     value={smart.name}
                     onChange={(e) => setSmart({ ...smart, name: e.target.value })}
-                    placeholder="e.g. Monthly SMM — Acme"
+                    placeholder="e.g. Monthly SMM Campaign"
                     className="w-full rounded-lg border border-gray-200 bg-white py-2 px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
                     required
                   />
