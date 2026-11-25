@@ -250,22 +250,27 @@ export function ProjectDetailDrawer({
                               <option key={u.id} value={u.id}>{fullName(u)}</option>
                             ))}
                           </select>
-                        ) : (
-                          <span className="text-[11px] text-gray-500">
-                            {t.assignees?.length
-                              ? t.assignees.map((a: any) => fullName(a.user)).join(', ')
-                              : 'Unassigned'}
-                          </span>
-                        )}
-                        {t.assignees?.length > 0 && (
-                          <span className="ml-auto flex -space-x-1.5">
-                            {t.assignees.slice(0, 2).map((a: any) => (
-                              <span key={a.id} className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 text-[7px] font-bold text-emerald-700 ring-1 ring-white" title={fullName(a.user)}>
-                                {initials(a.user?.firstName, a.user?.lastName)}
+                        ) : null}
+                        {/* Assigned To pill: avatar + readable name */}
+                        {(() => {
+                          const list: any[] = t.assignees ?? [];
+                          if (!list.length) {
+                            return <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-400 ring-1 ring-slate-200">Unassigned</span>;
+                          }
+                          const u = list[0].user;
+                          const extra = list.length - 1;
+                          return (
+                            <span
+                              title={list.map((a: any) => fullName(a.user)).join(', ')}
+                              className="inline-flex max-w-[180px] items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-200"
+                            >
+                              <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-emerald-200/70 text-[8px] font-bold">
+                                {initials(u?.firstName, u?.lastName)}
                               </span>
-                            ))}
-                          </span>
-                        )}
+                              <span className="truncate">{fullName(u)}{extra > 0 ? ` +${extra}` : ''}</span>
+                            </span>
+                          );
+                        })()}
                       </div>
                     </CardContent>
                   </Card>

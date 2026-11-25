@@ -323,6 +323,38 @@ export class ProjectsService {
       this.prisma.project.count({ where }),
     ]);
 
+    // Backfill: distribute orphaned (unassigned) tasks across each project's
+    // team members so no project task is ever left without an assignee.
+    const projectIds = projects.map((p) => p.id);
+    if (projectIds.length) {
+      const memberRows = await this.prisma.projectMember.findMany({
+        where: { projectId: { in: projectIds } },
+        select: { projectId: true },
+        distinct: ['projectId'],
+      });
+      const withMembers = memberRows.map((m) => m.projectId);
+      if (withMembers.length) {
+        const orphans = await this.prisma.task.findMany({
+          where: { projectId: { in: withMembers }, assignees: { none: {} } },
+          select: { id: true, projectId: true, title: true },
+        });
+        const byProject = new Map<string, typeof orphans>();
+        for (const t of orphans) {
+          const rows = byProject.get(t.projectId!) ?? [];
+          rows.push(t);
+          byProject.set(t.projectId!, rows);
+        }
+        for (const [pid, rows] of byProject) {
+          const members = await this.memberProfiles(pid);
+          if (!members.length) continue;
+          await this.prisma.taskAssignee.createMany({
+            data: rows.map((t, i) => ({ taskId: t.id, userId: this.pickAssignee(t.title, members, i) })),
+            skipDuplicates: true,
+          });
+        }
+      }
+    }
+
     const projectsWithProgress = await this.withProgress(projects);
     return {
       projects: projectsWithProgress,

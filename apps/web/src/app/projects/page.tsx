@@ -477,17 +477,28 @@ export default function ProjectsPage() {
                     <div className="space-y-1">
                       {previewTasks.map((t: any) => {
                         const pill = taskPillOf(t.status);
-                        const assignee = t.assignees?.[0]?.user;
+                        const assignees: any[] = t.assignees ?? [];
+                        const first = assignees[0]?.user;
+                        const extra = assignees.length - 1;
+                        const tooltip = assignees.map((a: any) => fullName(a.user)).join(', ');
                         return (
                           <div key={t.id} className="flex items-center gap-2 rounded-lg px-1.5 py-1 hover:bg-white/70">
                             <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${TASK_DOT[t.status] ?? 'bg-slate-300'}`} />
                             <span className="min-w-0 flex-1 truncate text-xs font-medium text-slate-700">{t.title}</span>
-                            {assignee && (
-                              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[8px] font-bold text-emerald-700">
-                                {initials(assignee.firstName, assignee.lastName)}
+                            {first ? (
+                              <span
+                                title={tooltip}
+                                className="inline-flex max-w-[110px] shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700 ring-1 ring-emerald-200"
+                              >
+                                <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-200/70 text-[7px] font-bold">
+                                  {initials(first.firstName, first.lastName)}
+                                </span>
+                                <span className="truncate">{first.firstName}{extra > 0 ? ` +${extra}` : ''}</span>
                               </span>
+                            ) : (
+                              <span className="shrink-0 rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold text-slate-400 ring-1 ring-slate-200">Unassigned</span>
                             )}
-                            <span className={`shrink-0 rounded-full px-1.5 py-px text-[9px] font-semibold ${pill.cls}`}>{pill.label}</span>
+                            <span className={`hidden shrink-0 rounded-full px-1.5 py-px text-[9px] font-semibold sm:inline ${pill.cls}`}>{pill.label}</span>
                           </div>
                         );
                       })}
@@ -526,8 +537,8 @@ export default function ProjectsPage() {
                       <Users className="h-4 w-4" />
                       <span>Team</span>
                     </div>
-                    <span className="flex items-center gap-2 font-medium text-gray-900">
-                      <span className="flex -space-x-1.5">
+                    <span className="flex min-w-0 items-center gap-2 font-medium text-gray-900">
+                      <span className="flex shrink-0 -space-x-1.5">
                         {(project.members ?? []).slice(0, 4).map((m: any) => {
                           const u = m.user;
                           return (
@@ -541,7 +552,11 @@ export default function ProjectsPage() {
                           );
                         })}
                       </span>
-                      {project.members?.length || 0} members
+                      <span className="truncate text-xs text-gray-600">
+                        {(project.members ?? []).slice(0, 2).map((m: any) => m.user?.firstName).filter(Boolean).join(', ')}
+                        {(project.members?.length ?? 0) > 2 ? ` +${(project.members?.length ?? 0) - 2}` : ''}
+                        {' '}• {project.members?.length || 0} members
+                      </span>
                     </span>
                   </div>
                   <button
