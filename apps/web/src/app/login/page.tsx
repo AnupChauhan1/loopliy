@@ -278,7 +278,23 @@ export default function LoginPage() {
         body: JSON.stringify({ firebaseIdToken: idToken }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Zoho sign-in failed');
+      if (!res.ok) {
+        // Verified OAuth email with no LOOPLY account yet → continue in the
+        // signup flow with name/email/verification pre-filled.
+        if (/no account found/i.test(data.message || '')) {
+          try {
+            sessionStorage.setItem('looply_oauth_prefill', JSON.stringify({
+              fullName: cred.user.displayName ?? '',
+              email: cred.user.email ?? '',
+              idToken,
+              provider: 'zoho',
+            }));
+          } catch { /* storage unavailable */ }
+          router.push('/signup');
+          return;
+        }
+        throw new Error(data.message || 'Zoho sign-in failed');
+      }
       await login(data.token, data.user);
       router.push(homeFor(panelRoleOf(data.user.roles, data.user.primaryRole)));
     } catch (err: unknown) {

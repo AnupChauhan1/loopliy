@@ -104,6 +104,25 @@ export default function SignupPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fbSent, emailProof]);
 
+  // Pick up a verified OAuth profile handed off from /login ("No account found")
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('looply_oauth_prefill');
+      if (!raw) return;
+      sessionStorage.removeItem('looply_oauth_prefill');
+      const p = JSON.parse(raw);
+      if (!p?.email) return;
+      setForm((f) => ({ ...f, email: p.email, fullName: f.fullName || p.fullName || '' }));
+      if (p.idToken) {
+        setEmailProof(p.idToken);
+        setEmailLocked(true);
+      }
+      if (p.provider === 'zoho') setZohoVerified(true);
+      else setGoogleVerified(true);
+    } catch { /* ignore malformed prefill */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const applyGoogleCred = (cred: any) => {
     void (async () => {
       const idToken = await cred.user.getIdToken();
