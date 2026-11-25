@@ -1,14 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Plus, Filter, Search, MoreHorizontal, Calendar, Users, TrendingUp, FolderKanban, X, Pencil, Trash2, Loader2, RefreshCw } from 'lucide-react';
+import { initials } from '@/lib/format';
+import { ProjectDetailDrawer } from '@/components/project-detail-drawer';
 import api from '@/lib/api-client';
 import { useToast, errorMessage } from '@/components/ui/toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
-import Link from 'next/link';
 import { SMM_CYCLE_1, PROJECT_SERVICES, SmmTaskSpec, dueDateFor, fmtShortDate, todayInputValue } from '@/lib/smm-template';
 import { useAuth } from '@/lib/auth-context';
 import { isManager } from '@/lib/roles';
@@ -57,6 +58,25 @@ interface Project {
   cycleStartDate?: string;
 }
 
+const TASK_DOT: Record<string, string> = {
+  completed: 'bg-emerald-500',
+  approved: 'bg-emerald-500',
+  in_progress: 'bg-amber-500',
+  in_review: 'bg-sky-500',
+  changes_requested: 'bg-amber-500',
+  todo: 'bg-slate-300',
+  on_hold: 'bg-slate-300',
+};
+
+const TASK_PILL: Record<string, { label: string; cls: string }> = {
+  completed: { label: 'Completed', cls: 'bg-emerald-50 text-emerald-700' },
+  approved: { label: 'Completed', cls: 'bg-emerald-50 text-emerald-700' },
+  in_progress: { label: 'In Progress', cls: 'bg-amber-50 text-amber-700' },
+  in_review: { label: 'In Review', cls: 'bg-sky-50 text-sky-700' },
+  changes_requested: { label: 'Changes', cls: 'bg-amber-50 text-amber-700' },
+};
+const taskPillOf = (s: string) => TASK_PILL[s] ?? { label: 'To Do', cls: 'bg-slate-100 text-slate-600' };
+
 const SECTIONS = [
   { value: 'all', label: 'All Sections' },
   { value: 'corporate', label: 'Corporate' },
@@ -76,6 +96,7 @@ export default function ProjectsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [taskProject, setTaskProject] = useState<Project | null>(null);
   const [newProject, setNewProject] = useState({
     name: '',
     description: '',
@@ -120,11 +141,11 @@ export default function ProjectsPage() {
     }).then(res => res.data),
   });
 
-  // Team directory for the Assign Project section (only needed while the modal is open)
+  // Team directory for the Assign Project section + drawer pickers
   const { data: usersData } = useQuery({
     queryKey: ['users'],
     queryFn: () => api.get('/users').then((r) => r.data),
-    enabled: showCreateModal,
+    enabled: showCreateModal || !!taskProject,
   });
 
   const allUsers: any[] = usersData ?? [];
@@ -203,6 +224,27 @@ export default function ProjectsPage() {
   const projectStats = new Map(
     buildProjectStats(tasksData?.tasks ?? [], projects).map((s) => [s.projectId, s]),
   );
+
+  // Tasks grouped per project, active/upcoming first — powers card previews + drawer
+  const tasksByProject = useMemo(() => {
+    const rank = (s: string) =>
+      ({ in_progress: 0, in_review: 1, changes_requested: 2, todo: 3, on_hold: 4, completed: 5, approved: 6, cancelled: 7 } as Record<string, number>)[s] ?? 8;
+    const map = new Map<string, any[]>();
+    for (const t of tasksData?.tasks ?? []) {
+      if (!t.projectId) continue;
+      if (!map.has(t.projectId)) map.set(t.projectId, []);
+      map.get(t.projectId)!.push(t);
+    }
+    for (const arr of map.values()) {
+      arr.sort(
+        (a, b) =>
+          rank(a.status) - rank(b.status) ||
+          (a.dayOffset ?? 999) - (b.dayOffset ?? 999) ||
+          new Date(a.deadline ?? 0).getTime() - new Date(b.deadline ?? 0).getTime(),
+      );
+    }
+    return map;
+  }, [tasksData]);
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
@@ -331,8 +373,19 @@ export default function ProjectsPage() {
         </Card>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 stagger">
-          {filteredProjects.map((project: Project) => (
-            <Card key={project.id} className="card-premium">
+          {filteredProjects.map((project: Project) => {
+            const cardTasks: any[] = tasksByProject.get(project.id) ?? [];
+            const previewTasks = cardTasks.slice(0, 3);
+            const remainingTasks = Math.max(0, cardTasks.length - previewTasks.length);
+            const doneCount = cardTasks.filter((t) => ['completed', 'approved'].includes(t.status)).length;
+            const activeCount = cardTasks.filter((t) => ['in_progress', 'in_review', 'changes_requested'].includes(t.status)).length;
+            const todoCount = cardTasks.filter((t) => ['todo', 'on_hold'].includes(t.status)).length;
+            return (
+            <Card
+              key={project.id}
+              onClick={() => setTaskProject(project)}
+              className="card-premium cursor-pointer transition-shadow hover:shadow-xl"
+            >
               <CardContent className="p-6">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1 min-w-0">
@@ -341,6 +394,7 @@ export default function ProjectsPage() {
                       <p className="text-sm text-gray-500 mt-1 line-clamp-2">{project.description}</p>
                     )}
                   </div>
+                  <div onClick={(e) => e.stopPropagation()}>
                   <DropdownMenu
                     trigger={
                       <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0 ml-2">
@@ -363,6 +417,7 @@ export default function ProjectsPage() {
                       Delete
                     </DropdownMenuItem>
                   </DropdownMenu>
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-2 mb-4 flex-wrap">
@@ -415,6 +470,45 @@ export default function ProjectsPage() {
                   );
                 })()}
 
+                {/* Live tasks preview */}
+                {cardTasks.length > 0 && (
+                  <div className="mb-4 rounded-xl border border-slate-100 bg-slate-50/60 p-2.5">
+                    <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">Project Tasks</p>
+                    <div className="space-y-1">
+                      {previewTasks.map((t: any) => {
+                        const pill = taskPillOf(t.status);
+                        const assignee = t.assignees?.[0]?.user;
+                        return (
+                          <div key={t.id} className="flex items-center gap-2 rounded-lg px-1.5 py-1 hover:bg-white/70">
+                            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${TASK_DOT[t.status] ?? 'bg-slate-300'}`} />
+                            <span className="min-w-0 flex-1 truncate text-xs font-medium text-slate-700">{t.title}</span>
+                            {assignee && (
+                              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[8px] font-bold text-emerald-700">
+                                {initials(assignee.firstName, assignee.lastName)}
+                              </span>
+                            )}
+                            <span className={`shrink-0 rounded-full px-1.5 py-px text-[9px] font-semibold ${pill.cls}`}>{pill.label}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="mt-1.5 flex items-center justify-between px-1">
+                      <span className="text-[10px] text-slate-400 tabular-nums">
+                        {doneCount} Done • {activeCount} Active • {todoCount} To Do
+                      </span>
+                      {remainingTasks > 0 && (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setTaskProject(project); }}
+                          className="text-[10px] font-semibold text-emerald-700 hover:text-emerald-800 hover:underline"
+                        >
+                          + {remainingTasks} more tasks
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-2 pt-4 border-t border-gray-200">
                   {project.deadline && (
                     <div className="flex items-center justify-between text-sm">
@@ -432,16 +526,48 @@ export default function ProjectsPage() {
                       <Users className="h-4 w-4" />
                       <span>Team</span>
                     </div>
-                    <span className="font-medium text-gray-900">{project.members?.length || 0} members</span>
+                    <span className="flex items-center gap-2 font-medium text-gray-900">
+                      <span className="flex -space-x-1.5">
+                        {(project.members ?? []).slice(0, 4).map((m: any) => {
+                          const u = m.user;
+                          return (
+                            <span
+                              key={u.id}
+                              title={fullName(u)}
+                              className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 text-[8px] font-bold text-emerald-700 ring-2 ring-white"
+                            >
+                              {initials(u.firstName, u.lastName)}
+                            </span>
+                          );
+                        })}
+                      </span>
+                      {project.members?.length || 0} members
+                    </span>
                   </div>
-                  <Link href={`/tasks?projectId=${project.id}`} className="block text-center text-xs font-medium text-brand-600 hover:text-brand-700 pt-1">
-                    View & assign tasks →
-                  </Link>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setTaskProject(project); }}
+                    className="block w-full text-center text-xs font-medium text-brand-600 hover:text-brand-700 pt-1"
+                  >
+                    View project tasks ({project._count?.tasks ?? cardTasks.length}) →
+                  </button>
                 </div>
               </CardContent>
             </Card>
-          ))}
+            );
+          })}
         </div>
+      )}
+
+      {/* Project detail slide-over: tasks + team */}
+      {taskProject && (
+        <ProjectDetailDrawer
+          project={taskProject}
+          tasks={tasksByProject.get(taskProject.id) ?? []}
+          assignableUsers={employeeOptions.length ? employeeOptions : allUsers.filter((u: any) => u.isActive !== false)}
+          canManage={currentUserIsManager}
+          onClose={() => setTaskProject(null)}
+        />
       )}
 
       {/* Create Project Modal — smart auto-dated wizard */}
