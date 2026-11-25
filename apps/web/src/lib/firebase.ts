@@ -23,6 +23,8 @@ googleProvider.setCustomParameters({ prompt: 'select_account' });
 export const zohoProvider = new OAuthProvider('oidc.zoho');
 zohoProvider.addScope('email');
 zohoProvider.addScope('profile');
+// Force fresh Zoho authentication (incl. Zoho OneAuth / MFA push) — never reuse a silent session
+zohoProvider.setCustomParameters({ prompt: 'login' });
 
 const FIREBASE_ERRORS: Record<string, string> = {
   'auth/unauthorized-domain': 'This website is not authorized for sign-in yet. Add this domain under Firebase Console → Authentication → Settings → Authorized domains.',
