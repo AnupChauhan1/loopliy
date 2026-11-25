@@ -14,6 +14,7 @@ import { useAuth } from '@/lib/auth-context';
 import { isManager } from '@/lib/roles';
 import { fullName } from '@/lib/format';
 import { SlimProgressBar, buildProjectStats } from '@/components/team-progress-overview';
+import { ProjectVelocityOverview } from '@/components/project-velocity-overview';
 
 const LEAD_ROLE_NAMES = ['Super Admin', 'Admin', 'Project Manager', 'HR Manager'];
 const NON_EMPLOYEE_ROLES = [...LEAD_ROLE_NAMES, 'Client'];
@@ -308,6 +309,9 @@ export default function ProjectsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Executive analytics: project completion + 24-day sprint velocity */}
+      <ProjectVelocityOverview />
 
       {isLoading ? (
         <div className="flex items-center justify-center py-12">

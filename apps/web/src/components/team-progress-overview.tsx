@@ -114,7 +114,7 @@ function taskDay(t: any, startByProject: Map<string, number>): number {
   return DAY_COUNT;
 }
 
-interface DayPoint {
+export interface DayPoint {
   day: number;
   label: string;
   target: number;
@@ -124,7 +124,7 @@ interface DayPoint {
 }
 
 /** 24-day series: planned target ramp + cumulative actual auto-progress for a scope. */
-function buildDaySeries(tasks: any[], projectId: string | null, startByProject: Map<string, number>): DayPoint[] {
+export function buildDaySeries(tasks: any[], projectId: string | null, startByProject: Map<string, number>): DayPoint[] {
   const scoped = (tasks ?? []).filter(
     (t) => t.status !== 'cancelled' && (projectId === null ? !!t.projectId : t.projectId === projectId),
   );
@@ -195,7 +195,7 @@ function WaveTooltip({ active, payload, label, scopeName }: any) {
   );
 }
 
-function ProjectWaveChart({ data, scopeName }: { data: DayPoint[]; scopeName: string }) {
+export function ProjectWaveChart({ data, scopeName }: { data: DayPoint[]; scopeName: string }) {
   return (
     <div className="h-44 w-full min-w-0 sm:h-52">
       <ResponsiveContainer width="100%" height="100%">
@@ -253,7 +253,7 @@ function ProjectWaveChart({ data, scopeName }: { data: DayPoint[]; scopeName: st
   );
 }
 
-const STATUS_SEGMENTS = [
+export const STATUS_SEGMENTS = [
   { key: 'completed', label: 'Completed', dot: 'bg-emerald-500', match: (s: string) => DONE_STATUSES.includes(s) },
   { key: 'in_progress', label: 'In Progress', dot: 'bg-sky-500', match: (s: string) => s === 'in_progress' || s === 'changes_requested' },
   { key: 'in_review', label: 'In Review', dot: 'bg-amber-500', match: (s: string) => s === 'in_review' },
