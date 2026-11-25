@@ -61,9 +61,10 @@
 
 @layer base {
   * { border-color: var(--border); }
-  html { scroll-behavior: smooth; overflow-x: hidden; }
+  html { scroll-behavior: smooth; max-width: 100vw; overflow-x: hidden; }
 
   body {
+    max-width: 100vw;
     overflow-x: hidden;
     background: var(--background);
     color: var(--foreground);
@@ -79,6 +80,8 @@
   h1, h2, h3 { letter-spacing: -0.02em; }
 
   input, select, textarea { accent-color: var(--brand); }
+
+  img, video, canvas, svg, iframe, embed, object { max-width: 100%; }
 }
 
 /* scrollbars */
