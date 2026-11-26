@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { Plus, Filter, Search, MoreHorizontal, Calendar, Users, TrendingUp, FolderKanban, X, Pencil, Trash2, Loader2, RefreshCw } from 'lucide-react';
+import { Plus, Filter, Search, MoreHorizontal, Calendar, Users, TrendingUp, FolderKanban, X, Pencil, Trash2, Loader2, RefreshCw, ChevronDown, Check } from 'lucide-react';
 import { initials } from '@/lib/format';
 import { ProjectDetailDrawer } from '@/components/project-detail-drawer';
 import api from '@/lib/api-client';
@@ -16,7 +16,7 @@ import { isManager } from '@/lib/roles';
 import { fullName } from '@/lib/format';
 import { SlimProgressBar, buildProjectStats } from '@/components/team-progress-overview';
 import { ProjectVelocityOverview } from '@/components/project-velocity-overview';
-import { BUCKETS, candidateText } from '@/lib/autoAssign';
+import { BUCKETS, smartAutoAssignTask, candidateText } from '@/lib/autoAssign';
 
 const LEAD_ROLE_NAMES = ['Super Admin', 'Admin', 'Project Manager', 'HR Manager'];
 const NON_EMPLOYEE_ROLES = [...LEAD_ROLE_NAMES, 'Client'];
@@ -126,13 +126,15 @@ export default function ProjectsPage() {
   };
   const [smart, setSmart] = useState(emptySmart);
   const [autoTeam, setAutoTeam] = useState(true);
+  const [teamOpen, setTeamOpen] = useState(false);
+  const [useContentPlan, setUseContentPlan] = useState(true);
   const autoPickedRef = useRef(false);
   const [smmTasks, setSmmTasks] = useState<SmmTaskSpec[]>(SMM_CYCLE_1);
   const [customTasks, setCustomTasks] = useState<{ title: string; dayOffset: number }[]>([]);
 
   const isFixedSmm = smart.planStructure === 'fixed' && smart.service === 'smm';
-  const showTemplatePreview = isFixedSmm;
-  const showCustomTasks = !isFixedSmm;
+  // 24-day content plan shows for SMM service or any recurring project
+  const showContentPlan = isFixedSmm || smart.service === 'smm' || smart.projectType === 'recurring';
 
   const { data: projectsData, isLoading } = useQuery({
     queryKey: ['projects', { status: filter, section: sectionFilter }],
@@ -181,6 +183,22 @@ export default function ProjectsPage() {
 
   const roleLabelOf = (u: any) => u?.employeeProfile?.designation ?? u?.roleNames?.[0] ?? 'Employee';
 
+  // Candidates for client-side role matching (preview badges in the modal)
+  const assignCandidates = useMemo(
+    () => assignablePool.map((u) => ({ id: u.id, name: fullName(u), text: candidateText(u) })),
+    [assignablePool],
+  );
+  const roleForTask = (title: string) => smartAutoAssignTask({ title }, assignCandidates)?.role ?? 'Team';
+
+  const autoPickRoles = () => {
+    const picked: string[] = [];
+    for (const bucket of BUCKETS) {
+      const hit = assignablePool.find((u) => bucket.member.test(candidateText(u)));
+      if (hit && !picked.includes(hit.id)) picked.push(hit.id);
+    }
+    return picked;
+  };
+
   // Auto-select one specialist per role bucket when "Auto-Assign Team & Tasks by Role" is on
   useEffect(() => {
     if (!showCreateModal) { autoPickedRef.current = false; return; }
@@ -218,6 +236,9 @@ export default function ProjectsPage() {
       setSmart(emptySmart);
       setSmmTasks(SMM_CYCLE_1);
       setCustomTasks([]);
+      setUseContentPlan(true);
+      setTeamOpen(false);
+      setAutoTeam(true);
       setFormError('');
       const auto = created?.autoAssigned;
       const roleSummary = auto?.byRole && Object.keys(auto.byRole).length
@@ -682,9 +703,10 @@ export default function ProjectsPage() {
               <form onSubmit={(e) => {
                 e.preventDefault();
                 setFormError('');
-                const taskTemplate = isFixedSmm
-                  ? smmTasks.filter((t) => t.title.trim())
-                  : customTasks.filter((t) => t.title.trim() && t.dayOffset > 0);
+                const taskTemplate = [
+                  ...(showContentPlan && useContentPlan ? smmTasks.filter((t) => t.title.trim()) : []),
+                  ...customTasks.filter((t) => t.title.trim() && t.dayOffset > 0),
+                ];
                 const projectData: any = {
                   name: smart.name,
                   description: smart.description || undefined,
@@ -844,140 +866,222 @@ export default function ProjectsPage() {
                           Auto-Assign Team &amp; Tasks by Role
                         </label>
                       </label>
-                      {assignablePool.length === 0 ? (
-                        <p className="text-xs text-gray-400 py-1">No employees available to assign.</p>
-                      ) : (
-                        <div className="flex max-h-36 flex-wrap gap-1.5 overflow-y-auto pr-1">
-                          {assignablePool.map((u) => {
-                            const selected = smart.employeeIds.includes(u.id);
-                            return (
+                      {/* Multi-select team dropdown */}
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setTeamOpen((v) => !v)}
+                          className="flex w-full items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 shadow-sm transition hover:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                        >
+                          <span className="flex min-w-0 items-center gap-2">
+                            {smart.employeeIds.length === 0 ? (
+                              <span className="text-gray-400">Select team members…</span>
+                            ) : (
+                              <>
+                                <span className="flex -space-x-1.5">
+                                  {smart.employeeIds.slice(0, 4).map((id) => {
+                                    const u = assignablePool.find((x) => x.id === id);
+                                    if (!u) return null;
+                                    return (
+                                      <span key={id} className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 text-[8px] font-bold text-emerald-700 ring-2 ring-white">
+                                        {initials(u.firstName, u.lastName)}
+                                      </span>
+                                    );
+                                  })}
+                                </span>
+                                <span className="truncate font-medium">
+                                  {smart.employeeIds.length} Team Member{smart.employeeIds.length === 1 ? '' : 's'} Selected{autoTeam ? ' (Auto-Assigned by Role)' : ''}
+                                </span>
+                              </>
+                            )}
+                          </span>
+                          <ChevronDown className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${teamOpen ? 'rotate-180' : ''}`} />
+                        </button>
+
+                        {teamOpen && (
+                          <div className="absolute left-0 right-0 z-30 mt-1.5 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
+                            <div className="flex items-center gap-2 border-b border-slate-100 px-3 py-2">
                               <button
-                                key={u.id}
                                 type="button"
-                                onClick={() =>
-                                  setSmart({
-                                    ...smart,
-                                    employeeIds: selected
-                                      ? smart.employeeIds.filter((id) => id !== u.id)
-                                      : [...smart.employeeIds, u.id],
-                                  })
-                                }
-                                className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-all ${
-                                  selected
-                                    ? 'border-brand-500 bg-brand-600 text-white shadow-sm'
-                                    : 'border-gray-200 bg-white text-gray-600 hover:border-brand-300 hover:text-brand-700'
-                                }`}
+                                onClick={() => setSmart({ ...smart, employeeIds: assignablePool.map((u) => u.id) })}
+                                className="rounded-lg bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-200"
                               >
-                                {fullName(u)} • {roleLabelOf(u)}
+                                Select All
                               </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                      {smart.employeeIds.length === 1 && (
-                        <p className="mt-1.5 text-[11px] text-brand-700">All generated tasks will be auto-assigned to this employee.</p>
-                      )}
-                      {smart.employeeIds.length > 1 && (
-                        <p className="mt-1.5 text-[11px] text-gray-500">Selected employees join the project team — assign tasks to them from the Tasks page.</p>
-                      )}
+                              <button
+                                type="button"
+                                onClick={() => setSmart({ ...smart, employeeIds: autoPickRoles() })}
+                                className="rounded-lg bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100"
+                              >
+                                ✨ Auto-Select by Role
+                              </button>
+                              {smart.employeeIds.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => setSmart({ ...smart, employeeIds: [] })}
+                                  className="ml-auto text-[11px] font-medium text-gray-400 hover:text-rose-500"
+                                >
+                                  Clear
+                                </button>
+                              )}
+                            </div>
+                            <div className="max-h-52 overflow-y-auto p-1.5">
+                              {assignablePool.length === 0 && (
+                                <p className="px-2 py-3 text-center text-xs text-gray-400">No employees available to assign.</p>
+                              )}
+                              {assignablePool.map((u) => {
+                                const selected = smart.employeeIds.includes(u.id);
+                                return (
+                                  <button
+                                    key={u.id}
+                                    type="button"
+                                    onClick={() =>
+                                      setSmart({
+                                        ...smart,
+                                        employeeIds: selected
+                                          ? smart.employeeIds.filter((id) => id !== u.id)
+                                          : [...smart.employeeIds, u.id],
+                                      })
+                                    }
+                                    className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm text-gray-700 transition hover:bg-emerald-50/60"
+                                  >
+                                    <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${selected ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-gray-300 bg-white'}`}>
+                                      {selected && <Check className="h-3 w-3" />}
+                                    </span>
+                                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[8px] font-bold text-emerald-700">
+                                      {initials(u.firstName, u.lastName)}
+                                    </span>
+                                    <span className="min-w-0 flex-1 truncate font-medium">{fullName(u)}</span>
+                                    <span className="shrink-0 text-[11px] text-gray-400">{roleLabelOf(u)}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <p className="mt-1.5 text-[11px] text-gray-500">
+                        Tasks will be automatically assigned to selected team members by role on creation.
+                      </p>
                     </div>
                   </div>
                 </div>
 
-                {/* Step 5 — auto-generated task preview */}
-                {showTemplatePreview ? (
+                {/* Step 5 — task templates: 24-day content plan + custom tasks */}
+                {showContentPlan && (
                   <div className="rounded-xl border border-brand-200 bg-brand-50/40 p-3 sm:p-4">
-                    <div className="mb-2 flex flex-col gap-1">
-                      <p className="text-sm font-semibold text-gray-900">
-                        Auto-generated SMM schedule — {smmTasks.length} tasks
-                      </p>
-                      <span className="text-[11px] text-gray-500">Month 1 · Days 1–24 · dates auto-computed</span>
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">
+                          24-Day Content Plan ({smmTasks.filter((t) => t.title.trim()).length} Tasks)
+                        </p>
+                        <span className="text-[11px] text-gray-500">Auto-scheduled · dates from start date · role-matched assignees</span>
+                      </div>
+                      <label className="flex cursor-pointer items-center gap-1.5 text-[11px] font-semibold text-emerald-700">
+                        <input
+                          type="checkbox"
+                          checked={useContentPlan}
+                          onChange={(e) => setUseContentPlan(e.target.checked)}
+                          className="h-3.5 w-3.5 rounded border-gray-300 text-emerald-600"
+                        />
+                        {useContentPlan ? 'Enabled' : 'Disabled'}
+                      </label>
                     </div>
-                    <p className="text-[11px] text-gray-500 mb-3">
-                      Recurring Month 2+ cycles automatically skip Day 1–3 onboarding and run Day 4–24 from the new cycle start.
-                    </p>
-                    <div className="max-h-64 space-y-1.5 overflow-y-auto pr-1">
-                      {smmTasks.map((t, i) => (
-                        <div key={t.dayOffset} className="flex w-full flex-col gap-0.5 rounded-lg border border-gray-100 bg-white/80 p-2.5 text-xs">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="shrink-0 text-[11px] font-bold text-brand-600">Day {t.dayOffset}</span>
-                            <span className="shrink-0 text-right text-[11px] text-gray-400">
-                              {fmtShortDate(dueDateFor(smart.startDate, t.dayOffset))}
-                            </span>
-                          </div>
+                    {useContentPlan && (
+                      <>
+                        <p className="text-[11px] text-gray-500 mb-2">
+                          Recurring Month 2+ cycles automatically skip Day 1–3 onboarding and run Day 4–24 from the new cycle start.
+                        </p>
+                        <div className="max-h-64 space-y-1.5 overflow-y-auto pr-1">
+                          {smmTasks.map((t, i) => (
+                            <div key={t.dayOffset} className="flex w-full flex-col gap-0.5 rounded-lg border border-gray-100 bg-white/80 p-2.5 text-xs">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="flex shrink-0 items-center gap-1.5">
+                                  <span className="text-[11px] font-bold text-brand-600">Day {t.dayOffset}</span>
+                                  <span className="rounded-full bg-emerald-50 px-1.5 py-px text-[9px] font-semibold text-emerald-700 ring-1 ring-emerald-200">
+                                    {roleForTask(t.title)}
+                                  </span>
+                                </span>
+                                <span className="shrink-0 text-right text-[11px] text-gray-400">
+                                  {fmtShortDate(dueDateFor(smart.startDate, t.dayOffset))}
+                                </span>
+                              </div>
+                              <input
+                                type="text"
+                                value={t.title}
+                                onChange={(e) => {
+                                  const next = [...smmTasks];
+                                  next[i] = { ...next[i], title: e.target.value };
+                                  setSmmTasks(next);
+                                }}
+                                className="w-full min-w-0 rounded-md border border-transparent bg-transparent px-0 py-1 !text-xs font-medium text-gray-800 hover:border-gray-200 focus:border-brand-400 focus:bg-white focus:outline-none"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Custom day-offset tasks — always available to append */}
+                <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-semibold text-gray-900">Custom tasks — day offsets (optional)</p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="rounded-lg text-xs"
+                      onClick={() => setCustomTasks([...customTasks, { title: '', dayOffset: customTasks.length + 1 }])}
+                    >
+                      <Plus className="h-3.5 w-3.5 mr-1" /> Add custom task
+                    </Button>
+                  </div>
+                  {customTasks.length === 0 ? (
+                    <p className="text-xs text-gray-400 py-2">No custom tasks — add extra day-offset tasks below the content plan if needed.</p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {customTasks.map((t, i) => (
+                        <div key={i} className="flex items-center gap-2">
                           <input
                             type="text"
                             value={t.title}
                             onChange={(e) => {
-                              const next = [...smmTasks];
+                              const next = [...customTasks];
                               next[i] = { ...next[i], title: e.target.value };
-                              setSmmTasks(next);
+                              setCustomTasks(next);
                             }}
-                            className="w-full min-w-0 rounded-md border border-transparent bg-transparent px-0 py-1 !text-xs font-medium text-gray-800 hover:border-gray-200 focus:border-brand-400 focus:bg-white focus:outline-none"
+                            placeholder={`Task ${i + 1} title`}
+                            className="flex-1 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500"
                           />
+                          <input
+                            type="number"
+                            min={1}
+                            value={t.dayOffset}
+                            onChange={(e) => {
+                              const next = [...customTasks];
+                              next[i] = { ...next[i], dayOffset: Number(e.target.value) };
+                              setCustomTasks(next);
+                            }}
+                            className="w-20 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500"
+                            title="Day offset"
+                          />
+                          <span className="w-16 text-right text-[11px] text-gray-400">
+                            {t.dayOffset > 0 ? fmtShortDate(dueDateFor(smart.startDate, t.dayOffset)) : '—'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setCustomTasks(customTasks.filter((_, j) => j !== i))}
+                            className="text-gray-400 hover:text-rose-500"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
                         </div>
                       ))}
                     </div>
-                  </div>
-                ) : (
-                  <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-sm font-semibold text-gray-900">Custom tasks — day offsets</p>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="rounded-lg text-xs"
-                        onClick={() => setCustomTasks([...customTasks, { title: '', dayOffset: customTasks.length + 1 }])}
-                      >
-                        <Plus className="h-3.5 w-3.5 mr-1" /> Add task
-                      </Button>
-                    </div>
-                    {customTasks.length === 0 ? (
-                      <p className="text-xs text-gray-400 py-2">No custom tasks yet — add tasks with a Day Offset and their due dates auto-calculate.</p>
-                    ) : (
-                      <div className="space-y-1.5">
-                        {customTasks.map((t, i) => (
-                          <div key={i} className="flex items-center gap-2">
-                            <input
-                              type="text"
-                              value={t.title}
-                              onChange={(e) => {
-                                const next = [...customTasks];
-                                next[i] = { ...next[i], title: e.target.value };
-                                setCustomTasks(next);
-                              }}
-                              placeholder={`Task ${i + 1} title`}
-                              className="flex-1 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500"
-                            />
-                            <input
-                              type="number"
-                              min={1}
-                              value={t.dayOffset}
-                              onChange={(e) => {
-                                const next = [...customTasks];
-                                next[i] = { ...next[i], dayOffset: Number(e.target.value) };
-                                setCustomTasks(next);
-                              }}
-                              className="w-20 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500"
-                              title="Day offset"
-                            />
-                            <span className="w-16 text-right text-[11px] text-gray-400">
-                              {t.dayOffset > 0 ? fmtShortDate(dueDateFor(smart.startDate, t.dayOffset)) : '—'}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => setCustomTasks(customTasks.filter((_, j) => j !== i))}
-                              className="text-gray-400 hover:text-rose-500"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
+                  )}
+                </div>
 
                 <div>
                   <label className="text-sm font-medium text-gray-700 mb-1 block">Description (optional)</label>
