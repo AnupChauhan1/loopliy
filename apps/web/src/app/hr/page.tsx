@@ -92,9 +92,6 @@ export default function HRDashboard() {
 
       <HrProjectsAccess />
 
-      {/* Team-wide + project-wise creative/video/website deliverable counts */}
-      <DeliverableZone tasks={tasksData?.tasks ?? []} projectWise />
-
       {/* HR & operations sprint velocity analytics */}
       {(tasksData?.tasks?.length ?? 0) > 0 && (
         <TaskProgressOverview
@@ -103,6 +100,9 @@ export default function HRDashboard() {
           onSelectStage={(s) => router.push(s ? `/tasks?status=${s}` : '/tasks')}
         />
       )}
+
+      {/* Team-wide + project-wise creative/video/website deliverable counts */}
+      <DeliverableZone tasks={tasksData?.tasks ?? []} projectWise />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="card-premium">

@@ -67,9 +67,14 @@ export default function EmployeeDashboard() {
       <CelebrationBurst active={celebrating} />
       <RoleDashboardHeader roleLabel="Employee" title="Dashboard" subtitle="Your personal workload, approvals and deliverables." />
 
-      <UrgentAlarm tasks={tasks} />
+      {/* 8-card sparkline KPI grid — first section below header */}
+      <Stagger className="grid grid-cols-1 gap-4 min-[520px]:grid-cols-2 xl:grid-cols-4" stagger={0.07}>
+        {cards.map((c) => (
+          <StatCard key={c.label} {...c} />
+        ))}
+      </Stagger>
 
-      <DeliverableZone tasks={tasks} title="My Deliverable Output" projectWise personal />
+      <UrgentAlarm tasks={tasks} />
 
       {/* Role-scoped sprint velocity analytics */}
       {!isLoading && tasks.length > 0 && (
@@ -80,11 +85,7 @@ export default function EmployeeDashboard() {
         />
       )}
 
-      <Stagger className="grid grid-cols-1 gap-4 min-[520px]:grid-cols-2 xl:grid-cols-4" stagger={0.07}>
-        {cards.map((c) => (
-          <StatCard key={c.label} {...c} />
-        ))}
-      </Stagger>
+      <DeliverableZone tasks={tasks} title="My Deliverable Output" projectWise personal />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">

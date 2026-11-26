@@ -211,9 +211,6 @@ export default function ManagerDashboard() {
         ))}
       </Stagger>
 
-      {/* Team-wide + project-wise creative/video/website deliverable counts */}
-      <DeliverableZone tasks={allTasks} projectWise />
-
       {/* Team sprint velocity analytics */}
       {allTasks.length > 0 && (
         <TaskProgressOverview
@@ -222,6 +219,9 @@ export default function ManagerDashboard() {
           onSelectStage={(s) => router.push(s ? `/tasks?status=${s}` : '/tasks')}
         />
       )}
+
+      {/* Team-wide + project-wise creative/video/website deliverable counts */}
+      <DeliverableZone tasks={allTasks} projectWise />
 
       {/* All-projects progress chart + employee dashboard switcher */}
       <div className="grid gap-6 lg:grid-cols-5">
