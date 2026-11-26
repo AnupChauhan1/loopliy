@@ -2,11 +2,14 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api-client';
 import { Card, CardContent } from '@/components/ui/card';
-import { X, Calendar, Users, TrendingUp, UserPlus, Wand2, Check, Sparkles } from 'lucide-react';
+import { X, Calendar, Users, TrendingUp, UserPlus, Wand2, Check, Sparkles, Video } from 'lucide-react';
 import { fullName, initials, fmtDate } from '@/lib/format';
+import { useAuth } from '@/lib/auth-context';
+import { createMeetingRoom } from '@/lib/meet';
 import { SlimProgressBar } from './team-progress-overview';
 import { StatusBadge, PriorityBadge } from '@/components/ui/badge';
 
@@ -49,6 +52,9 @@ export function ProjectDetailDrawer({
   onChanged?: () => void;
 }) {
   const queryClient = useQueryClient();
+  const router = useRouter();
+  const { user } = useAuth();
+  const [meetStarting, setMeetStarting] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [assignMenu, setAssignMenu] = useState<{ taskId: string; top: number; left: number } | null>(null);
   const [assignOverride, setAssignOverride] = useState<Record<string, string[]>>({});
@@ -139,6 +145,24 @@ export function ProjectDetailDrawer({
 
   const members = project.members ?? [];
 
+  const startClientMeeting = async () => {
+    setMeetStarting(true);
+    try {
+      const id = await createMeetingRoom({
+        title: `${project.name} — Client Meeting`,
+        projectId: project.id,
+        projectName: project.name,
+        clientId: project.client?.id,
+        clientName: project.client?.name,
+        hostName: user ? fullName(user) || user.email : 'Host',
+      });
+      router.push(`/meet/${id}`);
+    } catch {
+      setMeetStarting(false);
+      setError('Could not start meeting — please try again.');
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[90] flex justify-end bg-black/40 backdrop-blur-[2px] animate-fade-in" onClick={onClose}>
       <div
@@ -186,6 +210,14 @@ export function ProjectDetailDrawer({
               })}
             </div>
             <span className="text-xs font-medium text-gray-500">{members.length} member{members.length === 1 ? '' : 's'}</span>
+            <button
+              type="button"
+              disabled={meetStarting}
+              onClick={() => void startClientMeeting()}
+              className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-emerald-500 to-emerald-600 px-2.5 py-1.5 text-[11px] font-semibold text-white shadow-sm transition hover:from-emerald-600 hover:to-emerald-700 disabled:opacity-50"
+            >
+              <Video className="h-3.5 w-3.5" /> {meetStarting ? 'Starting…' : 'Start Client Meeting'}
+            </button>
             {canManage && (
               <div className="relative ml-auto flex items-center gap-1.5">
                 <div className="relative">

@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { Plus, Filter, Search, MoreHorizontal, Calendar, Users, TrendingUp, FolderKanban, X, Pencil, Trash2, Loader2, RefreshCw, ChevronDown, Check } from 'lucide-react';
+import { Plus, Filter, Search, MoreHorizontal, Calendar, Users, TrendingUp, FolderKanban, X, Pencil, Trash2, Loader2, RefreshCw, ChevronDown, Check, Video } from 'lucide-react';
 import { initials } from '@/lib/format';
 import { ProjectDetailDrawer } from '@/components/project-detail-drawer';
 import api from '@/lib/api-client';
@@ -17,6 +18,7 @@ import { fullName } from '@/lib/format';
 import { SlimProgressBar, buildProjectStats } from '@/components/team-progress-overview';
 import { ProjectVelocityOverview } from '@/components/project-velocity-overview';
 import { BUCKETS, smartAutoAssignTask, candidateText } from '@/lib/autoAssign';
+import { createMeetingRoom } from '@/lib/meet';
 
 const LEAD_ROLE_NAMES = ['Super Admin', 'Admin', 'Project Manager', 'HR Manager'];
 const NON_EMPLOYEE_ROLES = [...LEAD_ROLE_NAMES, 'Client'];
@@ -90,6 +92,8 @@ const SECTIONS = [
 
 export default function ProjectsPage() {
   const { user, role } = useAuth();
+  const router = useRouter();
+  const [meetStartingId, setMeetStartingId] = useState<string | null>(null);
   const currentUserIsManager = isManager(role);
   const [filter, setFilter] = useState('all');
   const [sectionFilter, setSectionFilter] = useState('all');
@@ -594,6 +598,33 @@ export default function ProjectsPage() {
                         {doneCount} Done • {activeCount} Active • {todoCount} To Do
                       </span>
                       <span className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={meetStartingId === project.id}
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            setMeetStartingId(project.id);
+                            try {
+                              const id = await createMeetingRoom({
+                                title: `${project.name} — Client Meeting`,
+                                projectId: project.id,
+                                projectName: project.name,
+                                clientId: project.client?.id,
+                                clientName: project.client?.name,
+                                hostName: user ? fullName(user) || user.email : 'Host',
+                              });
+                              router.push(`/meet/${id}`);
+                            } catch {
+                              setMeetStartingId(null);
+                              toast?.error?.('Could not start meeting');
+                            }
+                          }}
+                          className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-bold text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100 disabled:opacity-60"
+                          title="Start HD video meeting with client"
+                        >
+                          {meetStartingId === project.id ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Video className="h-2.5 w-2.5" />}
+                          Meet
+                        </button>
                         {unassignedPreview > 0 && currentUserIsManager && (
                           <button
                             type="button"

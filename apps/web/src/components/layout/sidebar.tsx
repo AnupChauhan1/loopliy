@@ -35,6 +35,7 @@ import {
   MessageCircle,
   UserRoundCog,
   ClipboardList,
+  Video,
 } from 'lucide-react';
 
 interface NavItem {
@@ -60,6 +61,7 @@ function navFor(role: string, opts?: { hrProjects?: boolean }): NavSection[] {
             { name: 'Tasks', href: '/tasks', icon: CheckSquare },
             { name: 'Individual Tasks', href: '/individual-tasks', icon: ClipboardList },
             { name: 'Projects', href: '/projects', icon: FolderKanban },
+            { name: 'Meetings', href: '/meetings', icon: Video },
             { name: 'Client access', href: '/client-accounts', icon: UserRoundCog },
             { name: 'Client messages', href: '/client-messages', icon: MessageCircle },
             { name: 'Issues', href: '/issues', icon: AlertCircle },
@@ -102,6 +104,7 @@ function navFor(role: string, opts?: { hrProjects?: boolean }): NavSection[] {
             { name: 'Tasks', href: '/tasks', icon: CheckSquare },
             { name: 'Individual Tasks', href: '/individual-tasks', icon: ClipboardList },
             { name: 'Projects', href: '/projects', icon: FolderKanban },
+            { name: 'Meetings', href: '/meetings', icon: Video },
             { name: 'Client messages', href: '/client-messages', icon: MessageCircle },
             { name: 'Issues', href: '/issues', icon: AlertCircle },
             { name: 'Templates', href: '/templates', icon: Layers },
@@ -132,6 +135,7 @@ function navFor(role: string, opts?: { hrProjects?: boolean }): NavSection[] {
             { name: 'Dashboard', href: '/hr', icon: LayoutDashboard },
             { name: 'Chat', href: '/chat', icon: MessageCircle },
             ...(opts?.hrProjects ? [{ name: 'Projects', href: '/projects', icon: FolderKanban }] : []),
+            { name: 'Meetings', href: '/meetings', icon: Video },
             { name: 'Employees', href: '/employees', icon: Users },
             { name: 'Departments', href: '/departments', icon: Network },
           ],
@@ -154,6 +158,7 @@ function navFor(role: string, opts?: { hrProjects?: boolean }): NavSection[] {
             { name: 'Dashboard', href: '/employee', icon: LayoutDashboard },
             { name: 'Chat', href: '/chat', icon: MessageCircle },
             { name: 'My Tasks', href: '/tasks', icon: CheckSquare },
+            { name: 'Meetings', href: '/meetings', icon: Video },
             { name: 'Issues', href: '/issues', icon: AlertCircle },
           ],
         },
@@ -215,6 +220,15 @@ export function Sidebar({ isMobileSidebarOpen = false, setIsMobileSidebarOpen, c
   const desktop = useIsDesktop();
   const mini = collapsed && desktop;
   const { data: stats } = useDashboardNavStats();
+  const [activeMeetings, setActiveMeetings] = useState(0);
+
+  useEffect(() => {
+    let unsub: (() => void) | undefined;
+    void import('@/lib/meet').then((m) => {
+      unsub = m.watchActiveMeetingCount(setActiveMeetings);
+    }).catch(() => {});
+    return () => unsub?.();
+  }, []);
 
   // Live counters from real dashboard stats (only shown when > 0)
   const badges: Record<string, number | undefined> = {
@@ -352,7 +366,14 @@ export function Sidebar({ isMobileSidebarOpen = false, setIsMobileSidebarOpen, c
                                       <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-brand-400 ring-2 ring-[#0B1220]" />
                                     )}
                                   </motion.span>
-                                  {!mini && <span className="relative flex-1 truncate">{item.name}</span>}
+                                  {!mini && (
+                                    <span className="relative flex flex-1 items-center gap-1.5 truncate">
+                                      {item.name}
+                                      {item.href === '/meetings' && activeMeetings > 0 && (
+                                        <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.9)]" title="Meeting in progress" />
+                                      )}
+                                    </span>
+                                  )}
                                   {!mini && !!badge && badge > 0 && (
                                     <motion.span
                                       initial={{ scale: 0 }}

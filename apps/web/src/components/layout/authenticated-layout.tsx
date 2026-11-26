@@ -123,7 +123,7 @@ export function AuthenticatedLayout({ children }: { children: React.ReactNode })
 
   // Public auth pages — must never be redirected to /login
   const PUBLIC_PATHS = ['/login', '/client-login', '/signup', '/forgot-password', '/verify-email', '/reset-password'];
-  const isPublicPage = PUBLIC_PATHS.includes(pathname);
+  const isPublicPage = PUBLIC_PATHS.includes(pathname) || pathname.startsWith('/meet/');
 
   useEffect(() => {
     setCollapsed(localStorage.getItem(COLLAPSE_KEY) === '1');
