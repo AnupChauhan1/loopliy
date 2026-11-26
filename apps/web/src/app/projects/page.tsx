@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Plus, Filter, Search, MoreHorizontal, Calendar, Users, TrendingUp, FolderKanban, X, Pencil, Trash2, Loader2, RefreshCw } from 'lucide-react';
@@ -16,6 +16,7 @@ import { isManager } from '@/lib/roles';
 import { fullName } from '@/lib/format';
 import { SlimProgressBar, buildProjectStats } from '@/components/team-progress-overview';
 import { ProjectVelocityOverview } from '@/components/project-velocity-overview';
+import { BUCKETS, candidateText } from '@/lib/autoAssign';
 
 const LEAD_ROLE_NAMES = ['Super Admin', 'Admin', 'Project Manager', 'HR Manager'];
 const NON_EMPLOYEE_ROLES = [...LEAD_ROLE_NAMES, 'Client'];
@@ -124,6 +125,8 @@ export default function ProjectsPage() {
     employeeIds: [] as string[],
   };
   const [smart, setSmart] = useState(emptySmart);
+  const [autoTeam, setAutoTeam] = useState(true);
+  const autoPickedRef = useRef(false);
   const [smmTasks, setSmmTasks] = useState<SmmTaskSpec[]>(SMM_CYCLE_1);
   const [customTasks, setCustomTasks] = useState<{ title: string; dayOffset: number }[]>([]);
 
@@ -152,9 +155,44 @@ export default function ProjectsPage() {
   const leadOptions = allUsers.filter(
     (u) => u.isActive !== false && (u.roleNames ?? []).some((r: string) => LEAD_ROLE_NAMES.includes(r)),
   );
-  const employeeOptions = allUsers.filter(
-    (u) => u.isActive !== false && !(u.roleNames ?? []).some((r: string) => NON_EMPLOYEE_ROLES.includes(r)),
-  );
+  const employeeOptions = useMemo(() => {
+    const seen = new Set<string>();
+    return allUsers.filter((u) => {
+      if (u.isActive === false || (u.roleNames ?? []).some((r: string) => NON_EMPLOYEE_ROLES.includes(r))) return false;
+      const key = u.id ?? u.email;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [allUsers]);
+
+  // Pool for smart auto-pick: employees + Project Managers (deduped by id/email)
+  const assignablePool = useMemo(() => {
+    const seen = new Set<string>();
+    const pool: any[] = [];
+    for (const u of [...employeeOptions, ...allUsers.filter((x) => x.isActive !== false && (x.roleNames ?? []).includes('Project Manager'))]) {
+      const key = u.id ?? u.email;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      pool.push(u);
+    }
+    return pool;
+  }, [allUsers, employeeOptions]);
+
+  const roleLabelOf = (u: any) => u?.employeeProfile?.designation ?? u?.roleNames?.[0] ?? 'Employee';
+
+  // Auto-select one specialist per role bucket when "Auto-Assign Team & Tasks by Role" is on
+  useEffect(() => {
+    if (!showCreateModal) { autoPickedRef.current = false; return; }
+    if (!autoTeam || autoPickedRef.current || !assignablePool.length) return;
+    const picked: string[] = [];
+    for (const bucket of BUCKETS) {
+      const hit = assignablePool.find((u) => bucket.member.test(candidateText(u)));
+      if (hit && !picked.includes(hit.id)) picked.push(hit.id);
+    }
+    autoPickedRef.current = true;
+    if (picked.length) setSmart((s) => (s.employeeIds.length ? s : { ...s, employeeIds: picked }));
+  }, [showCreateModal, autoTeam, assignablePool]);
 
   // Auto-select the logged-in manager/admin as project lead when the modal opens
   useEffect(() => {
@@ -229,6 +267,14 @@ export default function ProjectsPage() {
   });
 
   const projects = projectsData?.projects || [];
+
+  // The projects endpoint backfills unassigned project tasks server-side —
+  // refetch tasks once project data arrives so assignee pills stay in sync.
+  useEffect(() => {
+    if (projectsData?.projects?.length) {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    }
+  }, [projectsData, queryClient]);
 
   // Live task data powers the auto-calculated per-project progress bars
   const { data: tasksData } = useQuery({
@@ -608,7 +654,7 @@ export default function ProjectsPage() {
         <ProjectDetailDrawer
           project={taskProject}
           tasks={tasksByProject.get(taskProject.id) ?? []}
-          assignableUsers={employeeOptions.length ? employeeOptions : allUsers.filter((u: any) => u.isActive !== false)}
+          assignableUsers={assignablePool.length ? assignablePool : allUsers.filter((u: any) => u.isActive !== false)}
           canManage={currentUserIsManager}
           onClose={() => setTaskProject(null)}
         />
@@ -782,16 +828,27 @@ export default function ProjectsPage() {
                       </select>
                     </div>
                     <div>
-                      <label className="text-xs font-medium text-gray-600 mb-1.5 block">
-                        Assign Team Employees{smart.employeeIds.length > 0 && (
-                          <span className="ml-1.5 rounded-full bg-brand-100 px-2 py-0.5 text-[10px] font-semibold text-brand-700">{smart.employeeIds.length} selected</span>
-                        )}
+                      <label className="text-xs font-medium text-gray-600 mb-1.5 flex items-center justify-between gap-2">
+                        <span>
+                          Assign Team Employees{smart.employeeIds.length > 0 && (
+                            <span className="ml-1.5 rounded-full bg-brand-100 px-2 py-0.5 text-[10px] font-semibold text-brand-700">{smart.employeeIds.length} selected</span>
+                          )}
+                        </span>
+                        <label className="flex cursor-pointer items-center gap-1.5 text-[11px] font-semibold text-emerald-700">
+                          <input
+                            type="checkbox"
+                            checked={autoTeam}
+                            onChange={(e) => setAutoTeam(e.target.checked)}
+                            className="h-3.5 w-3.5 rounded border-gray-300 text-emerald-600"
+                          />
+                          Auto-Assign Team &amp; Tasks by Role
+                        </label>
                       </label>
-                      {employeeOptions.length === 0 ? (
+                      {assignablePool.length === 0 ? (
                         <p className="text-xs text-gray-400 py-1">No employees available to assign.</p>
                       ) : (
                         <div className="flex max-h-36 flex-wrap gap-1.5 overflow-y-auto pr-1">
-                          {employeeOptions.map((u) => {
+                          {assignablePool.map((u) => {
                             const selected = smart.employeeIds.includes(u.id);
                             return (
                               <button
@@ -811,7 +868,7 @@ export default function ProjectsPage() {
                                     : 'border-gray-200 bg-white text-gray-600 hover:border-brand-300 hover:text-brand-700'
                                 }`}
                               >
-                                {fullName(u)}
+                                {fullName(u)} • {roleLabelOf(u)}
                               </button>
                             );
                           })}

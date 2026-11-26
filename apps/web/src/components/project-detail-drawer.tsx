@@ -49,6 +49,7 @@ export function ProjectDetailDrawer({
 }) {
   const queryClient = useQueryClient();
   const [addOpen, setAddOpen] = useState(false);
+  const [openAssignTaskId, setOpenAssignTaskId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
@@ -107,7 +108,7 @@ export function ProjectDetailDrawer({
 
   const setAssignee = useMutation({
     mutationFn: ({ taskId, userId }: { taskId: string; userId: string }) =>
-      api.put(`/tasks/${taskId}`, { assigneeIds: [userId] }).then((r) => r.data),
+      api.put(`/tasks/${taskId}`, { assigneeIds: userId ? [userId] : [] }).then((r) => r.data),
     onSuccess: refresh,
     onError: (e: any) => setError(e.response?.data?.message || 'Assignee update failed'),
   });
@@ -258,41 +259,73 @@ export function ProjectDetailDrawer({
                         ) : (
                           <StatusBadge status={t.status} />
                         )}
-                        {/* Assignee selector */}
-                        {canManage ? (
-                          <select
-                            value={t.assignees?.[0]?.userId ?? ''}
-                            disabled={setAssignee.isPending}
-                            onChange={(e) => e.target.value && setAssignee.mutate({ taskId: t.id, userId: e.target.value })}
-                            className="max-w-[160px] rounded-lg border border-gray-200 bg-white px-2 py-1 text-[11px] font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
-                          >
-                            <option value="">Unassigned</option>
-                            {assignableUsers.filter((u) => u.isActive !== false).map((u) => (
-                              <option key={u.id} value={u.id}>{fullName(u)}</option>
-                            ))}
-                          </select>
-                        ) : null}
-                        {/* Assigned To pill: avatar + readable name */}
+                        {/* Single interactive "Assigned To" pill — avatar + name • role, click to reassign */}
                         {(() => {
                           const list: any[] = t.assignees ?? [];
-                          if (!list.length) {
-                            return <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-400 ring-1 ring-slate-200">Unassigned</span>;
-                          }
-                          const u = list[0].user;
-                          const extra = list.length - 1;
-                          const role = u?.employeeProfile?.designation ?? u?.roles?.[0]?.role?.name ?? u?.roleNames?.[0];
+                          const boundId = t.assigneeIds?.[0] ?? t.assignees?.[0]?.userId ?? t.assignees?.[0]?.user?.id ?? t.assignedTo ?? '';
+                          const u = list[0]?.user;
+                          const fallbackUser = !u && boundId ? assignableUsers.find((x) => x.id === boundId) : null;
+                          const displayUser = u ?? fallbackUser;
+                          const extra = Math.max(0, list.length - 1);
+                          const role = displayUser?.employeeProfile?.designation ?? displayUser?.roles?.[0]?.role?.name ?? displayUser?.roleNames?.[0];
+                          const open = openAssignTaskId === t.id;
                           return (
-                            <span
-                              title={`${list.map((a: any) => fullName(a.user)).join(', ')}${role ? ` • ${role}` : ''}`}
-                              className="inline-flex max-w-[200px] items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-200"
-                            >
-                              <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-emerald-200/70 text-[8px] font-bold">
-                                {initials(u?.firstName, u?.lastName)}
-                              </span>
-                              <span className="truncate">
-                                {fullName(u)}{role ? ` · ${role}` : ''}{extra > 0 ? ` +${extra}` : ''}
-                              </span>
-                            </span>
+                            <div className="relative">
+                              <button
+                                type="button"
+                                disabled={!canManage || setAssignee.isPending}
+                                onClick={() => setOpenAssignTaskId(open ? null : t.id)}
+                                title={displayUser ? `${fullName(displayUser)}${role ? ` • ${role}` : ''}` : 'Unassigned — click to assign'}
+                                className={`inline-flex max-w-[210px] items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-semibold ring-1 transition ${
+                                  displayUser
+                                    ? 'bg-emerald-50 text-emerald-700 ring-emerald-200 hover:bg-emerald-100'
+                                    : 'bg-slate-100 text-slate-500 ring-slate-200 hover:bg-slate-200/70'
+                                } ${canManage ? 'cursor-pointer' : 'cursor-default'}`}
+                              >
+                                {displayUser ? (
+                                  <>
+                                    <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-emerald-200/70 text-[8px] font-bold">
+                                      {initials(displayUser.firstName, displayUser.lastName)}
+                                    </span>
+                                    <span className="truncate">
+                                      {fullName(displayUser)}{role ? ` · ${role}` : ''}{extra > 0 ? ` +${extra}` : ''}
+                                    </span>
+                                  </>
+                                ) : (
+                                  <span className="truncate">{canManage ? '+ Assign' : 'Unassigned'}</span>
+                                )}
+                              </button>
+                              {canManage && open && (
+                                <div className="absolute left-0 top-8 z-20 max-h-52 w-52 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-xl">
+                                  <button
+                                    type="button"
+                                    onClick={() => { setAssignee.mutate({ taskId: t.id, userId: '' }); setOpenAssignTaskId(null); }}
+                                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] font-medium text-slate-500 hover:bg-slate-50"
+                                  >
+                                    Unassigned
+                                  </button>
+                                  {assignableUsers.filter((u) => u.isActive !== false).map((u) => {
+                                    const current = boundId === u.id || list.some((a: any) => a.userId === u.id || a.user?.id === u.id);
+                                    const r = u.employeeProfile?.designation ?? u.roles?.[0]?.role?.name ?? u.roleNames?.[0];
+                                    return (
+                                      <button
+                                        key={u.id}
+                                        type="button"
+                                        disabled={setAssignee.isPending}
+                                        onClick={() => { setAssignee.mutate({ taskId: t.id, userId: u.id }); setOpenAssignTaskId(null); }}
+                                        className={`flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] font-medium text-gray-700 hover:bg-emerald-50 ${current ? 'bg-emerald-50/60' : ''}`}
+                                      >
+                                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[8px] font-bold text-emerald-700">
+                                          {initials(u.firstName, u.lastName)}
+                                        </span>
+                                        <span className="min-w-0 flex-1 truncate">{fullName(u)}{r ? ` · ${r}` : ''}</span>
+                                        {current && <Check className="h-3.5 w-3.5 shrink-0 text-emerald-600" />}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
                           );
                         })()}
                       </div>

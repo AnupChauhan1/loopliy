@@ -253,10 +253,26 @@ export class ProjectsService {
       skipDuplicates: true,
     });
 
-    // Auto-generate the first cycle's tasks (SMM fixed template or custom day-offset tasks).
-    // Every generated task is auto-assigned across the selected team (round-robin
-    // with role matching); falls back to all project members when none were picked.
-    const taskAssignees = selectedProfiles.length ? selectedProfiles : await this.memberProfiles(project.id);
+    // Auto-generate the first cycle's tasks. When no team was picked, fall back
+    // to ALL approved employees so every task still gets a role-matched assignee.
+    let taskAssignees = selectedProfiles;
+    if (!taskAssignees.length) {
+      const approved = await this.prisma.user.findMany({
+        where: {
+          organizationId,
+          isActive: true,
+          OR: [
+            { approvedAt: { not: null } },
+            { hrApprovedAt: { not: null } },
+            { adminApprovedAt: { not: null } },
+          ],
+        },
+        select: MEMBER_USER_SELECT,
+        take: 200,
+      });
+      const approvedProfiles: AssigneeProfile[] = approved.map((u) => ({ id: u.id, text: profileText(u) }));
+      taskAssignees = approvedProfiles.length ? approvedProfiles : await this.memberProfiles(project.id);
+    }
     const cycleResult = await this.createCycleTasks(project, 1, cycleStartDate, taskTemplate?.length ? taskTemplate : undefined, taskAssignees);
 
     // Log to audit
