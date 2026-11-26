@@ -9,9 +9,8 @@ import { TaskProgressBar } from '@/components/task-progress-bar';
 import { UrgentAlarm } from '@/components/urgent-alarm';
 import { CelebrationBurst } from '@/components/ui/celebration';
 import { useCompletionCelebration } from '@/lib/use-sound-prefs';
-import { useAuth } from '@/lib/auth-context';
 import { fmtDate, isOverdue, timeAgo } from '@/lib/format';
-import { CheckSquare, Clock, Send, AlertTriangle, CalendarDays, Megaphone, CheckCheck, RotateCcw, MessageCircle } from 'lucide-react';
+import { CheckSquare, Clock, Send, AlertTriangle, Megaphone, CheckCheck, MessageCircle, FolderKanban, Palette, Clapperboard } from 'lucide-react';
 import { TaskBreakdownTabs } from '@/components/task-breakdown';
 import { DeliverableZone } from '@/components/deliverable-zone';
 import { TaskProgressOverview } from '@/components/task-progress-overview';
@@ -19,11 +18,11 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { StatCard } from '@/components/ui/stat-card';
 import { Stagger } from '@/components/ui/motion';
-import { PageHeader } from '@/components/ui/page-header';
 import { useMyDashboardStats } from '@/lib/hooks/dashboard';
+import { RoleDashboardHeader } from '@/components/role-dashboard-header';
+import { getTaskDeliverableCategory } from '@/components/deliverable-zone';
 
 export default function EmployeeDashboard() {
-  const { user } = useAuth();
   const router = useRouter();
   const { celebrating } = useCompletionCelebration();
 
@@ -41,29 +40,32 @@ export default function EmployeeDashboard() {
 
   const tasks: any[] = tasksData?.tasks ?? [];
   const now = new Date();
-  const today = now.toDateString();
 
   const inProgress = tasks.filter((t) => t.status === 'in_progress');
   const inReview = tasks.filter((t) => t.status === 'in_review');
-  const changesRequested = tasks.filter((t) => t.status === 'changes_requested');
-  const todayTasks = tasks.filter((t) => t.deadline && new Date(t.deadline).toDateString() === today);
   const overdue = tasks.filter((t) => isOverdue(t.deadline, t.status));
   const completed = tasks.filter((t) => t.status === 'completed').slice(0, 5);
   const waAlertTasks = tasks.filter((t) => ['client_review', 'in_review'].includes(t.status) || (t.creativeStage ?? 0) >= 2);
+  const doneCount = tasks.filter((t) => ['completed', 'approved'].includes(t.status)).length;
+  const myProjects = new Set(tasks.map((t) => t.project?.id ?? t.project?.name).filter(Boolean)).size;
+  const myCreatives = tasks.filter((t) => getTaskDeliverableCategory(t) === 'creative').length;
+  const myVideos = tasks.filter((t) => getTaskDeliverableCategory(t) === 'video').length;
 
   const cards = [
-    { label: "Today's Tasks", sub: 'Due today', value: todayTasks.length, icon: CalendarDays, tone: 'sky' as const },
-    { label: 'In Progress', sub: 'Being worked on', value: inProgress.length, icon: Clock, tone: 'green' as const },
-    { label: 'Pending Review', sub: 'Waiting for manager', value: inReview.length, icon: Send, tone: 'purple' as const },
-    { label: 'Changes Requested', sub: 'Needs rework', value: changesRequested.length, icon: RotateCcw, tone: 'orange' as const },
+    { label: 'My Projects', sub: 'Projects I work on', value: myProjects, icon: FolderKanban, tone: 'green' as const },
+    { label: 'My Assigned Tasks', sub: 'All my tasks', value: tasks.length, icon: CheckSquare, tone: 'blue' as const },
+    { label: 'In Progress', sub: 'Being worked on', value: inProgress.length, icon: Clock, tone: 'sky' as const },
+    { label: 'Completed', sub: 'All time', value: stats?.tasks?.my?.completed ?? doneCount, icon: CheckCheck, tone: 'emerald' as const },
+    { label: 'In Review', sub: 'Pending review', value: inReview.length, icon: Send, tone: 'purple' as const },
     { label: 'Overdue', sub: 'Past due', value: overdue.length, icon: AlertTriangle, tone: 'red' as const },
-    { label: 'Completed', sub: 'All time', value: stats?.tasks?.my?.completed ?? completed.length, icon: CheckCheck, tone: 'emerald' as const },
+    { label: 'My Creatives', sub: 'Static, banners, design', value: myCreatives, icon: Palette, tone: 'pink' as const },
+    { label: 'My Videos', sub: 'Reels, edits, motion', value: myVideos, icon: Clapperboard, tone: 'violet' as const },
   ];
 
   return (
     <div className="space-y-6 animate-fade-in">
       <CelebrationBurst active={celebrating} />
-      <PageHeader eyebrow={`Hey ${user?.firstName ?? 'there'} 👋`} title="My" highlight="Workspace" description="Here's your workload for today." />
+      <RoleDashboardHeader roleLabel="Employee" title="Dashboard" subtitle="Your personal workload, approvals and deliverables." />
 
       <UrgentAlarm tasks={tasks} />
 
@@ -78,7 +80,7 @@ export default function EmployeeDashboard() {
         />
       )}
 
-      <Stagger className="grid grid-cols-1 gap-4 min-[520px]:grid-cols-2 xl:grid-cols-3" stagger={0.07}>
+      <Stagger className="grid grid-cols-1 gap-4 min-[520px]:grid-cols-2 xl:grid-cols-4" stagger={0.07}>
         {cards.map((c) => (
           <StatCard key={c.label} {...c} />
         ))}

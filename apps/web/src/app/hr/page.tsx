@@ -5,16 +5,16 @@ import api from '@/lib/api-client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { StatusBadge } from '@/components/ui/badge';
 import { fmtDate, fullName, initials, timeAgo } from '@/lib/format';
-import { Users, CalendarOff, Clock, Network, AlertTriangle, UserPlus } from 'lucide-react';
+import { Users, CalendarOff, Clock, Network, AlertTriangle, UserPlus, CheckSquare, FolderKanban } from 'lucide-react';
 import Link from 'next/link';
 import { StatCard } from '@/components/ui/stat-card';
 import { PendingApprovals } from '@/components/pending-approvals';
 import { HrProjectsAccess } from '@/components/hr-projects-access';
 import { Stagger } from '@/components/ui/motion';
-import { PageHeader } from '@/components/ui/page-header';
 import { useHrDashboardStats } from '@/lib/hooks/dashboard';
 import { DeliverableZone } from '@/components/deliverable-zone';
 import { TaskProgressOverview } from '@/components/task-progress-overview';
+import { RoleDashboardHeader } from '@/components/role-dashboard-header';
 import { useRouter } from 'next/navigation';
 
 export default function HRDashboard() {
@@ -47,6 +47,12 @@ export default function HRDashboard() {
     staleTime: 30_000,
   });
 
+  const { data: projectsData } = useQuery({
+    queryKey: ['hr-projects'],
+    queryFn: () => api.get('/projects', { params: { limit: 100 } }).then((r) => r.data),
+    staleTime: 30_000,
+  });
+
   const pendingLeave = leaveData ?? [];
   const users = usersData ?? [];
   const todayAttendance = (attendanceData ?? []).filter((r: any) => new Date(r.date).toDateString() === new Date().toDateString());
@@ -58,20 +64,25 @@ export default function HRDashboard() {
     window.location.reload();
   };
 
+  const hrTasks = tasksData?.tasks ?? [];
+  const hrProjects = (projectsData?.projects ?? []).filter((p: any) => !['cancelled'].includes(p.status));
+
   const cards = [
-    { label: 'Total employees', sub: 'Everyone in the org', value: stats?.org?.totalUsers ?? 0, delta: stats?.recent?.users, icon: Users, href: '/employees', tone: 'blue' as const },
-    { label: 'Present today', sub: 'Checked in today', value: presentToday, icon: Clock, href: '/attendance', tone: 'green' as const },
-    { label: 'Pending leave', sub: 'Awaiting decision', value: pendingLeave.length, delta: stats?.recent?.pendingLeave, icon: CalendarOff, href: '/leave', tone: 'amber' as const },
-    { label: 'Departments', sub: 'Active departments', value: stats?.org?.departments ?? 0, delta: stats?.recent?.departments, icon: Network, href: '/departments', tone: 'purple' as const },
-    { label: 'Overdue tasks', sub: 'Past due', value: stats?.tasks?.overdue ?? 0, delta: stats?.recent?.overdue, icon: AlertTriangle, href: '/tasks?overdue=true', tone: 'red' as const },
-    { label: 'New this month', sub: 'Joined in the last 30 days', value: newJoiners.length, icon: UserPlus, href: '/employees', tone: 'pink' as const },
+    { label: 'Total Employees', sub: 'Everyone in the org', value: stats?.org?.totalUsers ?? 0, delta: stats?.recent?.users, icon: Users, href: '/employees', tone: 'blue' as const },
+    { label: 'Present Today', sub: 'Checked in today', value: presentToday, icon: Clock, href: '/attendance', tone: 'green' as const },
+    { label: 'Departments', sub: 'Active departments', value: stats?.org?.departments ?? (departments ?? []).length, delta: stats?.recent?.departments, icon: Network, href: '/departments', tone: 'purple' as const },
+    { label: 'New This Month', sub: 'Joined in 30 days', value: newJoiners.length, icon: UserPlus, href: '/employees', tone: 'pink' as const },
+    { label: 'Pending Leave', sub: 'Awaiting decision', value: pendingLeave.length, delta: stats?.recent?.pendingLeave, icon: CalendarOff, href: '/leave', tone: 'amber' as const },
+    { label: 'HR Tasks', sub: 'Visible to HR', value: hrTasks.length, icon: CheckSquare, href: '/tasks', tone: 'orange' as const },
+    { label: 'Overdue Tasks', sub: 'Past due', value: stats?.tasks?.overdue ?? 0, delta: stats?.recent?.overdue, icon: AlertTriangle, href: '/tasks?overdue=true', tone: 'red' as const },
+    { label: 'Approved Projects', sub: 'Live projects', value: hrProjects.length, icon: FolderKanban, href: '/projects', tone: 'emerald' as const },
   ];
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <PageHeader eyebrow="People operations" title="HR" highlight="Dashboard" description="Workforce, leave and attendance overview." />
+      <RoleDashboardHeader roleLabel="HR" title="Dashboard" subtitle="Workforce, leave and attendance overview." />
 
-      <Stagger className="grid grid-cols-1 gap-4 min-[520px]:grid-cols-2 xl:grid-cols-3" stagger={0.07}>
+      <Stagger className="grid grid-cols-1 gap-4 min-[520px]:grid-cols-2 xl:grid-cols-4" stagger={0.07}>
         {cards.map((c) => (
           <StatCard key={c.label} {...c} />
         ))}

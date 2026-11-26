@@ -9,13 +9,12 @@ import { StatusBadge, PriorityBadge } from '@/components/ui/badge';
 import { ReviewActions } from '@/components/task-actions';
 import { RemoteTaskControls } from '@/components/remote-task-controls';
 import { fmtDate, fullName, initials, isOverdue } from '@/lib/format';
-import { FolderKanban, CheckSquare, Send, AlertTriangle, Palette, Clapperboard, Users, UserCheck, TrendingUp, Plus } from 'lucide-react';
+import { FolderKanban, CheckSquare, Send, AlertTriangle, Palette, Users, UserCheck, TrendingUp, CheckCheck, CalendarOff } from 'lucide-react';
 import Link from 'next/link';
-import { useAuth } from '@/lib/auth-context';
 import { StatCard } from '@/components/ui/stat-card';
 import { Stagger } from '@/components/ui/motion';
-import { PageHeader } from '@/components/ui/page-header';
 import { useManagerDashboardStats } from '@/lib/hooks/dashboard';
+import { RoleDashboardHeader } from '@/components/role-dashboard-header';
 import { TeamProgressOverview } from '@/components/team-progress-overview';
 import { DeliverableZone } from '@/components/deliverable-zone';
 import { TaskProgressOverview } from '@/components/task-progress-overview';
@@ -140,7 +139,6 @@ function EmployeeLiveView({ userId }: { userId: string }) {
 }
 
 export default function ManagerDashboard() {
-  const { user } = useAuth();
   const router = useRouter();
   const [selectedEmployee, setSelectedEmployee] = useState('');
 
@@ -175,39 +173,39 @@ export default function ManagerDashboard() {
     queryFn: () => api.get('/projects', { params: { limit: 100 } }).then((r) => r.data),
   });
 
+  const { data: pendingLeaveData } = useQuery({
+    queryKey: ['leave-pending-manager'],
+    queryFn: () => api.get('/leave', { params: { status: 'pending' } }).then((r) => r.data),
+  });
+
   const reviewTasks = reviewQueue?.tasks ?? [];
   const overdueTasks = overdueData?.tasks ?? [];
   const projects = projectsData?.projects ?? [];
   const allTasks = allTasksData?.tasks ?? [];
 
+  const completedCount = allTasks.filter((t: any) => ['completed', 'approved'].includes(t.status)).length;
+  const pendingLeaveCount = Array.isArray(pendingLeaveData) ? pendingLeaveData.length : (pendingLeaveData?.requests?.length ?? pendingLeaveData?.length ?? 0);
+
   const cards = [
-    { label: 'Projects', sub: 'All projects', value: stats?.org?.projects ?? 0, delta: stats?.recent?.projects, icon: FolderKanban, href: '/projects', tone: 'green' as const },
-    { label: 'Tasks in review', sub: 'Awaiting your review', value: reviewTasks.length, delta: stats?.recent?.inReview, icon: Send, href: '/tasks?status=in_review', tone: 'purple' as const },
-    { label: 'Overdue tasks', sub: 'Past due', value: stats?.tasks?.overdue ?? 0, delta: stats?.recent?.overdue, icon: AlertTriangle, href: '/tasks?overdue=true', tone: 'red' as const },
-    { label: 'Creative queue', sub: 'In internal review', value: stats?.approvals?.pendingCreatives ?? 0, icon: Palette, href: '/creative', tone: 'pink' as const },
-    { label: 'Video queue', sub: 'In internal review', value: stats?.approvals?.pendingVideos ?? 0, icon: Clapperboard, href: '/video', tone: 'violet' as const },
-    { label: 'Total tasks', sub: 'Across the org', value: stats?.tasks?.total ?? 0, delta: stats?.recent?.tasks, icon: CheckSquare, href: '/tasks', tone: 'orange' as const },
+    { label: 'Team Members', sub: 'Active employees', value: employees.length, icon: Users, href: '/employees', tone: 'blue' as const },
+    { label: 'Managed Projects', sub: 'All projects', value: projects.length, delta: stats?.recent?.projects, icon: FolderKanban, href: '/projects', tone: 'green' as const },
+    { label: 'Team Tasks', sub: 'Across the org', value: stats?.tasks?.total ?? allTasks.length, delta: stats?.recent?.tasks, icon: CheckSquare, href: '/tasks', tone: 'orange' as const },
+    { label: 'Completed', sub: 'Done tasks', value: completedCount, icon: CheckCheck, href: '/tasks?status=completed', tone: 'emerald' as const },
+    { label: 'In Review', sub: 'Pending review', value: reviewTasks.length, delta: stats?.recent?.inReview, icon: Send, href: '/tasks?status=in_review', tone: 'purple' as const },
+    { label: 'Overdue', sub: 'Past due tasks', value: stats?.tasks?.overdue ?? overdueTasks.length, delta: stats?.recent?.overdue, icon: AlertTriangle, href: '/tasks?overdue=true', tone: 'red' as const },
+    { label: 'Pending Leave', sub: 'Awaiting decision', value: pendingLeaveCount, icon: CalendarOff, href: '/leave', tone: 'sky' as const },
+    { label: 'Creative + Video Queue', sub: 'Items in queue', value: (stats?.approvals?.pendingCreatives ?? 0) + (stats?.approvals?.pendingVideos ?? 0), delta: stats?.recent?.approvals, icon: Palette, href: '/creative', tone: 'violet' as const },
   ];
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <PageHeader
-        eyebrow={`Welcome back, ${user?.firstName ?? ''}`}
-        title="Manager"
-        highlight="Dashboard"
-        description="Your projects, reviews and team workload."
-        actions={
-          <button
-            type="button"
-            onClick={() => router.push('/tasks?create=1')}
-            className="gradient-brand-btn flex h-10 items-center gap-1.5 rounded-xl px-4 text-sm font-semibold whitespace-nowrap lg:hidden"
-          >
-            <Plus className="h-4 w-4" /> New
-          </button>
-        }
+      <RoleDashboardHeader
+        roleLabel="Manager"
+        title="Dashboard"
+        subtitle="Your projects, reviews and team workload."
       />
 
-      <Stagger className="grid grid-cols-1 gap-4 min-[520px]:grid-cols-2 xl:grid-cols-3" stagger={0.07}>
+      <Stagger className="grid grid-cols-1 gap-4 min-[520px]:grid-cols-2 xl:grid-cols-4" stagger={0.07}>
         {cards.map((c) => (
           <StatCard key={c.label} {...c} />
         ))}
