@@ -25,7 +25,6 @@ export default function SignupPage() {
   const [emailLocked, setEmailLocked] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [zohoLoading, setZohoLoading] = useState(false);
-  const [zohoSent, setZohoSent] = useState(false);
   const fbUser = useRef<any>(null);
 
   const [googleVerified, setGoogleVerified] = useState(false);
@@ -34,7 +33,7 @@ export default function SignupPage() {
   const resetEmailVerification = () => {
     setFbSent(false); setFbLoading(false); setFbMsg('');
     setEmailProof(''); setEmailLocked(false); setGoogleVerified(false); setZohoVerified(false);
-    setZohoSent(false); fbUser.current = null;
+    fbUser.current = null;
   };
 
   const fbError = async (err: unknown, fallback: string) =>
@@ -141,37 +140,19 @@ export default function SignupPage() {
     })();
   };
 
-  // Poll every 3s while waiting for the Zoho Mail verification link to be tapped
-  useEffect(() => {
-    if (!zohoSent || emailProof) return;
-    const id = setInterval(async () => {
-      const u = fbUser.current;
-      if (!u) return;
-      try {
-        await u.reload();
-        if (u.emailVerified) {
-          const token = await u.getIdToken(true);
-          setEmailProof(token);
-          setEmailLocked(true);
-          setZohoVerified(true);
-          setZohoSent(false);
-          setFbSent(false);
-          setFbMsg('');
-        }
-      } catch { /* retry next tick */ }
-    }, 3000);
-    return () => clearInterval(id);
-  }, [zohoSent, emailProof]);
-
   useEffect(() => {
     (async () => {
       try {
         const { getRedirectResult } = await import('firebase/auth');
         const { auth } = await import('@/lib/firebase');
         const cred = await getRedirectResult(auth);
-        if (cred?.user) applyGoogleCred(cred);
+        if (cred?.user) {
+          const pid = cred.user.providerData?.[0]?.providerId ?? '';
+          if (pid.includes('zoho')) applyZohoCred(cred);
+          else applyGoogleCred(cred);
+        }
       } catch (err: unknown) {
-        if ((err as { code?: string })?.code) setError(await fbError(err, 'Google sign-in failed.'));
+        if ((err as { code?: string })?.code) setError(await fbError(err, 'Sign-in failed.'));
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -202,41 +183,45 @@ export default function SignupPage() {
     }
   };
 
-  // Sends a real Firebase verification email to the Zoho Mail inbox — the user
-  // must open Zoho Mail (phone push notification) and tap the link to approve.
+  // Zoho OAuth success → verified email + locked signup fields
+  const applyZohoCred = (cred: any) => {
+    void (async () => {
+      const idToken = await cred.user.getIdToken();
+      setEmailProof(idToken);
+      setEmailLocked(true);
+      setZohoVerified(true);
+      setGoogleVerified(false);
+      setFbSent(false);
+      setFbMsg('');
+      setForm((f) => ({
+        ...f,
+        email: cred.user.email ?? f.email,
+        fullName: f.fullName || cred.user.displayName || '',
+      }));
+    })();
+  };
+
+  // "Verify & Sign up with Zoho" — clean Zoho OIDC popup (redirect fallback).
   const signInWithZoho = async () => {
-    setError(''); setZohoLoading(true); setFbMsg('');
+    setError(''); setZohoLoading(true);
     try {
-      const email = form.email.trim();
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        setError('Enter your Zoho work email first (e.g. name@zohomail.in)');
-        return;
-      }
-      if (!form.password) {
-        setError('Enter your password first so we can send the Zoho verification link');
-        return;
-      }
-      const { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification } = await import('firebase/auth');
-      const { auth } = await import('@/lib/firebase');
-      let cred;
+      const { signInWithPopup, signInWithRedirect } = await import('firebase/auth');
+      const { auth, zohoProvider } = await import('@/lib/firebase');
       try {
-        cred = await createUserWithEmailAndPassword(auth, email, form.password);
-      } catch (e: any) {
-        if (e?.code === 'auth/email-already-in-use') {
-          cred = await signInWithEmailAndPassword(auth, email, form.password);
-        } else {
-          throw e;
+        const cred = await signInWithPopup(auth, zohoProvider);
+        applyZohoCred(cred);
+      } catch (popupErr: any) {
+        const code = popupErr?.code ?? 'unknown';
+        if (['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment', 'auth/web-storage-unsupported'].includes(code)) {
+          await signInWithRedirect(auth, zohoProvider);
+          return;
+        }
+        if (code !== 'auth/popup-closed-by-user' && code !== 'auth/cancelled-popup-request') {
+          setError(await fbError(popupErr, 'Zoho sign-in failed — please try again.'));
         }
       }
-      fbUser.current = cred.user;
-      await sendEmailVerification(cred.user, {
-        url: `${window.location.origin}/signup`,
-        handleCodeInApp: false,
-      });
-      setZohoSent(true);
-      setFbMsg(`Verification notification sent to ${email} — please open Zoho Mail on your phone and tap the verification link to approve.`);
     } catch (err: unknown) {
-      setError(await fbError(err, 'Could not send Zoho verification email.'));
+      setError(await fbError(err, 'Zoho sign-in failed. Please try again.'));
     } finally {
       setZohoLoading(false);
     }
@@ -330,16 +315,8 @@ export default function SignupPage() {
             ) : (
               <ZohoIcon />
             )}
-            {zohoLoading ? 'Sending verification...' : 'Verify & Sign up with Zoho'}
+            {zohoLoading ? 'Connecting to Zoho...' : 'Verify & Sign up with Zoho'}
           </button>
-          {zohoSent && (
-            <div className="flex items-center gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 p-3.5">
-              <Loader2 className="h-4 w-4 shrink-0 animate-spin text-emerald-600" />
-              <p className="text-[12px] font-medium text-emerald-800">
-                Waiting for approval — open <span className="font-semibold">Zoho Mail</span> on your phone and tap the verification link. This form unlocks automatically.
-              </p>
-            </div>
-          )}
           <div className="flex items-center gap-3">
             <span className="h-px flex-1 bg-gray-200" />
             <span className="text-[11px] font-medium text-gray-400">or use email</span>
