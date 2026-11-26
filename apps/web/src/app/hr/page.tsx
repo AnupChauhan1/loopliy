@@ -13,6 +13,7 @@ import { HrProjectsAccess } from '@/components/hr-projects-access';
 import { Stagger } from '@/components/ui/motion';
 import { PageHeader } from '@/components/ui/page-header';
 import { useHrDashboardStats } from '@/lib/hooks/dashboard';
+import { DeliverableZone } from '@/components/deliverable-zone';
 
 export default function HRDashboard() {
   const { data: stats } = useHrDashboardStats();
@@ -35,6 +36,12 @@ export default function HRDashboard() {
   const { data: departments } = useQuery({
     queryKey: ['departments'],
     queryFn: () => api.get('/departments').then((r) => r.data),
+  });
+
+  const { data: tasksData } = useQuery({
+    queryKey: ['hr-all-tasks'],
+    queryFn: () => api.get('/tasks', { params: { limit: 500 } }).then((r) => r.data),
+    staleTime: 30_000,
   });
 
   const pendingLeave = leaveData ?? [];
@@ -70,6 +77,9 @@ export default function HRDashboard() {
       <PendingApprovals />
 
       <HrProjectsAccess />
+
+      {/* Team-wide + project-wise creative/video/website deliverable counts */}
+      <DeliverableZone tasks={tasksData?.tasks ?? []} projectWise />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="card-premium">

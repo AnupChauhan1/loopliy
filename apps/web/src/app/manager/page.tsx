@@ -17,6 +17,7 @@ import { Stagger } from '@/components/ui/motion';
 import { PageHeader } from '@/components/ui/page-header';
 import { useManagerDashboardStats } from '@/lib/hooks/dashboard';
 import { TeamProgressOverview } from '@/components/team-progress-overview';
+import { DeliverableZone } from '@/components/deliverable-zone';
 
 const MANAGER_ROLE_NAMES = ['Super Admin', 'Admin', 'Project Manager', 'HR Manager', 'Client'];
 const DONE_STATUSES = ['completed', 'approved', 'cancelled'];
@@ -210,6 +211,9 @@ export default function ManagerDashboard() {
           <StatCard key={c.label} {...c} />
         ))}
       </Stagger>
+
+      {/* Team-wide + project-wise creative/video/website deliverable counts */}
+      <DeliverableZone tasks={allTasks} projectWise />
 
       {/* All-projects progress chart + employee dashboard switcher */}
       <div className="grid gap-6 lg:grid-cols-5">

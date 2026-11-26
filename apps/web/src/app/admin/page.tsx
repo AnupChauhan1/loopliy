@@ -8,6 +8,9 @@ import { motion } from 'motion/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/lib/auth-context';
 import { useDashboardStats, type TrendPoint } from '@/lib/hooks/dashboard';
+import { useQuery } from '@tanstack/react-query';
+import api from '@/lib/api-client';
+import { DeliverableZone } from '@/components/deliverable-zone';
 import { SectionTitle } from '@/components/ui/card';
 import { StatusBadge, PriorityBadge } from '@/components/ui/badge';
 import { fmtDate, fullName, initials, isOverdue, timeAgo } from '@/lib/format';
@@ -123,6 +126,11 @@ export default function AdminDashboard() {
   const toast = useToast();
   const queryClient = useQueryClient();
   const { data: stats, isLoading, isError } = useDashboardStats();
+  const { data: allTasksData } = useQuery({
+    queryKey: ['admin-all-tasks'],
+    queryFn: () => api.get('/tasks', { params: { limit: 500 } }).then((r) => r.data),
+    staleTime: 30_000,
+  });
 
   const now = new Date();
   const hour = now.getHours();
@@ -256,6 +264,9 @@ export default function AdminDashboard() {
 
       {/* ---------- Live team & project progress analytics ---------- */}
       <TeamProgressOverview />
+
+      {/* ---------- Overall + project-wise creative/video/website deliverable counts ---------- */}
+      <DeliverableZone tasks={allTasksData?.tasks ?? []} projectWise />
 
       {/* ---------- Tasks by status + department workload ---------- */}
       <div className="grid items-stretch gap-5 xl:grid-cols-[1.55fr_1fr]">

@@ -13,7 +13,7 @@ import { useAuth } from '@/lib/auth-context';
 import { fmtDate, isOverdue, timeAgo } from '@/lib/format';
 import { CheckSquare, Clock, Send, AlertTriangle, CalendarDays, Megaphone, CheckCheck, RotateCcw, MessageCircle } from 'lucide-react';
 import { TaskBreakdownTabs } from '@/components/task-breakdown';
-import { DeliverableCountZone } from '@/components/deliverable-count-zone';
+import { DeliverableZone } from '@/components/deliverable-zone';
 import Link from 'next/link';
 import { StatCard } from '@/components/ui/stat-card';
 import { Stagger } from '@/components/ui/motion';
@@ -64,7 +64,7 @@ export default function EmployeeDashboard() {
 
       <UrgentAlarm tasks={tasks} />
 
-      <DeliverableCountZone tasks={tasks} />
+      <DeliverableZone tasks={tasks} title="My Deliverable Output" projectWise personal />
 
       <Stagger className="grid grid-cols-1 gap-4 min-[520px]:grid-cols-2 xl:grid-cols-3" stagger={0.07}>
         {cards.map((c) => (
