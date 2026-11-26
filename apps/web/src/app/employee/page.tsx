@@ -11,7 +11,9 @@ import { CelebrationBurst } from '@/components/ui/celebration';
 import { useCompletionCelebration } from '@/lib/use-sound-prefs';
 import { useAuth } from '@/lib/auth-context';
 import { fmtDate, isOverdue, timeAgo } from '@/lib/format';
-import { CheckSquare, Clock, Send, AlertTriangle, CalendarDays, Megaphone, CheckCheck, RotateCcw } from 'lucide-react';
+import { CheckSquare, Clock, Send, AlertTriangle, CalendarDays, Megaphone, CheckCheck, RotateCcw, MessageCircle } from 'lucide-react';
+import { TaskBreakdownTabs } from '@/components/task-breakdown';
+import { DeliverableCountZone } from '@/components/deliverable-count-zone';
 import Link from 'next/link';
 import { StatCard } from '@/components/ui/stat-card';
 import { Stagger } from '@/components/ui/motion';
@@ -38,13 +40,13 @@ export default function EmployeeDashboard() {
   const now = new Date();
   const today = now.toDateString();
 
-  const todoTasks = tasks.filter((t) => ['todo', 'changes_requested', 'on_hold'].includes(t.status));
   const inProgress = tasks.filter((t) => t.status === 'in_progress');
   const inReview = tasks.filter((t) => t.status === 'in_review');
   const changesRequested = tasks.filter((t) => t.status === 'changes_requested');
   const todayTasks = tasks.filter((t) => t.deadline && new Date(t.deadline).toDateString() === today);
   const overdue = tasks.filter((t) => isOverdue(t.deadline, t.status));
   const completed = tasks.filter((t) => t.status === 'completed').slice(0, 5);
+  const waAlertTasks = tasks.filter((t) => ['client_review', 'in_review'].includes(t.status) || (t.creativeStage ?? 0) >= 2);
 
   const cards = [
     { label: "Today's Tasks", sub: 'Due today', value: todayTasks.length, icon: CalendarDays, tone: 'sky' as const },
@@ -62,6 +64,8 @@ export default function EmployeeDashboard() {
 
       <UrgentAlarm tasks={tasks} />
 
+      <DeliverableCountZone tasks={tasks} />
+
       <Stagger className="grid grid-cols-1 gap-4 min-[520px]:grid-cols-2 xl:grid-cols-3" stagger={0.07}>
         {cards.map((c) => (
           <StatCard key={c.label} {...c} />
@@ -77,13 +81,11 @@ export default function EmployeeDashboard() {
                 <CheckSquare className="h-4 w-4 text-brand-600" /> Needs your attention
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3 stagger">
+            <CardContent>
               {isLoading ? (
                 <p className="text-sm text-gray-400 py-6 text-center">Loading tasks...</p>
-              ) : todoTasks.length === 0 && inProgress.length === 0 ? (
-                <p className="text-sm text-gray-400 py-6 text-center">All caught up — nothing needs your attention 🎉</p>
               ) : (
-                [...inProgress, ...todoTasks].map((task) => (
+                <TaskBreakdownTabs tasks={tasks} renderTask={(task) => (
                   <div key={task.id} className="rounded-xl border border-gray-200/80 p-4 hover:border-brand-300 hover:shadow-lg hover:shadow-brand-100/60 hover:-translate-y-0.5 transition-all duration-200">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -115,7 +117,7 @@ export default function EmployeeDashboard() {
                       <RemoteTaskControls task={task} />
                     </div>
                   </div>
-                ))
+                )} />
               )}
             </CardContent>
           </Card>
@@ -142,6 +144,42 @@ export default function EmployeeDashboard() {
         </div>
 
         <div className="space-y-6">
+          {/* Important WhatsApp alerts — approvals ready to send */}
+          {waAlertTasks.length > 0 && (
+            <Card className="card-premium !border-[#25D366]/40">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base font-semibold text-gray-900">
+                  <MessageCircle className="h-4 w-4 text-[#128C7E]" /> Important WhatsApp Alerts
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2.5">
+                {waAlertTasks.map((task) => {
+                  const stageName = task.status === 'client_review' ? 'Client Review' : task.status === 'in_review' ? 'Strategist Review' : 'Pending approval';
+                  const link = typeof window !== 'undefined' ? `${window.location.origin}/tasks/${task.id}` : '';
+                  const text = encodeURIComponent(
+                    `🔔 *LOOPLY — Approval Needed*\n\n*Project:* ${task.project?.name ?? 'General'}\n*Task:* ${task.title}\n*Stage:* ${stageName}\n*Review & approve:* ${link}`,
+                  );
+                  return (
+                    <div key={task.id} className="flex items-center justify-between gap-2 rounded-xl border border-[#25D366]/25 bg-[#25D366]/5 px-3 py-2.5">
+                      <div className="min-w-0">
+                        <p className="truncate text-[13px] font-semibold text-gray-800">{task.title}</p>
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-[#128C7E]">{stageName}</p>
+                      </div>
+                      <a
+                        href={`https://wa.me/?text=${text}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex h-8 shrink-0 items-center gap-1 rounded-lg bg-[#25D366] px-2.5 text-[11px] font-bold text-white shadow-sm transition hover:bg-[#1fb857]"
+                      >
+                        <MessageCircle className="h-3.5 w-3.5" /> Send
+                      </a>
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          )}
+
           {/* Announcements */}
           <Card className="card-premium">
             <CardHeader className="pb-3">

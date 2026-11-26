@@ -11,6 +11,8 @@ export function taskProgress(status?: string | null): number {
       return 100;
     case 'in_review':
       return 80;
+    case 'client_review':
+      return 85;
     case 'in_progress':
     case 'changes_requested':
       return 50;

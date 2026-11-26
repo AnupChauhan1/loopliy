@@ -462,6 +462,8 @@ model Task {
   cycle        Int?
   workNote     String?
   deliverableUrl String?
+  creativeStage Int      @default(0)
+  creativeStageAt DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

@@ -17,6 +17,7 @@ import { isManager } from '@/lib/roles';
 import { fullName } from '@/lib/format';
 import { SlimProgressBar, buildProjectStats } from '@/components/team-progress-overview';
 import { ProjectVelocityOverview } from '@/components/project-velocity-overview';
+import { DeliverableCountZone } from '@/components/deliverable-count-zone';
 import { BUCKETS, smartAutoAssignTask, candidateText } from '@/lib/autoAssign';
 import { createMeetingRoom } from '@/lib/meet';
 
@@ -442,6 +443,9 @@ export default function ProjectsPage() {
 
       {/* Executive analytics: project completion + 24-day sprint velocity */}
       <ProjectVelocityOverview />
+
+      {/* Live production deliverable counts across all project tasks */}
+      <DeliverableCountZone tasks={[...tasksByProject.values()].flat()} />
 
       {isLoading ? (
         <div className="flex items-center justify-center py-12">

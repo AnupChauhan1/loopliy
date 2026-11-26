@@ -486,6 +486,73 @@ export class TasksService {
     });
   }
 
+  /**
+   * 4-stage creative approval pipeline:
+   *   1 Created Design → 2 Strategist Review → 3 Client Review → 4 Posted (completed)
+   * `action: 'revision'` sends the task back for rework from any stage.
+   */
+  async setCreativeStage(id: string, body: { stage?: number; action?: string; note?: string }, user: any) {
+    const task = await this.getTask(id, user.organizationId);
+    const manager = this.isManager(user);
+    const assignee = this.isAssignee(task, user.id);
+    if (!manager && !assignee) throw new ForbiddenException('Not your task');
+
+    const STAGE_NAMES = ['Not started', 'Created Design', 'Sent for Strategist Review', 'Sent for Client Review', 'Posted'];
+    const STAGE_STATUS: Record<number, string> = { 1: 'in_progress', 2: 'in_review', 3: 'client_review', 4: 'completed' };
+
+    // Request Revision — reviewer sends work back
+    if (body.action === 'revision') {
+      if (!manager && !assignee) throw new ForbiddenException('Only reviewers can request revision');
+      const note = body.note?.trim();
+      if (!note) throw new BadRequestException('A revision note is required');
+      const updated = await this.changeStatus(id, task.status, 'changes_requested', user.id);
+      await this.prisma.task.update({ where: { id }, data: { creativeStage: Math.max(0, (task.creativeStage ?? 0) - 1) } });
+      await this.prisma.taskComment.create({
+        data: { taskId: id, userId: user.id, content: `🔁 Revision requested at "${STAGE_NAMES[task.creativeStage ?? 0]}": ${note}` },
+      });
+      await this.notifications.notifyMany(
+        task.assignees.map((a) => a.userId).filter((u) => u !== user.id),
+        'changes_requested',
+        'Revision requested',
+        `"${task.title}": ${note}`,
+        `/tasks/${id}`,
+      );
+      return this.findOne(id, user.organizationId);
+    }
+
+    const stage = Math.min(4, Math.max(0, Math.floor(body.stage ?? 0)));
+    if (stage === (task.creativeStage ?? 0)) return this.findOne(id, user.organizationId);
+
+    // Stage 3 (client review) & stage transitions to review stages are reviewer actions —
+    // employees may only advance 0→1 (mark created) and assignees may move forward freely.
+    const targetStatus = STAGE_STATUS[stage];
+    const note = body.note?.trim();
+    if (note) {
+      await this.prisma.taskComment.create({ data: { taskId: id, userId: user.id, content: `🎨 ${STAGE_NAMES[stage]}${note ? `: ${note}` : ''}` } });
+    }
+
+    const extra: any = { creativeStage: stage, creativeStageAt: new Date() };
+    if (stage === 4) extra.completedAt = new Date();
+
+    const updated = targetStatus && task.status !== targetStatus
+      ? await this.changeStatus(id, task.status, targetStatus, user.id, extra)
+      : await this.prisma.task.update({ where: { id }, data: extra, include: ASSIGNEE_INCLUDE });
+
+    // Notify assignees + managers on every stage move
+    const reviewers = await this.notifications.userIdsWithRoles(user.organizationId, MANAGER_ROLES);
+    const recipients = [...new Set([...task.assignees.map((a) => a.userId), ...reviewers, task.createdById].filter((u): u is string => !!u && u !== user.id))];
+    await this.notifications.notifyMany(
+      recipients,
+      'creative_stage',
+      `Creative: ${STAGE_NAMES[stage]}`,
+      `"${task.title}" moved to ${STAGE_NAMES[stage]}${task.project?.name ? ` • ${task.project.name}` : ''}`,
+      `/tasks/${id}`,
+      { taskId: id, creativeStage: stage, ...(task.projectId ? { projectId: task.projectId } : {}) },
+    );
+
+    return this.findOne(id, user.organizationId);
+  }
+
   async addComment(taskId: string, body: { content: string; userId: string }, organizationId: string) {
     await this.getTask(taskId, organizationId);
     return this.prisma.taskComment.create({

@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { StatusBadge, PriorityBadge } from '@/components/ui/badge';
 import { ReviewActions } from '@/components/task-actions';
+import { CreativeApprovalPanel } from '@/components/creative-approval-panel';
 import { RemoteTaskControls } from '@/components/remote-task-controls';
 import { CelebrationBurst } from '@/components/ui/celebration';
 import { useCompletionCelebration } from '@/lib/use-sound-prefs';
@@ -182,6 +183,13 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
               </CardContent>
             </Card>
           )}
+
+          {/* 4-stage creative approval pipeline */}
+          <Card className="card-premium !border-emerald-200/70">
+            <CardContent className="pt-5">
+              <CreativeApprovalPanel task={task} onChanged={invalidate} />
+            </CardContent>
+          </Card>
 
           {/* Checklist */}
           <Card className="card-premium">

@@ -75,6 +75,11 @@ export class TasksController {
     return this.tasksService.updateStatus(id, status, req.user);
   }
 
+  @Post(':id/creative-stage')
+  setCreativeStage(@Param('id') id: string, @Body() body: { stage?: number; action?: string; note?: string }, @Request() req: any) {
+    return this.tasksService.setCreativeStage(id, body, req.user);
+  }
+
   // ---- Comments / checklist / attachments ----
 
   @Post(':id/comments')
