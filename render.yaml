@@ -8,7 +8,7 @@ services:
     runtime: node
     region: oregon
     plan: free
-    buildCommand: npm ci --include=dev && npm --prefix apps/api ci --include=dev && npm run prisma:generate && npm --prefix apps/api run build
+    buildCommand: npm install --include=dev --no-audit --no-fund && npm --prefix apps/api install --include=dev --no-audit --no-fund && npm run prisma:generate && npm --prefix apps/api run build
     startCommand: npm run prisma:migrate:deploy && npm --prefix apps/api run start:prod
     initialDeployHook: npm run prisma:seed
     autoDeployTrigger: commit
@@ -37,7 +37,7 @@ services:
     region: oregon
     plan: free
     rootDir: apps/web
-    buildCommand: npm ci --include=dev && npm run build
+    buildCommand: npm install --include=dev --no-audit --no-fund && npm run build
     startCommand: npm start
     autoDeployTrigger: commit
     envVars:
