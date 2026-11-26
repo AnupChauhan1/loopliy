@@ -5,7 +5,7 @@ import { UpdateProjectDto } from './dto/update-project.dto';
 import { SMM_CYCLE_1, SMM_CYCLE_2_PLUS, TemplateTaskSpec, addDays, addTenure, dueDateFor } from './smm-template';
 import { hasAnyRole, MANAGER_ROLES, PRIVILEGED_ROLES } from '../common/roles';
 import { projectProgress, projectProgressFromGroups } from '../common/progress';
-import { smartMatch } from '../common/auto-assign';
+import { smartMatch, isManagerCandidate } from '../common/auto-assign';
 
 const TASK_INCLUDE = {
   assignees: {
@@ -96,6 +96,39 @@ export class ProjectsService {
       include: { user: { select: MEMBER_USER_SELECT } },
     });
     return rows.map((r) => ({ id: r.userId, text: profileText(r.user, r.role) }));
+  }
+
+  /** All approved (HR/admin) employees in the org as assignable profiles. */
+  private async approvedEmployeeProfiles(organizationId: string): Promise<AssigneeProfile[]> {
+    const users = await this.prisma.user.findMany({
+      where: {
+        organizationId,
+        isActive: true,
+        OR: [
+          { approvedAt: { not: null } },
+          { hrApprovedAt: { not: null } },
+          { adminApprovedAt: { not: null } },
+        ],
+      },
+      select: MEMBER_USER_SELECT,
+      take: 200,
+    });
+    return users.map((u) => ({ id: u.id, text: profileText(u) }));
+  }
+
+  /**
+   * Members for distribution: project team, topped up with approved employees
+   * whenever the team has fewer than 2 non-manager members — guarantees
+   * execution tasks spread across real employees instead of landing 100%
+   * on the Project Manager.
+   */
+  private async distributionPool(projectId: string, organizationId: string): Promise<AssigneeProfile[]> {
+    const members = await this.memberProfiles(projectId);
+    const execCount = members.filter((m) => !isManagerCandidate({ id: m.id, text: m.text })).length;
+    if (execCount >= 2) return members;
+    const approved = await this.approvedEmployeeProfiles(organizationId);
+    const seen = new Set(members.map((m) => m.id));
+    return [...members, ...approved.filter((a) => !seen.has(a.id))];
   }
 
   /**
@@ -366,7 +399,7 @@ export class ProjectsService {
           byProject.set(t.projectId!, rows);
         }
         for (const [pid, rows] of byProject) {
-          const members = await this.memberProfiles(pid);
+          const members = await this.distributionPool(pid, organizationId);
           if (!members.length) continue;
           await this.prisma.taskAssignee.createMany({
             data: this.distribute(rows, members).map((r) => ({ taskId: r.taskId, userId: r.userId })),
@@ -553,7 +586,7 @@ export class ProjectsService {
     const base = project.cycleStartDate ?? project.startDate ?? new Date();
     const nextStart = addTenure(base, project.tenureUnit, project.tenureValue ?? 1);
 
-    const assignees = await this.memberProfiles(id);
+    const assignees = await this.distributionPool(id, organizationId);
     const cycleResult = await this.createCycleTasks(project, cycle, nextStart, undefined, assignees);
     const created = cycleResult.count;
 
@@ -587,8 +620,8 @@ export class ProjectsService {
   }
 
   /** Distribute all unassigned tasks of a project across its members. Returns count assigned. */
-  private async assignUnassignedTasks(projectId: string): Promise<number> {
-    const members = await this.memberProfiles(projectId);
+  private async assignUnassignedTasks(projectId: string, organizationId: string): Promise<number> {
+    const members = await this.distributionPool(projectId, organizationId);
     if (!members.length) return 0;
     const unassigned = await this.prisma.task.findMany({
       where: { projectId, assignees: { none: {} } },
@@ -610,7 +643,7 @@ export class ProjectsService {
     if (project.ownerId !== user.id && !hasAnyRole(user, MANAGER_ROLES)) {
       throw new ForbiddenException('Only the project lead or a manager can auto-assign tasks');
     }
-    const assigned = await this.assignUnassignedTasks(projectId);
+    const assigned = await this.assignUnassignedTasks(projectId, organizationId);
     return { assigned };
   }
 
@@ -622,7 +655,7 @@ export class ProjectsService {
     if (project.ownerId !== user.id && !hasAnyRole(user, MANAGER_ROLES)) {
       throw new ForbiddenException('Only the project lead or a manager can smart-assign tasks');
     }
-    const members = await this.memberProfiles(projectId);
+    const members = await this.distributionPool(projectId, organizationId);
     if (!members.length) return { assigned: 0, byRole: {} };
     const tasks = await this.prisma.task.findMany({
       where: { projectId, status: { not: 'cancelled' } },
@@ -673,7 +706,7 @@ export class ProjectsService {
     });
 
     // New member joins → immediately distribute any still-unassigned tasks
-    const autoAssigned = await this.assignUnassignedTasks(projectId);
+    const autoAssigned = await this.assignUnassignedTasks(projectId, organizationId);
 
     return { ...member, autoAssigned };
   }

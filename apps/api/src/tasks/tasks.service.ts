@@ -5,7 +5,7 @@ import { UpdateTaskDto } from './dto/update-task.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { hasAnyRole, MANAGER_ROLES } from '../common/roles';
 import { taskProgress } from '../common/progress';
-import { smartMatch, candidateFromUser } from '../common/auto-assign';
+import { smartMatch, candidateFromUser, isManagerCandidate } from '../common/auto-assign';
 
 const ASSIGNEE_INCLUDE = {
   assignees: {
@@ -131,34 +131,38 @@ export class TasksService {
   private async smartAssigneeFor(dto: CreateTaskDto, organizationId: string): Promise<string | null> {
     let candidates: { id: string; text: string; load?: number }[] = [];
 
+    // Project tasks prefer the project team — but if the team has fewer than
+    // 2 non-manager members, top up with all active staff so execution tasks
+    // still spread across employees instead of landing 100% on the PM.
+    const staffSelect = {
+      id: true,
+      roles: { include: { role: { select: { name: true } } } },
+      department: { select: { name: true } },
+      employeeProfile: { select: { designation: true } },
+    } as const;
+    const orgUsers = () =>
+      this.prisma.user.findMany({
+        where: { organizationId, isActive: true },
+        select: staffSelect,
+        take: 200,
+      });
+
     if (dto.projectId) {
       const members = await this.prisma.projectMember.findMany({
         where: { projectId: dto.projectId },
-        include: {
-          user: {
-            select: {
-              id: true,
-              roles: { include: { role: { select: { name: true } } } },
-              department: { select: { name: true } },
-              employeeProfile: { select: { designation: true } },
-            },
-          },
-        },
+        include: { user: { select: staffSelect } },
       });
       candidates = members.map((m) => candidateFromUser(m.user, m.role));
+      const execCount = candidates.filter((c) => !isManagerCandidate(c)).length;
+      if (execCount < 2) {
+        const seen = new Set(candidates.map((c) => c.id));
+        const extra = (await orgUsers()).filter((u) => !seen.has(u.id));
+        candidates = [...candidates, ...extra.map((u) => candidateFromUser(u))];
+      }
     }
 
     if (!candidates.length) {
-      const users = await this.prisma.user.findMany({
-        where: { organizationId, isActive: true },
-        select: {
-          id: true,
-          roles: { include: { role: { select: { name: true } } } },
-          department: { select: { name: true } },
-          employeeProfile: { select: { designation: true } },
-        },
-        take: 200,
-      });
+      const users = await orgUsers();
       candidates = users.map((u) => candidateFromUser(u));
     }
     if (!candidates.length) return null;

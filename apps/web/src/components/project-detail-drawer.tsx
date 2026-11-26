@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api-client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -49,9 +50,13 @@ export function ProjectDetailDrawer({
 }) {
   const queryClient = useQueryClient();
   const [addOpen, setAddOpen] = useState(false);
-  const [openAssignTaskId, setOpenAssignTaskId] = useState<string | null>(null);
+  const [assignMenu, setAssignMenu] = useState<{ taskId: string; top: number; left: number } | null>(null);
+  const [assignOverride, setAssignOverride] = useState<Record<string, string[]>>({});
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+
+  // Drop optimistic overrides once fresh task data arrives
+  useEffect(() => setAssignOverride({}), [tasks]);
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ['tasks'] });
@@ -107,11 +112,30 @@ export function ProjectDetailDrawer({
   });
 
   const setAssignee = useMutation({
-    mutationFn: ({ taskId, userId }: { taskId: string; userId: string }) =>
-      api.put(`/tasks/${taskId}`, { assigneeIds: userId ? [userId] : [] }).then((r) => r.data),
-    onSuccess: refresh,
+    mutationFn: ({ taskId, userIds }: { taskId: string; userIds: string[] }) =>
+      api.put(`/tasks/${taskId}`, { assigneeIds: userIds }).then((r) => r.data),
+    onSuccess: (_d, vars) => {
+      refresh();
+      setAssignMenu((m) => (m?.taskId === vars.taskId ? null : m));
+    },
     onError: (e: any) => setError(e.response?.data?.message || 'Assignee update failed'),
   });
+
+  // Current assignee ids for a task: optimistic override → API fields
+  const assigneeIdsOf = (t: any): string[] => {
+    if (assignOverride[t.id]) return assignOverride[t.id];
+    const fromList = (t.assignees ?? []).map((a: any) => a.userId ?? a.user?.id).filter(Boolean);
+    if (fromList.length) return fromList;
+    if (Array.isArray(t.assigneeIds) && t.assigneeIds.length) return t.assigneeIds;
+    return t.assignedTo ? [t.assignedTo] : [];
+  };
+
+  const toggleAssignee = (t: any, userId: string) => {
+    const ids = assigneeIdsOf(t);
+    const next = ids.includes(userId) ? ids.filter((x) => x !== userId) : [...ids, userId];
+    setAssignOverride((o) => ({ ...o, [t.id]: next }));
+    setAssignee.mutate({ taskId: t.id, userIds: next });
+  };
 
   const members = project.members ?? [];
 
@@ -259,73 +283,53 @@ export function ProjectDetailDrawer({
                         ) : (
                           <StatusBadge status={t.status} />
                         )}
-                        {/* Single interactive "Assigned To" pill — avatar + name • role, click to reassign */}
+                        {/* Interactive "Assigned To" pill — avatar + name • role; opens portal dropdown */}
                         {(() => {
-                          const list: any[] = t.assignees ?? [];
-                          const boundId = t.assigneeIds?.[0] ?? t.assignees?.[0]?.userId ?? t.assignees?.[0]?.user?.id ?? t.assignedTo ?? '';
-                          const u = list[0]?.user;
-                          const fallbackUser = !u && boundId ? assignableUsers.find((x) => x.id === boundId) : null;
-                          const displayUser = u ?? fallbackUser;
-                          const extra = Math.max(0, list.length - 1);
-                          const role = displayUser?.employeeProfile?.designation ?? displayUser?.roles?.[0]?.role?.name ?? displayUser?.roleNames?.[0];
-                          const open = openAssignTaskId === t.id;
+                          const ids = assigneeIdsOf(t);
+                          const users = ids
+                            .map((id) =>
+                              (t.assignees ?? []).find((a: any) => (a.userId ?? a.user?.id) === id)?.user ??
+                              assignableUsers.find((x) => x.id === id),
+                            )
+                            .filter(Boolean);
+                          const displayUser = users[0] as any;
+                          const extra = Math.max(0, users.length - 1);
+                          const role = displayUser
+                            ? displayUser.employeeProfile?.designation ?? displayUser.roles?.[0]?.role?.name ?? displayUser.roleNames?.[0]
+                            : null;
                           return (
-                            <div className="relative">
-                              <button
-                                type="button"
-                                disabled={!canManage || setAssignee.isPending}
-                                onClick={() => setOpenAssignTaskId(open ? null : t.id)}
-                                title={displayUser ? `${fullName(displayUser)}${role ? ` • ${role}` : ''}` : 'Unassigned — click to assign'}
-                                className={`inline-flex max-w-[210px] items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-semibold ring-1 transition ${
-                                  displayUser
-                                    ? 'bg-emerald-50 text-emerald-700 ring-emerald-200 hover:bg-emerald-100'
-                                    : 'bg-slate-100 text-slate-500 ring-slate-200 hover:bg-slate-200/70'
-                                } ${canManage ? 'cursor-pointer' : 'cursor-default'}`}
-                              >
-                                {displayUser ? (
-                                  <>
-                                    <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-emerald-200/70 text-[8px] font-bold">
-                                      {initials(displayUser.firstName, displayUser.lastName)}
-                                    </span>
-                                    <span className="truncate">
-                                      {fullName(displayUser)}{role ? ` · ${role}` : ''}{extra > 0 ? ` +${extra}` : ''}
-                                    </span>
-                                  </>
-                                ) : (
-                                  <span className="truncate">{canManage ? '+ Assign' : 'Unassigned'}</span>
-                                )}
-                              </button>
-                              {canManage && open && (
-                                <div className="absolute left-0 top-8 z-20 max-h-52 w-52 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-xl">
-                                  <button
-                                    type="button"
-                                    onClick={() => { setAssignee.mutate({ taskId: t.id, userId: '' }); setOpenAssignTaskId(null); }}
-                                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] font-medium text-slate-500 hover:bg-slate-50"
-                                  >
-                                    Unassigned
-                                  </button>
-                                  {assignableUsers.filter((u) => u.isActive !== false).map((u) => {
-                                    const current = boundId === u.id || list.some((a: any) => a.userId === u.id || a.user?.id === u.id);
-                                    const r = u.employeeProfile?.designation ?? u.roles?.[0]?.role?.name ?? u.roleNames?.[0];
-                                    return (
-                                      <button
-                                        key={u.id}
-                                        type="button"
-                                        disabled={setAssignee.isPending}
-                                        onClick={() => { setAssignee.mutate({ taskId: t.id, userId: u.id }); setOpenAssignTaskId(null); }}
-                                        className={`flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] font-medium text-gray-700 hover:bg-emerald-50 ${current ? 'bg-emerald-50/60' : ''}`}
-                                      >
-                                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[8px] font-bold text-emerald-700">
-                                          {initials(u.firstName, u.lastName)}
-                                        </span>
-                                        <span className="min-w-0 flex-1 truncate">{fullName(u)}{r ? ` · ${r}` : ''}</span>
-                                        {current && <Check className="h-3.5 w-3.5 shrink-0 text-emerald-600" />}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
+                            <button
+                              type="button"
+                              disabled={!canManage || setAssignee.isPending}
+                              onClick={(e) => {
+                                if (!canManage) return;
+                                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                                setAssignMenu({
+                                  taskId: t.id,
+                                  top: Math.min(rect.bottom + 4, window.innerHeight - 292),
+                                  left: Math.max(8, Math.min(rect.left, window.innerWidth - 296)),
+                                });
+                              }}
+                              title={displayUser ? `${fullName(displayUser)}${role ? ` • ${role}` : ''}` : 'Unassigned — click to assign'}
+                              className={`inline-flex max-w-[210px] items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-semibold ring-1 transition ${
+                                displayUser
+                                  ? 'bg-emerald-50 text-emerald-700 ring-emerald-200 hover:bg-emerald-100'
+                                  : 'bg-slate-100 text-slate-500 ring-slate-200 hover:bg-slate-200/70'
+                              } ${canManage ? 'cursor-pointer' : 'cursor-default'}`}
+                            >
+                              {displayUser ? (
+                                <>
+                                  <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-emerald-200/70 text-[8px] font-bold">
+                                    {initials(displayUser.firstName, displayUser.lastName)}
+                                  </span>
+                                  <span className="truncate">
+                                    {fullName(displayUser)}{role ? ` · ${role}` : ''}{extra > 0 ? ` +${extra}` : ''}
+                                  </span>
+                                </>
+                              ) : (
+                                <span className="truncate">{canManage ? '+ Assign' : 'Unassigned'}</span>
                               )}
-                            </div>
+                            </button>
                           );
                         })()}
                       </div>
@@ -337,6 +341,57 @@ export function ProjectDetailDrawer({
           )}
         </div>
       </div>
+
+      {/* Assignee popover — rendered in a portal so it is never clipped by cards */}
+      {assignMenu && canManage && typeof document !== 'undefined' && createPortal(
+        <>
+          <div className="fixed inset-0 z-[9998]" onClick={() => setAssignMenu(null)} />
+          {(() => {
+            const menuTask = tasks.find((x: any) => x.id === assignMenu.taskId);
+            if (!menuTask) return null;
+            const currentIds = assigneeIdsOf(menuTask);
+            return (
+              <div
+                className="fixed z-[9999] w-[280px] max-h-[280px] min-w-[260px] overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-2xl"
+                style={{ top: assignMenu.top, left: assignMenu.left }}
+              >
+                <button
+                  type="button"
+                  onClick={() => { setAssignOverride((o) => ({ ...o, [menuTask.id]: [] })); setAssignee.mutate({ taskId: menuTask.id, userIds: [] }); }}
+                  className="flex w-full items-center gap-2 border-b border-slate-100 px-3 py-2.5 text-left text-[12px] font-semibold text-slate-500 hover:bg-slate-50"
+                >
+                  Unassigned
+                </button>
+                {assignableUsers.filter((u) => u.isActive !== false).map((u) => {
+                  const checked = currentIds.includes(u.id);
+                  const r = u.employeeProfile?.designation ?? u.roles?.[0]?.role?.name ?? u.roleNames?.[0];
+                  return (
+                    <button
+                      key={u.id}
+                      type="button"
+                      disabled={setAssignee.isPending}
+                      onClick={() => toggleAssignee(menuTask, u.id)}
+                      className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-[12px] font-medium text-gray-700 transition hover:bg-emerald-50 ${checked ? 'bg-emerald-50/60' : ''}`}
+                    >
+                      <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${checked ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-gray-300 bg-white'}`}>
+                        {checked && <Check className="h-3 w-3" />}
+                      </span>
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[8px] font-bold text-emerald-700">
+                        {initials(u.firstName, u.lastName)}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate">{fullName(u)}</span>
+                        {r && <span className="block truncate text-[10px] font-normal text-gray-400">{r}</span>}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })()}
+        </>,
+        document.body,
+      )}
     </div>
   );
 }

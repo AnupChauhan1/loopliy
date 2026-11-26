@@ -196,7 +196,7 @@ export default function ProjectsPage() {
       const hit = assignablePool.find((u) => bucket.member.test(candidateText(u)));
       if (hit && !picked.includes(hit.id)) picked.push(hit.id);
     }
-    return picked;
+    return picked.length ? picked : assignablePool.map((u) => u.id);
   };
 
   // Auto-select one specialist per role bucket when "Auto-Assign Team & Tasks by Role" is on
@@ -209,7 +209,10 @@ export default function ProjectsPage() {
       if (hit && !picked.includes(hit.id)) picked.push(hit.id);
     }
     autoPickedRef.current = true;
-    if (picked.length) setSmart((s) => (s.employeeIds.length ? s : { ...s, employeeIds: picked }));
+    // Specialists matched → pre-select them; none matched → select the whole
+    // pool so execution tasks still spread across every team employee.
+    const next = picked.length ? picked : assignablePool.map((u) => u.id);
+    if (next.length) setSmart((s) => (s.employeeIds.length ? s : { ...s, employeeIds: next }));
   }, [showCreateModal, autoTeam, assignablePool]);
 
   // Auto-select the logged-in manager/admin as project lead when the modal opens
