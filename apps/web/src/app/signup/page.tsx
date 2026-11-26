@@ -290,13 +290,22 @@ export default function SignupPage() {
     return s;
   })();
   const pwColor = ['bg-rose-400', 'bg-amber-400', 'bg-lime-400', 'bg-emerald-500'][pwScore];
-  const pwLabel = ['Too weak', 'Weak', 'Fair', 'Strong'][pwScore];
+  const pwLabel = ['Weak', 'Fair', 'Strong', 'Enterprise Strong'][pwScore];
 
   const inputCls =
-    'w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-base sm:text-sm text-slate-900 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500/40 hover:border-emerald-300';
+    'h-11 w-full rounded-xl border border-slate-200/90 bg-slate-50/60 px-4 py-2.5 text-base sm:text-sm text-slate-900 shadow-sm transition-all focus:bg-white focus:border-emerald-500 focus:outline-none focus:ring-4 focus:ring-emerald-500/10';
 
   return (
-    <div className="grid min-h-[100dvh] w-full grid-cols-1 overflow-x-hidden bg-[#F8FAFC] lg:grid-cols-12">
+    <div className="relative grid min-h-[100dvh] w-full grid-cols-1 overflow-x-hidden bg-[#F6F8FA] lg:grid-cols-12">
+      {/* soft emerald radial mesh + dot grid */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[480px] bg-[radial-gradient(60%_50%_at_50%_0%,rgba(16,185,129,0.10),transparent)]" />
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.5]"
+        style={{
+          backgroundImage: 'radial-gradient(rgba(100,116,139,0.14) 1px, transparent 1px)',
+          backgroundSize: '22px 22px',
+        }}
+      />
       {/* Brand showcase panel */}
       <aside className="relative hidden overflow-hidden bg-gradient-to-br from-slate-950 via-emerald-950 to-slate-900 lg:col-span-5 lg:flex lg:flex-col lg:justify-between lg:p-12 xl:p-14">
         <div className="pointer-events-none absolute -top-32 -left-32 h-96 w-96 rounded-full bg-emerald-500/20 blur-[120px]" />
@@ -350,7 +359,7 @@ export default function SignupPage() {
       </aside>
 
       {/* Form side */}
-      <main className="flex flex-1 flex-col items-center justify-center px-4 py-6 sm:px-6 lg:col-span-7 lg:py-12">
+      <main className="relative flex flex-1 flex-col items-center justify-center px-4 py-6 sm:px-6 lg:col-span-7 lg:py-12">
         {/* Compact mobile header */}
         <div className="mb-6 flex w-full max-w-[540px] items-center gap-3 lg:hidden">
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
@@ -362,19 +371,27 @@ export default function SignupPage() {
           </div>
         </div>
 
-        <div className="w-full max-w-[540px] animate-fade-in-blur rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_20px_50px_rgba(15,23,42,0.06)] sm:p-8">
+        <div className="w-full max-w-[540px] animate-fade-in-blur rounded-2xl border border-slate-200/80 bg-white/90 p-6 shadow-[0_24px_60px_-12px_rgba(15,23,42,0.12)] backdrop-blur sm:p-8">
           <div className="mb-6 hidden lg:block">
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Create your account</h1>
-            <p className="mt-1 text-sm text-slate-500">Join the LOOPLY workspace — your admin will approve your access</p>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[10px] font-bold tracking-[0.14em] text-emerald-700">
+              ✨ ENTERPRISE WORKSPACE
+            </span>
+            <h1 className="mt-3 text-2xl font-bold tracking-tight text-slate-900">Create your account</h1>
+            <p className="mt-1 text-sm text-slate-500">Join the LOOPLY workspace — instant SSO &amp; role-based onboarding</p>
+          </div>
+          <div className="mb-6 lg:hidden">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[10px] font-bold tracking-[0.14em] text-emerald-700">
+              ✨ ENTERPRISE WORKSPACE
+            </span>
           </div>
 
           <form onSubmit={submit} className="space-y-4">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-2.5 min-[420px]:grid-cols-2">
               <button
                 type="button"
                 onClick={signInWithGoogle}
                 disabled={googleLoading}
-                className="flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md disabled:opacity-60"
+                className="flex h-11 w-full items-center justify-center gap-2.5 whitespace-nowrap rounded-xl border border-slate-200/90 bg-slate-50/70 px-4 text-sm font-semibold text-slate-700 transition-all hover:bg-white hover:border-emerald-400/60 hover:shadow-sm disabled:opacity-60"
               >
                 {googleLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -387,14 +404,14 @@ export default function SignupPage() {
                 type="button"
                 onClick={signInWithZoho}
                 disabled={zohoLoading}
-                className="flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md disabled:opacity-60"
+                className="flex h-11 w-full items-center justify-center gap-2.5 whitespace-nowrap rounded-xl border border-slate-200/90 bg-slate-50/70 px-4 text-sm font-semibold text-slate-700 transition-all hover:bg-white hover:border-emerald-400/60 hover:shadow-sm disabled:opacity-60"
               >
                 {zohoLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <ZohoIcon />
                 )}
-                {zohoLoading ? 'Connecting…' : 'Verify & Sign up with Zoho'}
+                {zohoLoading ? 'Connecting…' : 'Continue with Zoho'}
               </button>
             </div>
 
@@ -452,12 +469,12 @@ export default function SignupPage() {
                     <input required type="email" value={form.email} onChange={(e) => { if (emailLocked) return; set('email')(e); }} readOnly={emailLocked} placeholder="you@company.com" className={`${inputCls} pl-10 ${emailLocked ? 'bg-emerald-50/60 text-slate-600' : ''}`} />
                   </div>
                   {!emailProof ? (
-                    <button type="button" onClick={sendVerificationEmail} disabled={fbLoading} className="flex h-[42px] shrink-0 items-center rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-[12px] font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-50">
+                    <button type="button" onClick={sendVerificationEmail} disabled={fbLoading} className="flex h-11 shrink-0 items-center rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3.5 text-[12px] font-semibold text-emerald-700 transition-all hover:bg-emerald-500/20 disabled:opacity-50">
                       {fbLoading ? '…' : fbSent ? 'Resend' : 'Verify Email'}
                     </button>
                   ) : (
-                    <span className="flex h-[42px] shrink-0 items-center gap-1.5 rounded-xl bg-emerald-50 px-3 text-[12px] font-semibold text-emerald-700 ring-1 ring-emerald-200">
-                      <CheckCircle2 className="h-3.5 w-3.5" /> {googleVerified ? 'Google Verified ✓' : zohoVerified ? 'Zoho Mail Verified ✓' : 'Verified'}
+                    <span className="flex h-11 shrink-0 items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 text-[12px] font-bold text-white shadow-sm">
+                      <CheckCircle2 className="h-3.5 w-3.5" /> {googleVerified ? 'Google Verified' : zohoVerified ? 'Zoho Verified' : 'Verified'} ✓
                     </span>
                   )}
                 </div>
@@ -550,11 +567,14 @@ export default function SignupPage() {
             <button
               type="submit"
               disabled={loading || !emailProof}
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 text-sm font-semibold text-white shadow-lg shadow-emerald-600/20 transition hover:from-emerald-700 hover:to-emerald-600 disabled:opacity-50"
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-emerald-500 to-emerald-600 text-sm font-semibold text-white shadow-[0_8px_20px_-4px_rgba(5,150,105,0.45)] transition-all hover:from-emerald-600 hover:to-emerald-700 active:scale-[0.99] disabled:opacity-50"
             >
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               {loading ? 'Creating account…' : emailProof ? 'Create Account →' : 'Verify email to continue →'}
             </button>
+            <p className="flex items-center justify-center gap-1.5 text-center text-[11px] text-slate-400">
+              🔒 Protected by Firebase &amp; Zoho Enterprise SSO
+            </p>
           </form>
 
           <p className="mt-5 text-center text-[13px] text-slate-500">

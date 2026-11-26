@@ -445,9 +445,18 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-[100dvh] w-full overflow-y-auto overflow-x-hidden px-4 py-8 pb-20 flex flex-col lg:flex-row lg:justify-start lg:p-0 bg-white">
+    <div className="relative min-h-[100dvh] w-full overflow-y-auto overflow-x-hidden px-4 py-8 pb-20 flex flex-col lg:flex-row lg:justify-start lg:p-0 bg-[#F6F8FA]">
+      {/* soft emerald radial mesh + dot grid */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[480px] bg-[radial-gradient(60%_50%_at_50%_0%,rgba(16,185,129,0.10),transparent)]" />
+      <div
+        className="pointer-events-none absolute inset-0 z-0 opacity-50"
+        style={{
+          backgroundImage: 'radial-gradient(rgba(100,116,139,0.14) 1px, transparent 1px)',
+          backgroundSize: '22px 22px',
+        }}
+      />
       {/* Brand panel */}
-      <div className="relative hidden overflow-hidden bg-gradient-to-br from-slate-950 via-emerald-950 to-slate-900 lg:flex lg:w-[46%] xl:w-1/2 lg:flex-col lg:justify-between lg:p-12">
+      <div className="relative z-10 hidden overflow-hidden bg-gradient-to-br from-slate-950 via-emerald-950 to-slate-900 lg:flex lg:w-[46%] xl:w-1/2 lg:flex-col lg:justify-between lg:p-12">
         {/* Ambient glows */}
         <div className="pointer-events-none absolute -top-32 -left-32 h-96 w-96 rounded-full bg-emerald-500/20 blur-[120px] animate-float-slow" />
         <div className="pointer-events-none absolute bottom-0 right-0 h-[28rem] w-[28rem] rounded-full bg-emerald-400/10 blur-[140px] animate-float-slower" />
@@ -508,16 +517,19 @@ export default function LoginPage() {
       </div>
 
       {/* Form panel */}
-      <div className="flex w-full flex-1 flex-col items-center justify-start bg-[#F8FAFC] px-4 py-6 sm:px-6 lg:justify-center lg:px-8 lg:py-12">
-        <div className="w-full max-w-[540px] animate-fade-in-blur rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_20px_50px_rgba(15,23,42,0.06)] sm:p-8">
+      <div className="relative z-10 flex w-full flex-1 flex-col items-center justify-start px-4 py-6 sm:px-6 lg:justify-center lg:px-8 lg:py-12">
+        <div className="w-full max-w-[540px] animate-fade-in-blur rounded-2xl border border-slate-200/80 bg-white/90 p-6 shadow-[0_24px_60px_-12px_rgba(15,23,42,0.12)] backdrop-blur sm:p-8">
           <div className="lg:hidden flex items-center gap-3 mb-6 justify-center animate-rotate-in">
             <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
               <LooplyLogo animate={true} size="sm" theme="light" />
             </span>
           </div>
 
-          <div className="mb-8 animate-fade-in-up">
-            <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">
+          <div className="mb-6 animate-fade-in-up">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[10px] font-bold tracking-[0.14em] text-emerald-700">
+              ✨ ENTERPRISE WORKSPACE
+            </span>
+            <h1 className="mt-3 text-2xl font-bold tracking-tight text-slate-900">
               {authMode === 'login' ? 'Welcome back' : authMode === 'signup' ? 'Create your account' : 'Reset password'}
             </h1>
             <p className="mt-1.5 text-sm text-gray-500">
@@ -585,7 +597,7 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="admin@epatang.com"
-                  className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-base sm:text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500/40 transition-all smooth-transition hover:border-brand-300"
+                  className="h-11 w-full rounded-xl border border-slate-200/90 bg-slate-50/60 py-2.5 pl-10 pr-4 text-base sm:text-sm text-slate-900 placeholder-slate-400 shadow-sm transition-all focus:bg-white focus:border-emerald-500 focus:outline-none focus:ring-4 focus:ring-emerald-500/10"
                   required
                 />
               </div>
@@ -612,7 +624,7 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-base sm:text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500/40 transition-all smooth-transition hover:border-brand-300"
+                  className="h-11 w-full rounded-xl border border-slate-200/90 bg-slate-50/60 py-2.5 pl-10 pr-4 text-base sm:text-sm text-slate-900 placeholder-slate-400 shadow-sm transition-all focus:bg-white focus:border-emerald-500 focus:outline-none focus:ring-4 focus:ring-emerald-500/10"
                   required
                 />
               </div>
@@ -628,7 +640,7 @@ export default function LoginPage() {
 
             <Button
               type="submit"
-              className="w-full h-11 gradient-brand-btn text-white font-medium shadow-md shadow-brand-500/25 border-0 rounded-xl btn-micro"
+              className="h-12 w-full rounded-xl border-0 bg-gradient-to-b from-emerald-500 to-emerald-600 text-sm font-semibold text-white shadow-[0_8px_20px_-4px_rgba(5,150,105,0.45)] transition-all hover:from-emerald-600 hover:to-emerald-700 active:scale-[0.99]"
               disabled={loading}
             >
               {loading ? (
@@ -646,10 +658,10 @@ export default function LoginPage() {
             type="button"
             onClick={continueWithZoho}
             disabled={loading}
-            className="mt-3 flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:opacity-60"
+            className="mt-3 flex h-11 w-full items-center justify-center gap-2.5 whitespace-nowrap rounded-xl border border-slate-200/90 bg-slate-50/70 px-4 text-sm font-semibold text-slate-700 transition-all hover:bg-white hover:border-emerald-400/60 hover:shadow-sm disabled:opacity-60"
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ZohoIcon />}
-            {loading ? 'Connecting to Zoho...' : 'Continue with Zoho'}
+            {loading ? 'Connecting…' : 'Continue with Zoho'}
           </button>
 
           {allCredentials.length > 0 && (
@@ -730,12 +742,12 @@ export default function LoginPage() {
 
           {authMode === 'signup' && (
             <form onSubmit={submitSignup} className="space-y-4">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-2.5 min-[420px]:grid-cols-2">
               <button
                 type="button"
                 onClick={signInWithGoogle}
                 disabled={googleLoading}
-                className="flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-700 shadow-sm transition hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md disabled:opacity-60"
+                className="flex h-11 w-full items-center justify-center gap-2.5 whitespace-nowrap rounded-xl border border-slate-200/90 bg-slate-50/70 px-3 text-sm font-semibold text-slate-700 transition-all hover:bg-white hover:border-emerald-400/60 hover:shadow-sm disabled:opacity-60"
               >
                 {googleLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -748,14 +760,14 @@ export default function LoginPage() {
                 type="button"
                 onClick={signInWithZoho}
                 disabled={zohoLoading}
-                className="flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-700 shadow-sm transition hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md disabled:opacity-60"
+                className="flex h-11 w-full items-center justify-center gap-2.5 whitespace-nowrap rounded-xl border border-slate-200/90 bg-slate-50/70 px-3 text-sm font-semibold text-slate-700 transition-all hover:bg-white hover:border-emerald-400/60 hover:shadow-sm disabled:opacity-60"
               >
                 {zohoLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <ZohoIcon />
                 )}
-                {zohoLoading ? 'Connecting…' : 'Verify & Sign up with Zoho'}
+                {zohoLoading ? 'Connecting…' : 'Continue with Zoho'}
               </button>
               </div>
               <div className="flex items-center gap-3">
@@ -824,12 +836,12 @@ export default function LoginPage() {
               </div>
               <div className="space-y-1.5">
                 <label className="text-[13px] font-medium text-gray-700">Full name</label>
-                <input required value={su.fullName} onChange={(e) => setSu({ ...su, fullName: e.target.value })} placeholder="First and last name" className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
+                <input required value={su.fullName} onChange={(e) => setSu({ ...su, fullName: e.target.value })} placeholder="First and last name" className="h-11 w-full rounded-xl border border-slate-200/90 bg-slate-50/60 px-4 py-2.5 text-base sm:text-sm shadow-sm transition-all focus:bg-white focus:border-emerald-500 focus:outline-none focus:ring-4 focus:ring-emerald-500/10" />
               </div>
               <div className="space-y-1.5">
                 <label className="text-[13px] font-medium text-gray-700">Work email</label>
                 <div className="flex gap-2">
-                  <input required type="email" value={su.email} onChange={(e) => { if (emailLocked) return; setSu({ ...su, email: e.target.value }); resetEmailVerification(); }} readOnly={emailLocked} placeholder="you@company.com" className={`w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40 ${emailLocked ? 'bg-brand-50/50 text-gray-600' : ''}`} />
+                  <input required type="email" value={su.email} onChange={(e) => { if (emailLocked) return; setSu({ ...su, email: e.target.value }); resetEmailVerification(); }} readOnly={emailLocked} placeholder="you@company.com" className={`h-11 w-full rounded-xl border border-slate-200/90 bg-slate-50/60 px-4 py-2.5 text-base sm:text-sm shadow-sm transition-all focus:bg-white focus:border-emerald-500 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 ${emailLocked ? 'bg-brand-50/50 text-gray-600' : ''}`} />
                   {!emailProof ? (
                     <button type="button" onClick={sendVerificationEmail} disabled={fbLoading} className="shrink-0 rounded-xl border border-brand-200 bg-brand-50 px-3 text-[12px] font-semibold text-brand-700 hover:bg-brand-100 disabled:opacity-50">
                       {fbLoading ? '...' : fbSent ? 'Resend email' : 'Verify Email'}
@@ -855,7 +867,7 @@ export default function LoginPage() {
               </div>
               <div className="space-y-1.5">
                 <label className="text-[13px] font-medium text-gray-700">Role</label>
-                <select value={su.accountType} onChange={(e) => setSu({ ...su, accountType: e.target.value })} className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40">
+                <select value={su.accountType} onChange={(e) => setSu({ ...su, accountType: e.target.value })} className="h-11 w-full rounded-xl border border-slate-200/90 bg-slate-50/60 px-4 py-2.5 text-base sm:text-sm shadow-sm transition-all focus:bg-white focus:border-emerald-500 focus:outline-none focus:ring-4 focus:ring-emerald-500/10">
                   <option value="employee">Employee</option>
                   <option value="client">Client</option>
                   <option value="hr">HR Manager</option>
@@ -865,14 +877,14 @@ export default function LoginPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className="text-[13px] font-medium text-gray-700">Password</label>
-                  <input required type="password" minLength={8} value={su.password} onChange={(e) => setSu({ ...su, password: e.target.value })} placeholder="Min. 8 chars" className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
+                  <input required type="password" minLength={8} value={su.password} onChange={(e) => setSu({ ...su, password: e.target.value })} placeholder="Min. 8 chars" className="h-11 w-full rounded-xl border border-slate-200/90 bg-slate-50/60 px-4 py-2.5 text-base sm:text-sm shadow-sm transition-all focus:bg-white focus:border-emerald-500 focus:outline-none focus:ring-4 focus:ring-emerald-500/10" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[13px] font-medium text-gray-700">Confirm</label>
-                  <input required type="password" value={su.confirm} onChange={(e) => setSu({ ...su, confirm: e.target.value })} placeholder="Repeat" className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
+                  <input required type="password" value={su.confirm} onChange={(e) => setSu({ ...su, confirm: e.target.value })} placeholder="Repeat" className="h-11 w-full rounded-xl border border-slate-200/90 bg-slate-50/60 px-4 py-2.5 text-base sm:text-sm shadow-sm transition-all focus:bg-white focus:border-emerald-500 focus:outline-none focus:ring-4 focus:ring-emerald-500/10" />
                 </div>
               </div>
-              <Button type="submit" disabled={suLoading || !emailProof} className="h-11 w-full gradient-brand-btn rounded-xl border-0 font-medium text-white shadow-md shadow-brand-500/25 disabled:opacity-60">
+              <Button type="submit" disabled={suLoading || !emailProof} className="h-12 w-full rounded-xl border-0 bg-gradient-to-b from-emerald-500 to-emerald-600 text-sm font-semibold text-white shadow-[0_8px_20px_-4px_rgba(5,150,105,0.45)] transition-all hover:from-emerald-600 hover:to-emerald-700 active:scale-[0.99] disabled:opacity-60">
                 {suLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating...</> : emailProof ? 'Create Account' : 'Verify email to continue'}
               </Button>
               <button type="button" onClick={() => setAuthMode('login')} className="w-full text-center text-[13px] font-medium text-brand-600 hover:underline">
@@ -898,21 +910,21 @@ export default function LoginPage() {
               {fpStep === 1 ? (
                 <div className="space-y-1.5">
                   <label className="text-[13px] font-medium text-gray-700">Email address</label>
-                  <input required type="email" value={fpEmail} onChange={(e) => setFpEmail(e.target.value)} placeholder="you@company.com" className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
+                  <input required type="email" value={fpEmail} onChange={(e) => setFpEmail(e.target.value)} placeholder="you@company.com" className="h-11 w-full rounded-xl border border-slate-200/90 bg-slate-50/60 px-4 py-2.5 text-base sm:text-sm shadow-sm transition-all focus:bg-white focus:border-emerald-500 focus:outline-none focus:ring-4 focus:ring-emerald-500/10" />
                 </div>
               ) : (
                 <>
                   <div className="space-y-1.5">
                     <label className="text-[13px] font-medium text-gray-700">New password</label>
-                    <input required type="password" minLength={8} value={fpPw} onChange={(e) => setFpPw(e.target.value)} className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
+                    <input required type="password" minLength={8} value={fpPw} onChange={(e) => setFpPw(e.target.value)} className="h-11 w-full rounded-xl border border-slate-200/90 bg-slate-50/60 px-4 py-2.5 text-base sm:text-sm shadow-sm transition-all focus:bg-white focus:border-emerald-500 focus:outline-none focus:ring-4 focus:ring-emerald-500/10" />
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[13px] font-medium text-gray-700">Confirm new password</label>
-                    <input required type="password" value={fpConfirm} onChange={(e) => setFpConfirm(e.target.value)} className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
+                    <input required type="password" value={fpConfirm} onChange={(e) => setFpConfirm(e.target.value)} className="h-11 w-full rounded-xl border border-slate-200/90 bg-slate-50/60 px-4 py-2.5 text-base sm:text-sm shadow-sm transition-all focus:bg-white focus:border-emerald-500 focus:outline-none focus:ring-4 focus:ring-emerald-500/10" />
                   </div>
                 </>
               )}
-              <Button type="submit" disabled={fpLoading} className="h-11 w-full gradient-brand-btn rounded-xl border-0 font-medium text-white shadow-md shadow-brand-500/25">
+              <Button type="submit" disabled={fpLoading} className="h-12 w-full rounded-xl border-0 bg-gradient-to-b from-emerald-500 to-emerald-600 text-sm font-semibold text-white shadow-[0_8px_20px_-4px_rgba(5,150,105,0.45)] transition-all hover:from-emerald-600 hover:to-emerald-700 active:scale-[0.99]">
                 {fpLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{fpStep === 1 ? 'Sending...' : 'Updating...'}</> : fpStep === 1 ? 'Send Reset Link' : 'Update Password'}
               </Button>
               <button type="button" onClick={() => { setAuthMode('login'); setFpStep(1); setFpErr(''); setFpMsg(''); }} className="w-full text-center text-[13px] font-medium text-brand-600 hover:underline">
