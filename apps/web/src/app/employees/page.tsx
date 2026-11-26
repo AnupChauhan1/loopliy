@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { fmtDate, fullName, initials, avatarSrc } from '@/lib/format';
 import { useAuth } from '@/lib/auth-context';
-import { Search, Plus, X, Pencil, UserX, UserCheck, Trash2, CheckCircle2, XCircle } from 'lucide-react';
+import { Search, Plus, X, Pencil, UserX, UserCheck, Trash2, CheckCircle2, XCircle, FolderKanban } from 'lucide-react';
 import { useDebouncedValue } from '@/lib/hooks/use-debounced-value';
 import { TeamProgressOverview, buildEmployeeStats } from '@/components/team-progress-overview';
 
@@ -89,6 +89,11 @@ export default function EmployeesPage() {
   const adminApprove = useMutation({ mutationFn: (id: string) => api.post(`/users/${id}/admin-approve`), onSuccess: invalidate, onError: reviewError });
   const hrReject = useMutation({ mutationFn: ({ id, reason }: any) => api.post(`/users/${id}/hr-reject`, { reason }), onSuccess: invalidate, onError: reviewError });
   const adminReject = useMutation({ mutationFn: ({ id, reason }: any) => api.post(`/users/${id}/admin-reject`, { reason }), onSuccess: invalidate, onError: reviewError });
+  const projectAccess = useMutation({
+    mutationFn: ({ id, approve }: { id: string; approve: boolean }) => api.post(`/users/${id}/project-access`, { approve }).then((r) => r.data),
+    onSuccess: invalidate,
+    onError: reviewError,
+  });
 
   const stageOf = (u: any) =>
     u.rejectedAt ? 'rejected'
@@ -230,6 +235,20 @@ export default function EmployeesPage() {
                     </span>
                   )}
                 </div>
+                {(u.roleNames ?? []).includes('HR Manager') && role === 'admin' && (
+                  <button
+                    onClick={() => projectAccess.mutate({ id: u.id, approve: u.projectAccessStatus !== 'approved' })}
+                    disabled={projectAccess.isPending}
+                    className={`mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-semibold transition-all ${
+                      u.projectAccessStatus === 'approved'
+                        ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 hover:bg-rose-50 hover:text-rose-600 hover:ring-rose-200'
+                        : 'bg-gray-100 text-gray-600 ring-1 ring-gray-200 hover:bg-emerald-50 hover:text-emerald-700 hover:ring-emerald-200'
+                    }`}
+                  >
+                    <FolderKanban className="h-3.5 w-3.5" />
+                    HR Project Access: {u.projectAccessStatus === 'approved' ? 'Enabled (click to revoke)' : u.projectAccessStatus === 'pending' ? 'Pending approval' : 'Disabled (click to enable)'}
+                  </button>
+                )}
                 {stageOf(u) === 'hr_pending' && canManage && (
                   <div className="mt-3 flex gap-2">
                     <button onClick={() => review(role === 'admin' ? 'admin' : 'hr', u, true)} className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-brand-50 px-2 py-1.5 text-[11px] font-semibold text-brand-700 hover:bg-brand-100">

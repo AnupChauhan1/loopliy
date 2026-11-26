@@ -504,6 +504,7 @@ export class AuthService {
         departmentId: user.departmentId,
         roles: roleNames,
         primaryRole,
+        projectAccessStatus: user.projectAccessStatus ?? null,
         clientId: user.clientProfile?.id ?? null,
       },
       token,

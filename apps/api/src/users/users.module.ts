@@ -16,6 +16,7 @@ const USER_SELECT = {
   avatar: true, lastLoginAt: true, createdAt: true, departmentId: true, teamId: true,
   approvedAt: true, emailVerified: true,
   hrApprovedAt: true, adminApprovedAt: true, rejectedAt: true, rejectionReason: true,
+  projectAccessStatus: true, projectAccessReason: true, projectAccessRequestedAt: true, projectAccessDecidedAt: true,
   department: { select: { id: true, name: true, color: true } },
   roles: { include: { role: { select: { id: true, name: true } } } },
   employeeProfile: true,
@@ -339,6 +340,86 @@ export class UsersService {
     return { total, pendingHR, pendingAdmin, rejected, approved };
   }
 
+  /** HR/manager asks Super Admin for Projects visibility on their dashboard. */
+  async requestProjectAccess(user: any, reason?: string) {
+    const updated = await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        projectAccessStatus: 'pending',
+        projectAccessReason: reason || null,
+        projectAccessRequestedAt: new Date(),
+        projectAccessDecidedAt: null,
+      },
+      select: { projectAccessStatus: true, projectAccessRequestedAt: true },
+    });
+    const admins = await this.prisma.userRole.findMany({
+      where: { role: { name: 'Super Admin' }, user: { organizationId: user.organizationId, isActive: true } },
+      select: { userId: true },
+    });
+    await this.notifications.notifyMany(
+      admins.map((a) => a.userId),
+      'hr_project_access_request',
+      'HR Project Access Request',
+      `${user.firstName} ${user.lastName} (${user.email}) requested access to view Projects on the HR Dashboard${reason ? ` — "${reason}"` : ''}.`,
+      '/admin',
+    );
+    return updated;
+  }
+
+  /** Super Admin: list HR project-visibility requests (pending + recent decisions). */
+  async projectAccessRequests(organizationId: string) {
+    const users = await this.prisma.user.findMany({
+      where: { organizationId, projectAccessStatus: { not: null } },
+      select: {
+        ...USER_SELECT,
+        projectAccessStatus: true,
+        projectAccessReason: true,
+        projectAccessRequestedAt: true,
+        projectAccessDecidedAt: true,
+      },
+      orderBy: { projectAccessRequestedAt: 'desc' },
+      take: 50,
+    });
+    return users
+      .map((u) => ({ ...u, roleNames: u.roles.map((r) => r.role.name) }))
+      .filter((u) => u.roleNames.includes('HR Manager') || u.projectAccessStatus === 'pending');
+  }
+
+  /** Super Admin approves / declines / revokes HR project visibility. */
+  async decideProjectAccess(id: string, approve: boolean, reason: string | undefined, actor: any, organizationId: string) {
+    const target = await this.prisma.user.findFirst({ where: { id, organizationId } });
+    if (!target) throw new NotFoundException('User not found');
+    const updated = await this.prisma.user.update({
+      where: { id },
+      data: {
+        projectAccessStatus: approve ? 'approved' : 'rejected',
+        projectAccessReason: reason ?? target.projectAccessReason,
+        projectAccessDecidedAt: new Date(),
+      },
+      select: { id: true, firstName: true, lastName: true, email: true, projectAccessStatus: true },
+    });
+    await this.notifications.notify(
+      id,
+      'hr_project_access_decision',
+      approve ? 'Project access approved' : 'Project access declined',
+      approve
+        ? 'Super Admin approved your request — the Projects section is now unlocked on your HR Dashboard.'
+        : `Super Admin declined your Projects access request${reason ? `: ${reason}` : ''}.`,
+      '/hr',
+    );
+    await this.prisma.auditLog.create({
+      data: {
+        organizationId,
+        userId: actor.id,
+        action: approve ? 'hr_project_access_approve' : 'hr_project_access_reject',
+        resource: 'user',
+        resourceId: id,
+        changes: { email: target.email, status: updated.projectAccessStatus },
+      },
+    });
+    return updated;
+  }
+
   rolesList() {
     return this.prisma.role.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true, description: true } });
   }
@@ -386,6 +467,12 @@ export class UsersController {
     return this.users.nextEmployeeId();
   }
 
+  @Get('project-access-requests')
+  @Roles(...PRIVILEGED_ROLES)
+  projectAccessRequests(@Request() req: any) {
+    return this.users.projectAccessRequests(req.user.organizationId);
+  }
+
   @Get()
   @Roles(...HR_ROLES, ...MANAGER_ROLES)
   findAll(@Request() req: any, @Query() query: any) {
@@ -407,6 +494,18 @@ export class UsersController {
   @Put(':id')
   update(@Param('id') id: string, @Body() body: any, @Request() req: any) {
     return this.users.update(id, body, req.user.id, req.user, req.user.organizationId);
+  }
+
+  @Post('me/project-access-request')
+  @Roles(...HR_ROLES)
+  requestProjectAccess(@Body() body: any, @Request() req: any) {
+    return this.users.requestProjectAccess(req.user, body?.reason);
+  }
+
+  @Post(':id/project-access')
+  @Roles(...PRIVILEGED_ROLES)
+  decideProjectAccess(@Param('id') id: string, @Body() body: any, @Request() req: any) {
+    return this.users.decideProjectAccess(id, !!body?.approve, body?.reason, req.user, req.user.organizationId);
   }
 
   @Post(':id/hr-approve')

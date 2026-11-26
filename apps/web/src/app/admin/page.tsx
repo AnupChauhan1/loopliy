@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { StatCard } from '@/components/ui/stat-card';
 import { PendingApprovals } from '@/components/pending-approvals';
+import { HrAccessRequests } from '@/components/hr-access-requests';
 import { TeamProgressOverview } from '@/components/team-progress-overview';
 import { Stagger, Reveal } from '@/components/ui/motion';
 import { EmptyState, PageLoader } from '@/components/ui/empty-state';
@@ -249,6 +250,9 @@ export default function AdminDashboard() {
 
       {/* ---------- Pending account approvals ---------- */}
       <PendingApprovals />
+
+      {/* ---------- HR project-visibility access requests ---------- */}
+      <HrAccessRequests />
 
       {/* ---------- Live team & project progress analytics ---------- */}
       <TeamProgressOverview />

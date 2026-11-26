@@ -15,6 +15,7 @@ export interface AuthUser {
   departmentId?: string | null;
   roles: string[];
   primaryRole: string;
+  projectAccessStatus?: string | null;
 }
 
 interface AuthContextType {
@@ -45,6 +46,7 @@ function toAuthUser(raw: any): AuthUser {
     departmentId: raw.departmentId ?? null,
     roles,
     primaryRole: raw.primaryRole ?? roles[0] ?? 'Employee',
+    projectAccessStatus: raw.projectAccessStatus ?? null,
   };
 }
 

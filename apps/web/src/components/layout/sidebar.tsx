@@ -48,7 +48,7 @@ interface NavSection {
   items: NavItem[];
 }
 
-function navFor(role: string): NavSection[] {
+function navFor(role: string, opts?: { hrProjects?: boolean }): NavSection[] {
   switch (role) {
     case 'admin':
       return [
@@ -131,6 +131,7 @@ function navFor(role: string): NavSection[] {
           items: [
             { name: 'Dashboard', href: '/hr', icon: LayoutDashboard },
             { name: 'Chat', href: '/chat', icon: MessageCircle },
+            ...(opts?.hrProjects ? [{ name: 'Projects', href: '/projects', icon: FolderKanban }] : []),
             { name: 'Employees', href: '/employees', icon: Users },
             { name: 'Departments', href: '/departments', icon: Network },
           ],
@@ -209,7 +210,7 @@ export function Sidebar({ isMobileSidebarOpen = false, setIsMobileSidebarOpen, c
   const pathname = usePathname();
   const { logout, user, role } = useAuth();
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
-  const navigation = navFor(role);
+  const navigation = navFor(role, { hrProjects: user?.projectAccessStatus === 'approved' });
   const home = homeFor(role);
   const desktop = useIsDesktop();
   const mini = collapsed && desktop;

@@ -9,6 +9,7 @@ import { Users, CalendarOff, Clock, Network, AlertTriangle, UserPlus } from 'luc
 import Link from 'next/link';
 import { StatCard } from '@/components/ui/stat-card';
 import { PendingApprovals } from '@/components/pending-approvals';
+import { HrProjectsAccess } from '@/components/hr-projects-access';
 import { Stagger } from '@/components/ui/motion';
 import { PageHeader } from '@/components/ui/page-header';
 import { useHrDashboardStats } from '@/lib/hooks/dashboard';
@@ -67,6 +68,8 @@ export default function HRDashboard() {
       </Stagger>
 
       <PendingApprovals />
+
+      <HrProjectsAccess />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="card-premium">

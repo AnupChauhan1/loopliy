@@ -53,6 +53,10 @@ model User {
   adminApprovedAt   DateTime?
   rejectedAt        DateTime?
   rejectionReason   String?
+  projectAccessStatus       String?
+  projectAccessReason       String?
+  projectAccessRequestedAt  DateTime?
+  projectAccessDecidedAt    DateTime?
   emailVerifyToken  String?
   emailVerifyExpiresAt DateTime?
   resetToken        String?
