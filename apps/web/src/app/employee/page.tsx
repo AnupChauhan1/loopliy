@@ -14,6 +14,8 @@ import { fmtDate, isOverdue, timeAgo } from '@/lib/format';
 import { CheckSquare, Clock, Send, AlertTriangle, CalendarDays, Megaphone, CheckCheck, RotateCcw, MessageCircle } from 'lucide-react';
 import { TaskBreakdownTabs } from '@/components/task-breakdown';
 import { DeliverableZone } from '@/components/deliverable-zone';
+import { TaskProgressOverview } from '@/components/task-progress-overview';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { StatCard } from '@/components/ui/stat-card';
 import { Stagger } from '@/components/ui/motion';
@@ -22,6 +24,7 @@ import { useMyDashboardStats } from '@/lib/hooks/dashboard';
 
 export default function EmployeeDashboard() {
   const { user } = useAuth();
+  const router = useRouter();
   const { celebrating } = useCompletionCelebration();
 
   const { data: stats } = useMyDashboardStats();
@@ -65,6 +68,15 @@ export default function EmployeeDashboard() {
       <UrgentAlarm tasks={tasks} />
 
       <DeliverableZone tasks={tasks} title="My Deliverable Output" projectWise personal />
+
+      {/* Role-scoped sprint velocity analytics */}
+      {!isLoading && tasks.length > 0 && (
+        <TaskProgressOverview
+          tasks={tasks}
+          scopeLabel="MY SPRINT VELOCITY"
+          onSelectStage={(s) => router.push(s ? `/tasks?status=${s}` : '/tasks')}
+        />
+      )}
 
       <Stagger className="grid grid-cols-1 gap-4 min-[520px]:grid-cols-2 xl:grid-cols-3" stagger={0.07}>
         {cards.map((c) => (

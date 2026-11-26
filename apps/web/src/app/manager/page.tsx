@@ -18,6 +18,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { useManagerDashboardStats } from '@/lib/hooks/dashboard';
 import { TeamProgressOverview } from '@/components/team-progress-overview';
 import { DeliverableZone } from '@/components/deliverable-zone';
+import { TaskProgressOverview } from '@/components/task-progress-overview';
 
 const MANAGER_ROLE_NAMES = ['Super Admin', 'Admin', 'Project Manager', 'HR Manager', 'Client'];
 const DONE_STATUSES = ['completed', 'approved', 'cancelled'];
@@ -214,6 +215,15 @@ export default function ManagerDashboard() {
 
       {/* Team-wide + project-wise creative/video/website deliverable counts */}
       <DeliverableZone tasks={allTasks} projectWise />
+
+      {/* Team sprint velocity analytics */}
+      {allTasks.length > 0 && (
+        <TaskProgressOverview
+          tasks={allTasks}
+          scopeLabel="TEAM SPRINT VELOCITY"
+          onSelectStage={(s) => router.push(s ? `/tasks?status=${s}` : '/tasks')}
+        />
+      )}
 
       {/* All-projects progress chart + employee dashboard switcher */}
       <div className="grid gap-6 lg:grid-cols-5">

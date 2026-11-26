@@ -46,10 +46,12 @@ export function TaskProgressOverview({
   tasks,
   compact = false,
   onSelectStage,
+  scopeLabel,
 }: {
   tasks: any[];
   compact?: boolean;
   onSelectStage?: (status: string | null) => void;
+  scopeLabel?: string;
 }) {
   const [selected, setSelected] = useState<StageKey | null>(null);
   const [hover, setHover] = useState<{ i: number; x: number; y: number } | null>(null);
@@ -169,7 +171,7 @@ export function TaskProgressOverview({
         <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-emerald-500/15 blur-3xl" />
         <div className="relative flex items-center justify-between">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.14em] text-emerald-300 backdrop-blur">
-            <Gauge className="h-3 w-3" /> Sprint Velocity
+            <Gauge className="h-3 w-3" /> {scopeLabel ?? 'Sprint Velocity'}
           </span>
           <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-semibold text-emerald-100/90 ring-1 ring-white/10">{stats.total} Total Tasks</span>
         </div>

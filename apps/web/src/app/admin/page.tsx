@@ -11,6 +11,7 @@ import { useDashboardStats, type TrendPoint } from '@/lib/hooks/dashboard';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api-client';
 import { DeliverableZone } from '@/components/deliverable-zone';
+import { TaskProgressOverview } from '@/components/task-progress-overview';
 import { SectionTitle } from '@/components/ui/card';
 import { StatusBadge, PriorityBadge } from '@/components/ui/badge';
 import { fmtDate, fullName, initials, isOverdue, timeAgo } from '@/lib/format';
@@ -267,6 +268,15 @@ export default function AdminDashboard() {
 
       {/* ---------- Overall + project-wise creative/video/website deliverable counts ---------- */}
       <DeliverableZone tasks={allTasksData?.tasks ?? []} projectWise />
+
+      {/* ---------- Agency-wide sprint velocity analytics ---------- */}
+      {(allTasksData?.tasks?.length ?? 0) > 0 && (
+        <TaskProgressOverview
+          tasks={allTasksData?.tasks ?? []}
+          scopeLabel="AGENCY SPRINT VELOCITY"
+          onSelectStage={(s) => router.push(s ? `/tasks?status=${s}` : '/tasks')}
+        />
+      )}
 
       {/* ---------- Tasks by status + department workload ---------- */}
       <div className="grid items-stretch gap-5 xl:grid-cols-[1.55fr_1fr]">

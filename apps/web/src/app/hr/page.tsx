@@ -14,8 +14,11 @@ import { Stagger } from '@/components/ui/motion';
 import { PageHeader } from '@/components/ui/page-header';
 import { useHrDashboardStats } from '@/lib/hooks/dashboard';
 import { DeliverableZone } from '@/components/deliverable-zone';
+import { TaskProgressOverview } from '@/components/task-progress-overview';
+import { useRouter } from 'next/navigation';
 
 export default function HRDashboard() {
+  const router = useRouter();
   const { data: stats } = useHrDashboardStats();
 
   const { data: leaveData } = useQuery({
@@ -80,6 +83,15 @@ export default function HRDashboard() {
 
       {/* Team-wide + project-wise creative/video/website deliverable counts */}
       <DeliverableZone tasks={tasksData?.tasks ?? []} projectWise />
+
+      {/* HR & operations sprint velocity analytics */}
+      {(tasksData?.tasks?.length ?? 0) > 0 && (
+        <TaskProgressOverview
+          tasks={tasksData?.tasks ?? []}
+          scopeLabel="HR & OPERATIONS VELOCITY"
+          onSelectStage={(s) => router.push(s ? `/tasks?status=${s}` : '/tasks')}
+        />
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="card-premium">
