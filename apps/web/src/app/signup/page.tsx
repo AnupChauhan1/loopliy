@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
 import { LooplyLogo } from '@/components/LooplyLogo';
 import { ZohoIcon } from '@/components/zoho-icon';
 import { Mail, Lock, User, Phone, AlertCircle, CheckCircle2, Loader2, Camera, Eye, EyeOff } from 'lucide-react';
@@ -281,181 +280,289 @@ export default function SignupPage() {
     );
   }
 
+  const pwScore = (() => {
+    const p = form.password;
+    let s = 0;
+    if (p.length >= 8) s++;
+    if (/[a-z]/.test(p) && /[A-Z]/.test(p)) s++;
+    if (/\d/.test(p)) s++;
+    if (/[^a-zA-Z0-9]/.test(p) || p.length >= 12) s++;
+    return s;
+  })();
+  const pwColor = ['bg-rose-400', 'bg-amber-400', 'bg-lime-400', 'bg-emerald-500'][pwScore];
+  const pwLabel = ['Too weak', 'Weak', 'Fair', 'Strong'][pwScore];
+
+  const inputCls =
+    'w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-base sm:text-sm text-slate-900 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500/40 hover:border-emerald-300';
+
   return (
-    <div className="flex min-h-[100dvh] w-full flex-col items-center justify-start overflow-y-auto overflow-x-hidden bg-white px-4 py-8 pb-20 lg:justify-center">
-      <div className="w-full max-w-md animate-fade-in-blur">
-        <div className="mb-8 text-center">
-          <LooplyLogo animate={true} size="md" theme="light" className="mx-auto" />
-          <h1 className="mt-4 text-2xl font-semibold text-gray-900 tracking-tight">Create your account</h1>
-          <p className="mt-1.5 text-sm text-gray-500">Join the LOOPLY workspace — your admin will approve your access</p>
+    <div className="grid min-h-[100dvh] w-full grid-cols-1 overflow-x-hidden bg-[#F8FAFC] lg:grid-cols-12">
+      {/* Brand showcase panel */}
+      <aside className="relative hidden overflow-hidden bg-gradient-to-br from-slate-950 via-emerald-950 to-slate-900 lg:col-span-5 lg:flex lg:flex-col lg:justify-between lg:p-12 xl:p-14">
+        <div className="pointer-events-none absolute -top-32 -left-32 h-96 w-96 rounded-full bg-emerald-500/20 blur-[120px]" />
+        <div className="pointer-events-none absolute -bottom-32 -right-24 h-[26rem] w-[26rem] rounded-full bg-emerald-400/10 blur-[130px]" />
+        <div
+          className="pointer-events-none absolute inset-0 opacity-30"
+          style={{
+            backgroundImage:
+              'linear-gradient(rgba(148,163,184,0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,0.07) 1px, transparent 1px)',
+            backgroundSize: '44px 44px',
+          }}
+        />
+        <div className="relative flex items-center gap-3">
+          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/15 backdrop-blur">
+            <LooplyLogo animate={true} size="sm" theme="dark" />
+          </span>
+          <span className="text-sm font-bold tracking-wide text-white">LOOPLY</span>
+        </div>
+        <div className="relative">
+          <h2 className="text-4xl font-semibold leading-[1.15] tracking-tight text-white xl:text-[2.75rem]">
+            Automate your agency delivery
+            <br />
+            <span className="bg-gradient-to-r from-emerald-300 to-emerald-500 bg-clip-text text-transparent">from Day 1 to Day 24.</span>
+          </h2>
+          <p className="mt-4 max-w-md text-[15px] leading-relaxed text-slate-300/80">
+            Role-matched task routing, live sprint velocity, and enterprise SSO — one workspace for your whole agency.
+          </p>
+          <ul className="mt-8 space-y-3">
+            {[
+              { t: 'Role-Based Smart Task Engine', d: 'Every task auto-routed to the right specialist by role & workload' },
+              { t: 'Real-Time Sprint Velocity Analytics', d: 'Live progress, burndown and delivery metrics across every project' },
+              { t: 'Zoho & Google Enterprise SSO', d: 'One-click verified sign-in for your whole team' },
+            ].map((f) => (
+              <li key={f.t} className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/5 p-3.5 backdrop-blur-sm transition hover:border-emerald-400/30 hover:bg-white/[0.08]">
+                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-400" />
+                <div>
+                  <p className="text-sm font-semibold text-white">{f.t}</p>
+                  <p className="mt-0.5 text-xs text-slate-400">{f.d}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="relative">
+          <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-400/10 px-4 py-1.5 text-xs font-semibold text-emerald-300 backdrop-blur">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+            99.9% On-Time Delivery • Instant Role Routing
+          </span>
+          <p className="mt-4 text-xs text-slate-500">© 2026 Looply — trusted by modern agencies</p>
+        </div>
+      </aside>
+
+      {/* Form side */}
+      <main className="flex flex-1 flex-col items-center justify-center px-4 py-6 sm:px-6 lg:col-span-7 lg:py-12">
+        {/* Compact mobile header */}
+        <div className="mb-6 flex w-full max-w-[540px] items-center gap-3 lg:hidden">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+            <LooplyLogo animate={true} size="sm" theme="light" />
+          </span>
+          <div>
+            <p className="text-sm font-bold text-slate-900">LOOPLY</p>
+            <p className="text-[11px] text-slate-500">Create your account</p>
+          </div>
         </div>
 
-        <form onSubmit={submit} className="space-y-4">
-          <button
-            type="button"
-            onClick={signInWithGoogle}
-            disabled={googleLoading}
-            className="flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:opacity-60"
-          >
-            {googleLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <svg className="h-4 w-4" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15A11 11 0 0 0 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
-            )}
-            {googleLoading ? 'Connecting to Google...' : 'Verify & Sign up with Google'}
-          </button>
-          <button
-            type="button"
-            onClick={signInWithZoho}
-            disabled={zohoLoading}
-            className="flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:opacity-60"
-          >
-            {zohoLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <ZohoIcon />
-            )}
-            {zohoLoading ? 'Connecting to Zoho...' : 'Verify & Sign up with Zoho'}
-          </button>
-          <div className="flex items-center gap-3">
-            <span className="h-px flex-1 bg-gray-200" />
-            <span className="text-[11px] font-medium text-gray-400">or use email</span>
-            <span className="h-px flex-1 bg-gray-200" />
+        <div className="w-full max-w-[540px] animate-fade-in-blur rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_20px_50px_rgba(15,23,42,0.06)] sm:p-8">
+          <div className="mb-6 hidden lg:block">
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Create your account</h1>
+            <p className="mt-1 text-sm text-slate-500">Join the LOOPLY workspace — your admin will approve your access</p>
           </div>
 
-          {error && (
-            <div className="flex items-center gap-2.5 rounded-xl border border-rose-200/80 bg-rose-50 p-3.5">
-              <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />
-              <p className="text-[13px] font-medium text-rose-700">{error}</p>
-            </div>
-          )}
-
-          <div className="space-y-1.5">
-            <label className="text-[13px] font-medium text-gray-700">Full name</label>
-            <div className="relative">
-              <User className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <input required value={form.fullName} onChange={set('fullName')} placeholder="First and last name" className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-[13px] font-medium text-gray-700">Agency / workspace name</label>
-            <input value={form.agencyName} onChange={set('agencyName')} placeholder="e.g. Acme Digital" className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-[13px] font-medium text-gray-700">Account type</label>
-            <select value={form.accountType} onChange={set('accountType')} className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40">
-              <option value="employee">Employee</option>
-              <option value="client">Client</option>
-              <option value="hr">HR Manager</option>
-              <option value="manager">Manager</option>
-            </select>
-            <p className="text-[11px] text-gray-400">Your account activates after HR and admin approval.</p>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-[13px] font-medium text-gray-700">Work email</label>
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Mail className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                <input required type="email" value={form.email} onChange={(e) => { if (emailLocked) return; set('email')(e); }} readOnly={emailLocked} placeholder="you@company.com" className={`w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40 ${emailLocked ? 'bg-brand-50/50 text-gray-600' : ''}`} />
-              </div>
-              {!emailProof ? (
-                <button type="button" onClick={sendVerificationEmail} disabled={fbLoading} className="shrink-0 rounded-xl border border-brand-200 bg-brand-50 px-3 text-[12px] font-semibold text-brand-700 hover:bg-brand-100 disabled:opacity-50">
-                  {fbLoading ? '...' : fbSent ? 'Resend email' : 'Verify Email'}
-                </button>
-              ) : (
-                <span className="flex shrink-0 items-center gap-1 rounded-xl bg-emerald-50 px-3 text-[12px] font-semibold text-emerald-700 ring-1 ring-emerald-200">
-                  <CheckCircle2 className="h-3.5 w-3.5" /> {googleVerified ? 'Google Email Verified ✓' : zohoVerified ? 'Zoho Mail Verified ✓' : 'Verified'}
-                </span>
-              )}
-            </div>
-            {fbSent && !emailProof && (
+          <form onSubmit={submit} className="space-y-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <button
                 type="button"
-                onClick={confirmVerified}
-                disabled={fbLoading}
-                className="flex w-full items-center justify-center gap-2 rounded-xl gradient-brand-btn px-4 py-2.5 text-[12px] font-semibold text-white shadow-md shadow-brand-500/25 disabled:opacity-50"
+                onClick={signInWithGoogle}
+                disabled={googleLoading}
+                className="flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md disabled:opacity-60"
               >
-                {fbLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                I&apos;ve Verified — Check Status
+                {googleLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <svg className="h-4 w-4" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15A11 11 0 0 0 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
+                )}
+                {googleLoading ? 'Connecting…' : 'Continue with Google'}
               </button>
+              <button
+                type="button"
+                onClick={signInWithZoho}
+                disabled={zohoLoading}
+                className="flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md disabled:opacity-60"
+              >
+                {zohoLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ZohoIcon />
+                )}
+                {zohoLoading ? 'Connecting…' : 'Verify & Sign up with Zoho'}
+              </button>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span className="h-px flex-1 bg-slate-200" />
+              <span className="text-[11px] font-medium text-slate-400">or register with work details</span>
+              <span className="h-px flex-1 bg-slate-200" />
+            </div>
+
+            {error && (
+              <div className="flex items-center gap-2.5 rounded-xl border border-rose-200/80 bg-rose-50 p-3.5">
+                <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />
+                <p className="text-[13px] font-medium text-rose-700">{error}</p>
+              </div>
             )}
-            {fbMsg && <p className="text-[11px] text-brand-700">{fbMsg}</p>}
-          </div>
 
-          <div className="space-y-1.5">
-            <label className="text-[13px] font-medium text-gray-700">Phone number</label>
-            <div className="relative">
-              <Phone className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <input required type="tel" value={form.phone} onChange={set('phone')} placeholder="+1 234 567 890" className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-[13px] font-medium text-gray-700">Profile photo <span className="font-normal text-gray-400">(optional)</span></label>
-            <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-gray-300 bg-gray-50/60 p-3 transition-colors hover:border-brand-400">
-              {photoPreview ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={photoPreview} alt="Preview" className="h-12 w-12 rounded-full object-cover ring-2 ring-brand-200" />
-              ) : (
-                <span className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100"><Camera className="h-5 w-5 text-gray-400" /></span>
-              )}
-              <span className="text-xs text-gray-500">
-                {photo ? photo.name : 'Click to upload a photo (JPG/PNG, max 5MB)'}
-              </span>
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (!f) return;
-                  if (!f.type.startsWith('image/')) { setError('Please choose an image file'); return; }
-                  if (f.size > 5 * 1024 * 1024) { setError('Image must be under 5MB'); return; }
-                  setError('');
-                  setPhoto(f);
-                  setPhotoPreview(URL.createObjectURL(f));
-                }}
-              />
-            </label>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="text-[13px] font-medium text-gray-700">Password</label>
-              <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                <input required type={showPw ? 'text' : 'password'} minLength={8} value={form.password} onChange={set('password')} placeholder="Min. 8 characters" className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-10 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
-                <button type="button" onClick={() => setShowPw((s) => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600" aria-label="Toggle password visibility">
-                  {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-medium text-slate-700">Full name</label>
+                <div className="relative">
+                  <User className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input required value={form.fullName} onChange={set('fullName')} placeholder="First and last name" className={`${inputCls} pl-10`} />
+                </div>
               </div>
-              <p className="text-[10px] text-gray-400">8+ chars with uppercase, lowercase and a number</p>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-[13px] font-medium text-gray-700">Confirm</label>
-              <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                <input required type={showPw ? 'text' : 'password'} value={form.confirm} onChange={set('confirm')} placeholder="Repeat password" className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-10 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
-                <button type="button" onClick={() => setShowPw((s) => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600" aria-label="Toggle password visibility">
-                  {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
+
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-medium text-slate-700">Agency / workspace</label>
+                <input value={form.agencyName} onChange={set('agencyName')} placeholder="e.g. Acme Digital" className={inputCls} />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-medium text-slate-700">Account type</label>
+                <select value={form.accountType} onChange={set('accountType')} className={inputCls}>
+                  <option value="employee">Employee</option>
+                  <option value="client">Client</option>
+                  <option value="hr">HR Manager</option>
+                  <option value="manager">Manager</option>
+                </select>
+                <p className="text-[11px] text-slate-400">Activates after HR &amp; admin approval.</p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-medium text-slate-700">Phone number</label>
+                <div className="relative">
+                  <Phone className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input required type="tel" value={form.phone} onChange={set('phone')} placeholder="+91 98765 43210" className={`${inputCls} pl-10`} />
+                </div>
+              </div>
+
+              <div className="space-y-1.5 sm:col-span-2">
+                <label className="text-[13px] font-medium text-slate-700">Work email</label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Mail className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <input required type="email" value={form.email} onChange={(e) => { if (emailLocked) return; set('email')(e); }} readOnly={emailLocked} placeholder="you@company.com" className={`${inputCls} pl-10 ${emailLocked ? 'bg-emerald-50/60 text-slate-600' : ''}`} />
+                  </div>
+                  {!emailProof ? (
+                    <button type="button" onClick={sendVerificationEmail} disabled={fbLoading} className="flex h-[42px] shrink-0 items-center rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-[12px] font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-50">
+                      {fbLoading ? '…' : fbSent ? 'Resend' : 'Verify Email'}
+                    </button>
+                  ) : (
+                    <span className="flex h-[42px] shrink-0 items-center gap-1.5 rounded-xl bg-emerald-50 px-3 text-[12px] font-semibold text-emerald-700 ring-1 ring-emerald-200">
+                      <CheckCircle2 className="h-3.5 w-3.5" /> {googleVerified ? 'Google Verified ✓' : zohoVerified ? 'Zoho Mail Verified ✓' : 'Verified'}
+                    </span>
+                  )}
+                </div>
+                {fbSent && !emailProof && (
+                  <button
+                    type="button"
+                    onClick={confirmVerified}
+                    disabled={fbLoading}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 px-4 py-2.5 text-[12px] font-semibold text-white shadow-md shadow-emerald-600/20 disabled:opacity-50"
+                  >
+                    {fbLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                    I&apos;ve Verified — Check Status
+                  </button>
+                )}
+                {fbMsg && <p className="text-[11px] text-emerald-700">{fbMsg}</p>}
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="text-[13px] font-medium text-slate-700">Profile photo <span className="font-normal text-slate-400">(optional)</span></label>
+                <div className="mt-1.5 flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2.5">
+                  {photoPreview ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={photoPreview} alt="Preview" className="h-11 w-11 rounded-full object-cover ring-2 ring-emerald-200" />
+                  ) : (
+                    <span className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-200/70"><Camera className="h-4.5 w-4.5 text-slate-400" /></span>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-medium text-slate-600">{photo ? photo.name : 'Upload profile photo'}</p>
+                    <p className="text-[10px] text-slate-400">JPG/PNG • max 5MB</p>
+                  </div>
+                  <label className="shrink-0 cursor-pointer rounded-lg bg-emerald-50 px-3 py-1.5 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-200 transition hover:bg-emerald-100">
+                    {photo ? 'Change' : 'Upload'}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (!f) return;
+                        if (!f.type.startsWith('image/')) { setError('Please choose an image file'); return; }
+                        if (f.size > 5 * 1024 * 1024) { setError('Image must be under 5MB'); return; }
+                        setError('');
+                        setPhoto(f);
+                        setPhotoPreview(URL.createObjectURL(f));
+                      }}
+                    />
+                  </label>
+                  {photo && (
+                    <button type="button" onClick={() => { setPhoto(null); setPhotoPreview(''); }} className="shrink-0 text-[11px] font-medium text-rose-500 hover:underline">
+                      Remove
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:col-span-2 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-medium text-slate-700">Password</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <input required type={showPw ? 'text' : 'password'} minLength={8} value={form.password} onChange={set('password')} placeholder="Min. 8 characters" className={`${inputCls} pl-10 pr-10`} />
+                    <button type="button" onClick={() => setShowPw((s) => !s)} className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-600" aria-label="Toggle password visibility">
+                      {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  {form.password && (
+                    <div className="space-y-1">
+                      <div className="flex gap-1">
+                        {[0, 1, 2, 3].map((i) => (
+                          <span key={i} className={`h-1 flex-1 rounded-full transition-colors ${i <= pwScore ? pwColor : 'bg-slate-200'}`} />
+                        ))}
+                      </div>
+                      <p className="text-[10px] text-slate-400">{pwLabel} • 8+ chars, upper, lower &amp; number</p>
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-medium text-slate-700">Confirm</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <input required type={showPw ? 'text' : 'password'} value={form.confirm} onChange={set('confirm')} placeholder="Repeat password" className={`${inputCls} pl-10 pr-10`} />
+                    <button type="button" onClick={() => setShowPw((s) => !s)} className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-600" aria-label="Toggle password visibility">
+                      {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
 
-          <Button type="submit" disabled={loading || !emailProof} className="h-11 w-full gradient-brand-btn rounded-xl border-0 font-medium text-white shadow-md shadow-brand-500/25 disabled:opacity-60">
-            {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating account...</> : emailProof ? 'Create Account' : 'Verify email to continue'}
-          </Button>
-        </form>
+            <button
+              type="submit"
+              disabled={loading || !emailProof}
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 text-sm font-semibold text-white shadow-lg shadow-emerald-600/20 transition hover:from-emerald-700 hover:to-emerald-600 disabled:opacity-50"
+            >
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {loading ? 'Creating account…' : emailProof ? 'Create Account →' : 'Verify email to continue →'}
+            </button>
+          </form>
 
-        <p className="mt-6 text-center text-[13px] text-gray-500">
-          Already have an account?{' '}
-          <Link href="/login" className="font-medium text-brand-600 hover:text-brand-700 hover:underline">Sign in</Link>
-        </p>
-      </div>
+          <p className="mt-5 text-center text-[13px] text-slate-500">
+            Already have an account?{' '}
+            <Link href="/login" className="font-semibold text-emerald-600 transition hover:text-emerald-700 hover:underline">Sign in</Link>
+          </p>
+        </div>
+      </main>
     </div>
   );
 }

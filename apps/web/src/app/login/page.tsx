@@ -12,12 +12,6 @@ import { ZohoIcon } from '@/components/zoho-icon';
 
 const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/+$/, '');
 
-const features = [
-  'Projects, tasks & approvals in one workspace',
-  'CRM, invoicing & finance built for agencies',
-  'Real-time collaboration with your team & clients',
-];
-
 // Public workspace credentials — these accounts are provisioned on the
 // backend via the BOOTSTRAP_*_PASSWORD env vars and verified against the
 // live auth endpoint. Temporary testing credentials for the designated
@@ -453,55 +447,73 @@ export default function LoginPage() {
   return (
     <div className="min-h-[100dvh] w-full overflow-y-auto overflow-x-hidden px-4 py-8 pb-20 flex flex-col lg:flex-row lg:justify-start lg:p-0 bg-white">
       {/* Brand panel */}
-      <div className="hidden lg:flex lg:w-[46%] xl:w-1/2 relative flex-col justify-between overflow-hidden bg-[#0b1220] p-12">
+      <div className="relative hidden overflow-hidden bg-gradient-to-br from-slate-950 via-emerald-950 to-slate-900 lg:flex lg:w-[46%] xl:w-1/2 lg:flex-col lg:justify-between lg:p-12">
         {/* Ambient glows */}
-        <div className="pointer-events-none absolute -top-32 -left-32 h-96 w-96 rounded-full bg-brand-500/20 blur-[120px] animate-float-slow" />
-        <div className="pointer-events-none absolute bottom-0 right-0 h-[28rem] w-[28rem] rounded-full bg-brand-400/10 blur-[140px] animate-float-slower" />
-        <div className="pointer-events-none absolute top-1/3 left-1/2 h-64 w-64 rounded-full bg-brand-400/10 blur-[100px] animate-float-slow" style={{ animationDelay: '-4s' }} />
+        <div className="pointer-events-none absolute -top-32 -left-32 h-96 w-96 rounded-full bg-emerald-500/20 blur-[120px] animate-float-slow" />
+        <div className="pointer-events-none absolute bottom-0 right-0 h-[28rem] w-[28rem] rounded-full bg-emerald-400/10 blur-[140px] animate-float-slower" />
+        <div className="pointer-events-none absolute top-1/3 left-1/2 h-64 w-64 rounded-full bg-emerald-400/10 blur-[100px] animate-float-slow" style={{ animationDelay: '-4s' }} />
         <div
-          className="pointer-events-none absolute inset-0 opacity-[0.35]"
+          className="pointer-events-none absolute inset-0 opacity-30"
           style={{
             backgroundImage:
-              'linear-gradient(rgba(156,163,175,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(156,163,175,0.06) 1px, transparent 1px)',
+              'linear-gradient(rgba(148,163,184,0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,0.07) 1px, transparent 1px)',
             backgroundSize: '44px 44px',
           }}
         />
 
         <div className="relative flex items-center gap-3 animate-rotate-in">
-          <LooplyLogo animate={true} size="md" theme="dark" />
+          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/15 backdrop-blur">
+            <LooplyLogo animate={true} size="md" theme="dark" />
+          </span>
+          <span className="text-sm font-bold tracking-wide text-white">LOOPLY</span>
         </div>
 
         <div className="relative max-w-md animate-slide-up">
-          <h2 className="text-4xl font-semibold text-white leading-[1.15] tracking-tight">
-            Run your agency,
+          <h2 className="text-4xl font-semibold leading-[1.15] tracking-tight text-white xl:text-[2.75rem]">
+            Automate your agency delivery
             <br />
-            <span className="gradient-text-animated">beautifully organized.</span>
+            <span className="bg-gradient-to-r from-emerald-300 to-emerald-500 bg-clip-text text-transparent">from Day 1 to Day 24.</span>
           </h2>
-          <p className="mt-4 text-[15px] leading-relaxed text-gray-400">
-            The all-in-one operating system for digital agencies — from first proposal to final invoice.
+          <p className="mt-4 text-[15px] leading-relaxed text-slate-300/80">
+            Role-matched task routing, live sprint velocity, and enterprise SSO — one workspace for your whole agency.
           </p>
-          <ul className="mt-8 space-y-3.5 stagger">
-            {features.map((feature, idx) => (
-              <li key={feature} className="flex items-center gap-3 text-sm text-gray-300 smooth-transition hover:text-white hover:translate-x-1" style={{ animationDelay: `${idx * 100}ms` }}>
-                <CheckCircle2 className="h-[18px] w-[18px] text-brand-400 shrink-0 animate-icon-pop" style={{ animationDelay: `${idx * 100 + 200}ms` }} />
-                {feature}
+          <ul className="mt-8 space-y-3">
+            {[
+              { t: 'Role-Based Smart Task Engine', d: 'Every task auto-routed to the right specialist by role & workload' },
+              { t: 'Real-Time Sprint Velocity Analytics', d: 'Live progress, burndown and delivery metrics across every project' },
+              { t: 'Zoho & Google Enterprise SSO', d: 'One-click verified sign-in for your whole team' },
+            ].map((f) => (
+              <li key={f.t} className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/5 p-3.5 backdrop-blur-sm transition hover:border-emerald-400/30 hover:bg-white/[0.08]">
+                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-400" />
+                <div>
+                  <p className="text-sm font-semibold text-white">{f.t}</p>
+                  <p className="mt-0.5 text-xs text-slate-400">{f.d}</p>
+                </div>
               </li>
             ))}
           </ul>
         </div>
 
-        <div className="relative flex items-center gap-4 text-xs text-gray-500">
-          <span>© 2026 Looply</span>
-          <span className="h-1 w-1 rounded-full bg-gray-600" />
-          <span>Trusted by modern agencies</span>
+        <div className="relative">
+          <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-400/10 px-4 py-1.5 text-xs font-semibold text-emerald-300 backdrop-blur">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+            99.9% On-Time Delivery • Instant Role Routing
+          </span>
+          <div className="mt-4 flex items-center gap-4 text-xs text-slate-500">
+            <span>© 2026 Looply</span>
+            <span className="h-1 w-1 rounded-full bg-slate-600" />
+            <span>Trusted by modern agencies</span>
+          </div>
         </div>
       </div>
 
       {/* Form panel */}
-      <div className="flex w-full flex-1 flex-col items-center justify-start bg-white lg:justify-center lg:px-6 lg:py-12">
-        <div className="w-full max-w-[400px] animate-fade-in-blur">
-          <div className="lg:hidden flex items-center gap-3 mb-10 justify-center animate-rotate-in">
-            <LooplyLogo animate={true} size="md" theme="light" />
+      <div className="flex w-full flex-1 flex-col items-center justify-start bg-[#F8FAFC] px-4 py-6 sm:px-6 lg:justify-center lg:px-8 lg:py-12">
+        <div className="w-full max-w-[540px] animate-fade-in-blur rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_20px_50px_rgba(15,23,42,0.06)] sm:p-8">
+          <div className="lg:hidden flex items-center gap-3 mb-6 justify-center animate-rotate-in">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+              <LooplyLogo animate={true} size="sm" theme="light" />
+            </span>
           </div>
 
           <div className="mb-8 animate-fade-in-up">
@@ -573,7 +585,7 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="admin@epatang.com"
-                  className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500/40 transition-all smooth-transition hover:border-brand-300"
+                  className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-base sm:text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500/40 transition-all smooth-transition hover:border-brand-300"
                   required
                 />
               </div>
@@ -600,7 +612,7 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500/40 transition-all smooth-transition hover:border-brand-300"
+                  className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-base sm:text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500/40 transition-all smooth-transition hover:border-brand-300"
                   required
                 />
               </div>
@@ -718,35 +730,37 @@ export default function LoginPage() {
 
           {authMode === 'signup' && (
             <form onSubmit={submitSignup} className="space-y-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <button
                 type="button"
                 onClick={signInWithGoogle}
                 disabled={googleLoading}
-                className="flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:opacity-60"
+                className="flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-700 shadow-sm transition hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md disabled:opacity-60"
               >
                 {googleLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <svg className="h-4 w-4" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15A11 11 0 0 0 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
                 )}
-                {googleLoading ? 'Connecting to Google...' : 'Verify & Sign up with Google'}
+                {googleLoading ? 'Connecting…' : 'Continue with Google'}
               </button>
               <button
                 type="button"
                 onClick={signInWithZoho}
                 disabled={zohoLoading}
-                className="flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:opacity-60"
+                className="flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-700 shadow-sm transition hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md disabled:opacity-60"
               >
                 {zohoLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <ZohoIcon />
                 )}
-                {zohoLoading ? 'Connecting to Zoho...' : 'Verify & Sign up with Zoho'}
+                {zohoLoading ? 'Connecting…' : 'Verify & Sign up with Zoho'}
               </button>
+              </div>
               <div className="flex items-center gap-3">
                 <span className="h-px flex-1 bg-gray-200" />
-                <span className="text-[11px] font-medium text-gray-400">or use email</span>
+                <span className="text-[11px] font-medium text-gray-400">or register with work details</span>
                 <span className="h-px flex-1 bg-gray-200" />
               </div>
               {suErr && (
