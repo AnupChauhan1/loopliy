@@ -5,7 +5,7 @@ import api from '@/lib/api-client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { StatusBadge, PriorityBadge } from '@/components/ui/badge';
 import { RemoteTaskControls } from '@/components/remote-task-controls';
-import { SlimProgressBar } from '@/components/team-progress-overview';
+import { TaskProgressBar } from '@/components/task-progress-bar';
 import { UrgentAlarm } from '@/components/urgent-alarm';
 import { CelebrationBurst } from '@/components/ui/celebration';
 import { useCompletionCelebration } from '@/lib/use-sound-prefs';
@@ -109,8 +109,8 @@ export default function EmployeeDashboard() {
                           {fmtDate(task.deadline)} {task.project?.name ? `· ${task.project.name}` : ''}
                         </p>
                       </div>
-                      <div className="shrink-0 w-20">
-                        <SlimProgressBar percent={task.progress ?? 0} />
+                      <div className="shrink-0 w-24">
+                        <TaskProgressBar status={task.status} progress={task.progress} creativeStage={task.creativeStage} compact />
                       </div>
                     </div>
                     <div className="mt-3">

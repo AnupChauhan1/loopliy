@@ -11,6 +11,8 @@ import { fullName, initials, fmtDate } from '@/lib/format';
 import { useAuth } from '@/lib/auth-context';
 import { createMeetingRoom } from '@/lib/meet';
 import { SlimProgressBar } from './team-progress-overview';
+import { TaskProgressBar } from './task-progress-bar';
+import { TaskProgressOverview } from './task-progress-overview';
 import { StatusBadge, PriorityBadge } from '@/components/ui/badge';
 
 const STATUS_OPTIONS = [
@@ -280,6 +282,7 @@ export function ProjectDetailDrawer({
               Project Tasks · {stats.active} active · {stats.done} done
             </p>
           </div>
+          {tasks.length > 0 && <div className="mb-3"><TaskProgressOverview tasks={tasks} compact /></div>}
           {tasks.length === 0 ? (
             <p className="py-10 text-center text-sm text-gray-400">No tasks generated for this project yet</p>
           ) : (
@@ -364,6 +367,9 @@ export function ProjectDetailDrawer({
                             </button>
                           );
                         })()}
+                      </div>
+                      <div className="mt-2">
+                        <TaskProgressBar status={t.status} progress={taskProgress(t.status)} creativeStage={t.creativeStage} compact />
                       </div>
                     </CardContent>
                   </Card>

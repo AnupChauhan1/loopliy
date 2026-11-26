@@ -15,6 +15,8 @@ import { useAuth } from '@/lib/auth-context';
 import { isManager } from '@/lib/roles';
 import { useDebouncedValue } from '@/lib/hooks/use-debounced-value';
 import { smartAutoAssignTask, candidateText } from '@/lib/autoAssign';
+import { TaskProgressBar } from '@/components/task-progress-bar';
+import { TaskProgressOverview } from '@/components/task-progress-overview';
 import Link from 'next/link';
 
 const STATUS_COLUMNS = ['todo', 'in_progress', 'in_review', 'changes_requested', 'completed'];
@@ -293,6 +295,9 @@ function TasksPageInner() {
         </div>
       )}
 
+      {/* Graphical task progress & delivery overview */}
+      {!isLoading && tasks.length > 0 && <TaskProgressOverview tasks={tasks} />}
+
       {isLoading ? (
         <div className="flex h-48 items-center justify-center"><div className="h-5 w-5 rounded-full border-2 border-gray-300 border-t-brand-500 animate-spin" /></div>
       ) : view === 'list' ? (
@@ -308,6 +313,9 @@ function TasksPageInner() {
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
                       <StatusBadge status={task.status} />
                       <PriorityBadge priority={task.priority} />
+                    </div>
+                    <div className="mt-2">
+                      <TaskProgressBar status={task.status} progress={task.progress} creativeStage={task.creativeStage} compact />
                     </div>
                     <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-500">
                       <span className={isOverdue(task.deadline, task.status) ? 'font-medium text-rose-600' : ''}>
@@ -367,11 +375,8 @@ function TasksPageInner() {
                         {fmtDate(task.deadline)}
                       </td>
                       <td className="py-3.5 px-4">
-                        <div className="flex items-center gap-2" title={`Auto progress: ${task.progress}%`}>
-                          <div className="h-1.5 w-20 rounded-full bg-slate-100 overflow-hidden">
-                            <div className="h-full rounded-full bg-emerald-600 progress-fill smooth-transition" style={{ width: `${task.progress ?? 0}%` }} />
-                          </div>
-                          <span className="text-[11px] text-gray-400">{task.progress ?? 0}%</span>
+                        <div className="w-32" title={`Auto progress: ${task.progress}%`}>
+                          <TaskProgressBar status={task.status} progress={task.progress} creativeStage={task.creativeStage} compact />
                         </div>
                       </td>
                       <td className="py-3.5 px-4">
@@ -422,12 +427,7 @@ function TasksPageInner() {
                           </p>
                         )}
                         <div className="mt-2.5">
-                          <div className="mb-1 flex items-center justify-end text-[10px] font-medium text-gray-400">
-                            {task.progress ?? 0}%
-                          </div>
-                          <div className="h-1 w-full rounded-full bg-slate-100 overflow-hidden">
-                            <div className="h-full rounded-full bg-emerald-600 progress-fill" style={{ width: `${task.progress ?? 0}%` }} />
-                          </div>
+                          <TaskProgressBar status={task.status} progress={task.progress} creativeStage={task.creativeStage} compact />
                         </div>
                       </Link>
                       <div className="absolute right-2 top-2 rounded-lg bg-white/90 opacity-70 backdrop-blur-sm transition-opacity group-hover:opacity-100 focus-within:opacity-100">
