@@ -27,6 +27,20 @@ const BUCKETS: Bucket[] = [
 
 const FALLBACK_ROLE = 'Team';
 
+const LEAD_TASK_RE = /kickoff|approval|report|strateg|plan|audit|monthly|review|roadmap|kpi|okr|forecast/;
+
+const SPECIALIST_RE =
+  /design|develop|engineer|video|editor|motion|strateg|marketing|social media|content|\bhr\b|human resource|recruit|operation|people|creative|graphic|frontend|backend|software|web|tech|account/;
+
+function isManagerCandidate(c: AutoAssignCandidate): boolean {
+  if (/\b(admin|super admin|project manager|hr manager)\b/.test(c.text)) return true;
+  return /\bmanager\b/.test(c.text) && !SPECIALIST_RE.test(c.text);
+}
+
+function leastLoaded(pool: AutoAssignCandidate[]): AutoAssignCandidate {
+  return pool.reduce((a, b) => ((a.load ?? 0) <= (b.load ?? 0) ? a : b));
+}
+
 export function candidateText(u: any): string {
   return [
     ...(u?.roleNames ?? []),
@@ -48,19 +62,33 @@ export function smartAutoAssignTask(
 ): { candidate: AutoAssignCandidate; role: string } | null {
   if (!candidates.length) return null;
   const t = `${task.title ?? ''} ${task.description ?? ''} ${task.category ?? ''}`.toLowerCase();
+  const leadTask = LEAD_TASK_RE.test(t);
 
   for (const bucket of BUCKETS) {
     if (!bucket.task.test(t)) continue;
-    const pool = candidates.filter((c) => bucket.member.test(c.text));
+    let pool = candidates.filter((c) => bucket.member.test(c.text));
+    if (!leadTask) {
+      const execPool = pool.filter((c) => !isManagerCandidate(c));
+      if (execPool.length) pool = execPool;
+    }
     if (!pool.length) continue;
-    const best = pool.reduce((a, b) => ((a.load ?? 0) <= (b.load ?? 0) ? a : b));
+    const best = leastLoaded(pool);
     return { candidate: best, role: bucket.role };
   }
 
-  const managerial = candidates.filter((c) => /manager|strateg|lead|account/.test(c.text));
-  const pool = managerial.length ? managerial : candidates;
-  const best = pool.reduce((a, b) => ((a.load ?? 0) <= (b.load ?? 0) ? a : b));
-  return { candidate: best, role: FALLBACK_ROLE };
+  const managers = candidates.filter(isManagerCandidate);
+  const execs = candidates.filter((c) => !isManagerCandidate(c));
+  let pool: AutoAssignCandidate[];
+  let role = FALLBACK_ROLE;
+  if (leadTask && managers.length) {
+    pool = managers;
+    role = 'Manager';
+  } else if (execs.length) {
+    pool = execs;
+  } else {
+    pool = candidates;
+  }
+  return { candidate: leastLoaded(pool), role };
 }
 
 export { BUCKETS, FALLBACK_ROLE };
