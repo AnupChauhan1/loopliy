@@ -470,11 +470,8 @@ export default function LoginPage() {
           }}
         />
 
-        <div className="relative flex items-center gap-3 animate-rotate-in">
-          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/15 backdrop-blur">
-            <LooplyLogo animate={true} size="md" theme="dark" />
-          </span>
-          <span className="text-sm font-bold tracking-wide text-white">LOOPLY</span>
+        <div className="relative flex items-center animate-rotate-in">
+          <LooplyLogo animate={true} size="xl" theme="dark" />
         </div>
 
         <div className="relative max-w-md animate-slide-up">
@@ -519,10 +516,8 @@ export default function LoginPage() {
       {/* Form panel */}
       <div className="relative z-10 flex w-full flex-1 flex-col items-center justify-start px-4 py-6 sm:px-6 lg:justify-center lg:px-8 lg:py-12">
         <div className="w-full max-w-[540px] animate-fade-in-blur rounded-2xl border border-slate-200/80 bg-white/90 p-6 shadow-[0_24px_60px_-12px_rgba(15,23,42,0.12)] backdrop-blur sm:p-8">
-          <div className="lg:hidden flex items-center gap-3 mb-6 justify-center animate-rotate-in">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
-              <LooplyLogo animate={true} size="sm" theme="light" />
-            </span>
+          <div className="lg:hidden flex items-center justify-center animate-rotate-in mb-6">
+            <LooplyLogo animate={true} size="md" theme="light" />
           </div>
 
           <div className="mb-6 animate-fade-in-up">

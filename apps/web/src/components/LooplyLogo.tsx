@@ -2,7 +2,7 @@
 import React from "react";
 
 interface LooplyLogoProps {
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "xl";
   animate?: boolean;
   theme?: "dark" | "light";
   className?: string;
@@ -14,7 +14,7 @@ export function LooplyLogo({
   theme = "dark",
   className = "",
 }: LooplyLogoProps) {
-  const heights = { sm: 32, md: 42, lg: 84 };
+  const heights = { sm: 32, md: 42, lg: 84, xl: 52 };
   const h = heights[size];
 
   const primaryColor = theme === "dark" ? "#FFFFFF" : "#0B0F19";

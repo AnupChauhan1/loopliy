@@ -318,11 +318,8 @@ export default function SignupPage() {
             backgroundSize: '44px 44px',
           }}
         />
-        <div className="relative flex items-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/15 backdrop-blur">
-            <LooplyLogo animate={true} size="sm" theme="dark" />
-          </span>
-          <span className="text-sm font-bold tracking-wide text-white">LOOPLY</span>
+        <div className="relative flex items-center">
+          <LooplyLogo animate={true} size="xl" theme="dark" />
         </div>
         <div className="relative">
           <h2 className="text-4xl font-semibold leading-[1.15] tracking-tight text-white xl:text-[2.75rem]">
@@ -362,13 +359,7 @@ export default function SignupPage() {
       <main className="relative flex flex-1 flex-col items-center justify-center px-4 py-6 sm:px-6 lg:col-span-7 lg:py-12">
         {/* Compact mobile header */}
         <div className="mb-6 flex w-full max-w-[540px] items-center gap-3 lg:hidden">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
-            <LooplyLogo animate={true} size="sm" theme="light" />
-          </span>
-          <div>
-            <p className="text-sm font-bold text-slate-900">LOOPLY</p>
-            <p className="text-[11px] text-slate-500">Create your account</p>
-          </div>
+          <LooplyLogo animate={true} size="md" theme="light" />
         </div>
 
         <div className="w-full max-w-[540px] animate-fade-in-blur rounded-2xl border border-slate-200/80 bg-white/90 p-6 shadow-[0_24px_60px_-12px_rgba(15,23,42,0.12)] backdrop-blur sm:p-8">
