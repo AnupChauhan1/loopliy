@@ -39,7 +39,7 @@ function bucket(t: any): StageKey {
   return 'todo';
 }
 
-const WHITE_CARD = 'rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-5 shadow-[0_8px_30px_rgba(15,23,42,0.04)] transition-all duration-300 hover:border-emerald-300/70 hover:shadow-[0_12px_36px_rgba(16,185,129,0.10)]';
+const WHITE_CARD = 'flex min-w-0 flex-col justify-between overflow-hidden rounded-2xl border border-slate-200/90 bg-white p-4 shadow-[0_8px_30px_rgba(15,23,42,0.04)] transition-all duration-300 hover:border-emerald-300/70 hover:shadow-[0_12px_36px_rgba(16,185,129,0.10)] sm:p-6';
 
 /** Executive Bento command deck: dark velocity hero, interactive pipeline rows, dual-curve pace chart. */
 export function TaskProgressOverview({
@@ -120,8 +120,8 @@ export function TaskProgressOverview({
     onSelectStage(next ? STAGE_STATUS[next] : null);
   };
 
-  // Chart geometry — bottom 26px reserved purely for day labels
-  const W = 300, H = 110, PAD = 8, LABEL_H = 26;
+  // Chart geometry — bottom 30px reserved purely for day labels
+  const W = 360, H = 150, PAD = 10, LABEL_H = 30;
   const plotH = H - PAD - LABEL_H;
   const maxV = Math.max(4, ...stats.series.map((s) => s.value), stats.total);
   const x = (i: number) => PAD + (i / 13) * (W - PAD * 2);
@@ -146,9 +146,9 @@ export function TaskProgressOverview({
   const ringC = 2 * Math.PI * ringR;
 
   return (
-    <div className={cn('grid grid-cols-1 gap-4 lg:grid-cols-12', compact && 'gap-3')}>
+    <div className={cn('grid w-full min-w-0 grid-cols-1 items-stretch gap-5 lg:grid-cols-12', compact && 'gap-4')}>
       {/* Card 1 — Dark obsidian/emerald hero velocity card */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-950 via-emerald-950 to-slate-900 p-4 text-white shadow-lg sm:p-5 lg:col-span-4">
+      <div className="relative flex min-w-0 flex-col justify-between overflow-hidden rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-[#061412] via-[#08241E] to-[#0B1726] p-5 text-white shadow-xl sm:p-6 lg:col-span-4">
         <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-emerald-500/15 blur-3xl" />
         <div className="relative flex items-center justify-between">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.14em] text-emerald-300 backdrop-blur">
@@ -204,13 +204,15 @@ export function TaskProgressOverview({
       <div className={WHITE_CARD}>
         <div className="flex items-center justify-between">
           <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Stage Distribution</p>
-          {selected && onSelectStage && (
+          {selected && onSelectStage ? (
             <button type="button" onClick={() => pickStage(selected)} className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-1 text-[10px] font-bold text-white shadow-sm transition hover:bg-emerald-700">
               <X className="h-3 w-3" /> Reset
             </button>
-          )}
+          ) : onSelectStage ? (
+            <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-300">Click to filter</span>
+          ) : null}
         </div>
-        <div className="mt-3 space-y-2">
+        <div className="mt-4 space-y-3.5">
           {STAGES.map((s) => {
             const n = stats.counts[s.key];
             const pct = stats.total ? Math.round((n / stats.total) * 100) : 0;
@@ -228,7 +230,7 @@ export function TaskProgressOverview({
                 )}
               >
                 <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: s.color, boxShadow: `0 0 6px ${s.color}66` }} />
-                <span className="w-28 shrink-0 truncate text-[11px] font-semibold text-slate-600 sm:w-32">{s.label}</span>
+                <span className="min-w-0 shrink-0 whitespace-nowrap text-[11px] font-semibold text-slate-600">{s.label}</span>
                 <div className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-100">
                   <div className="h-full rounded-full transition-all duration-500"
                     style={{ width: `${Math.max(n ? 4 : 0, pct)}%`, background: `linear-gradient(90deg, ${s.color}bb, ${s.color})` }} />
@@ -243,15 +245,15 @@ export function TaskProgressOverview({
 
       {/* Card 3 — 14-day delivery pace chart */}
       <div className={WHITE_CARD}>
-        <div className="flex items-center justify-between">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">14-Day Delivery Pace</p>
-          <div className="flex items-center gap-2.5 text-[9px] font-semibold text-slate-400">
-            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-600" /> Actual</span>
-            <span className="flex items-center gap-1"><span className="h-0.5 w-3 rounded bg-slate-300" /> Target</span>
+        <div className="flex items-center justify-between gap-2">
+          <p className="shrink-0 text-[11px] font-bold uppercase tracking-wider text-slate-400">14-Day Delivery Pace</p>
+          <div className="flex shrink-0 items-center gap-2.5 text-[9px] font-semibold text-slate-400">
+            <span className="flex items-center gap-1 whitespace-nowrap"><span className="h-2 w-2 rounded-full bg-emerald-600" /> Actual</span>
+            <span className="flex items-center gap-1 whitespace-nowrap"><span className="h-0.5 w-3 rounded bg-slate-300" /> Target</span>
           </div>
         </div>
         <div ref={chartRef} className="relative mt-1 cursor-crosshair" onMouseMove={onChartMove} onMouseLeave={() => setHover(null)}>
-          <svg viewBox={`0 0 ${W} ${H}`} className="mt-2 h-32 w-full sm:h-36" preserveAspectRatio="none">
+          <svg viewBox={`0 0 ${W} ${H}`} className="mt-2 h-36 w-full" preserveAspectRatio="none">
             <defs>
               <linearGradient id="paceFill" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#10b981" stopOpacity="0.20" />
@@ -270,11 +272,8 @@ export function TaskProgressOverview({
             ))}
           </svg>
           {/* X-axis labels live OUTSIDE the plot area — zero overlap guaranteed */}
-          <div className="relative mt-1 h-4">
-            {dayTicks.map(({ i, label }) => (
-              <span key={i} className="absolute -translate-x-1/2 text-[9px] font-semibold text-slate-400"
-                style={{ left: `${(x(i) / W) * 100}%` }}>{label}</span>
-            ))}
+          <div className="mt-2 flex justify-between px-1 text-[11px] font-medium text-slate-400">
+            {dayTicks.map(({ label }) => <span key={label}>{label}</span>)}
           </div>
           {hover && (
             <div className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-lg border border-slate-200 bg-white/95 px-2.5 py-1.5 text-[10px] shadow-lg backdrop-blur"
@@ -286,9 +285,10 @@ export function TaskProgressOverview({
             </div>
           )}
         </div>
-        <p className="mt-2 border-t border-slate-100 pt-2 text-[10px] font-medium text-slate-500">
-          {stats.closedSprint} completed • {stats.dueWeek} due in next 7 days
-        </p>
+        <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3 text-xs text-slate-500">
+          <span>{stats.closedSprint} completed</span>
+          <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700 ring-1 ring-emerald-200">{stats.dueWeek} due in next 7 days</span>
+        </div>
       </div>
     </div>
   );
