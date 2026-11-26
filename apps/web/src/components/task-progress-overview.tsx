@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircle2, CircleDot, Gauge, Loader, SearchCheck, Send, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -54,6 +54,15 @@ export function TaskProgressOverview({
   const [selected, setSelected] = useState<StageKey | null>(null);
   const [hover, setHover] = useState<{ i: number; x: number; y: number } | null>(null);
   const chartRef = useRef<HTMLDivElement>(null);
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const apply = () => setIsDesktop(mq.matches);
+    apply();
+    mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
+  }, []);
 
   const stats = useMemo(() => {
     const counts: Record<StageKey, number> = { todo: 0, progress: 0, strategist: 0, client: 0, done: 0 };
@@ -146,9 +155,17 @@ export function TaskProgressOverview({
   const ringC = 2 * Math.PI * ringR;
 
   return (
-    <div className={cn('grid w-full min-w-0 grid-cols-1 items-stretch gap-5 lg:grid-cols-12', compact && 'gap-4')}>
+    <div
+      className={cn('block w-full min-w-0', compact ? 'gap-4' : 'gap-5')}
+      style={{
+        display: 'grid',
+        gridTemplateColumns: isDesktop ? 'repeat(3, minmax(0, 1fr))' : 'minmax(0, 1fr)',
+        gap: compact ? '16px' : '20px',
+        width: '100%',
+      }}
+    >
       {/* Card 1 — Dark obsidian/emerald hero velocity card */}
-      <div className="relative flex min-w-0 flex-col justify-between overflow-hidden rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-[#061412] via-[#08241E] to-[#0B1726] p-5 text-white shadow-xl sm:p-6 lg:col-span-4">
+      <div className="relative flex min-w-0 flex-col justify-between overflow-hidden rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-[#061412] via-[#08241E] to-[#0B1726] p-5 text-white shadow-xl sm:p-6" style={{ width: '100%', minWidth: 0 }}>
         <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-emerald-500/15 blur-3xl" />
         <div className="relative flex items-center justify-between">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.14em] text-emerald-300 backdrop-blur">
@@ -201,7 +218,7 @@ export function TaskProgressOverview({
       </div>
 
       {/* Card 2 — Horizontal pipeline breakdown */}
-      <div className={WHITE_CARD}>
+      <div className={WHITE_CARD} style={{ width: '100%', minWidth: 0 }}>
         <div className="flex items-center justify-between">
           <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Stage Distribution</p>
           {selected && onSelectStage ? (
@@ -244,7 +261,7 @@ export function TaskProgressOverview({
       </div>
 
       {/* Card 3 — 14-day delivery pace chart */}
-      <div className={WHITE_CARD}>
+      <div className={WHITE_CARD} style={{ width: '100%', minWidth: 0 }}>
         <div className="flex items-center justify-between gap-2">
           <p className="shrink-0 text-[11px] font-bold uppercase tracking-wider text-slate-400">14-Day Delivery Pace</p>
           <div className="flex shrink-0 items-center gap-2.5 text-[9px] font-semibold text-slate-400">
