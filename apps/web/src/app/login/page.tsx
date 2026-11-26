@@ -9,6 +9,7 @@ import { panelRoleOf, homeFor } from '@/lib/roles';
 import Link from 'next/link';
 import { LooplyLogo } from '@/components/LooplyLogo';
 import { ZohoIcon } from '@/components/zoho-icon';
+import { sendZohoVerificationLink, pollZohoVerification, handleZohoEmailLinkLanding } from '@/lib/zoho-verify';
 
 const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/+$/, '');
 
@@ -79,11 +80,14 @@ export default function LoginPage() {
 
   const [googleVerified, setGoogleVerified] = useState(false);
   const [zohoVerified, setZohoVerified] = useState(false);
+  const [suZohoSent, setSuZohoSent] = useState(false);
+  const [suZohoDone, setSuZohoDone] = useState(false);
+  const [suOtpProof, setSuOtpProof] = useState('');
 
   const resetEmailVerification = () => {
     setFbSent(false); setFbLoading(false); setFbMsg('');
     setEmailProof(''); setEmailLocked(false); setGoogleVerified(false); setZohoVerified(false);
-    fbUser.current = null;
+    setSuZohoSent(false); setSuZohoDone(false); setSuOtpProof(''); fbUser.current = null;
   };
 
   const fbError = async (err: unknown, fallback: string) =>
@@ -157,6 +161,7 @@ export default function LoginPage() {
     void (async () => {
       const idToken = await cred.user.getIdToken();
       setEmailProof(idToken);
+      setSuOtpProof('');
       setEmailLocked(true);
       setGoogleVerified(true);
       setFbSent(false);
@@ -226,6 +231,7 @@ export default function LoginPage() {
     void (async () => {
       const idToken = await cred.user.getIdToken();
       setEmailProof(idToken);
+      setSuOtpProof('');
       setEmailLocked(true);
       setZohoVerified(true);
       setGoogleVerified(false);
@@ -237,31 +243,83 @@ export default function LoginPage() {
     })();
   };
 
-  // "Verify & Sign up with Zoho" — clean Zoho OIDC popup (redirect fallback).
+  // "Verify & Sign up with Zoho" — passwordless: emails a Firebase sign-in link
+  // to the Zoho Mail inbox; approving on the phone unlocks this form in real time.
   const signInWithZoho = async () => {
-    setSuErr(''); setZohoLoading(true);
+    setSuErr(''); setZohoLoading(true); setFbMsg('');
     try {
-      const { signInWithPopup, signInWithRedirect } = await import('firebase/auth');
-      const { auth, zohoProvider } = await import('@/lib/firebase');
+      const email = su.email.trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        setSuErr('Enter your Zoho work email first (e.g. name@zohomail.in) — no password needed.');
+        return;
+      }
       try {
-        const cred = await signInWithPopup(auth, zohoProvider);
-        applyZohoCred(cred);
-      } catch (popupErr: any) {
-        const code = popupErr?.code ?? 'unknown';
-        if (['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment', 'auth/web-storage-unsupported'].includes(code)) {
-          await signInWithRedirect(auth, zohoProvider);
+        await sendZohoVerificationLink(email, '/login');
+        setSuZohoSent(true);
+        setFbMsg(`Verification link sent to ${email} — open Zoho Mail on your phone and tap the link to approve.`);
+      } catch (linkErr: any) {
+        if (!su.password) {
+          setSuErr(await fbError(linkErr, 'Could not send the Zoho verification link — enter a password and use "Verify Email" instead.'));
           return;
         }
-        if (code !== 'auth/popup-closed-by-user' && code !== 'auth/cancelled-popup-request') {
-          setSuErr(await fbError(popupErr, 'Zoho sign-in failed — please try again.'));
+        const { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification } = await import('firebase/auth');
+        const { auth } = await import('@/lib/firebase');
+        let cred;
+        try {
+          cred = await createUserWithEmailAndPassword(auth, email, su.password);
+        } catch (e: any) {
+          if (e?.code === 'auth/email-already-in-use') cred = await signInWithEmailAndPassword(auth, email, su.password);
+          else throw e;
         }
+        fbUser.current = cred.user;
+        if (!cred.user.emailVerified) {
+          await sendEmailVerification(cred.user, { url: `${window.location.origin}/login?zohoVerify=1&email=${encodeURIComponent(email)}`, handleCodeInApp: false });
+        }
+        setFbSent(true);
+        setFbMsg(`Verification email sent to ${email} — open Zoho Mail on your phone and tap the link.`);
       }
     } catch (err: unknown) {
-      setSuErr(await fbError(err, 'Zoho sign-in failed. Please try again.'));
+      setSuErr(await fbError(err, 'Could not send Zoho verification. Please try again.'));
     } finally {
       setZohoLoading(false);
     }
   };
+
+  // Phone-side landing: completes signInWithEmailLink and unlocks this form.
+  useEffect(() => {
+    void handleZohoEmailLinkLanding(async (user) => {
+      setSuZohoDone(true);
+      setSuZohoSent(false);
+      const idToken = await user.getIdToken();
+      setEmailProof(idToken);
+      setSuOtpProof('');
+      setEmailLocked(true);
+      setZohoVerified(true);
+      const email = user.email ?? '';
+      setSu((s) => ({ ...s, email, fullName: s.fullName || user.displayName || '' }));
+      setAuthMode('signup');
+    }, (msg) => setSuErr(msg));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Desktop-side poll: the exact second the phone approves, unlock this form.
+  useEffect(() => {
+    if (!suZohoSent || emailProof || suOtpProof) return;
+    const email = su.email.trim().toLowerCase();
+    if (!email) return;
+    const id = setInterval(async () => {
+      const token = await pollZohoVerification(email);
+      if (token) {
+        setSuOtpProof(token);
+        setEmailProof('');
+        setEmailLocked(true);
+        setZohoVerified(true);
+        setSuZohoSent(false);
+        setFbMsg('');
+      }
+    }, 3000);
+    return () => clearInterval(id);
+  }, [suZohoSent, emailProof, suOtpProof, su.email]);
 
   // Exchanges a verified Firebase user for a LOOPLY session; unknown emails
   // continue into the verified signup flow instead of erroring out.
@@ -329,7 +387,7 @@ export default function LoginPage() {
     if (parts.length < 2) { setSuErr('Please enter your full name (first and last name)'); return; }
     if (su.password !== su.confirm) { setSuErr('Passwords do not match'); return; }
     if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(su.password)) { setSuErr('Password needs 8+ chars with upper, lower case and a number'); return; }
-    if (!emailProof) { setSuErr('Please verify your email via the link sent to your inbox first'); return; }
+    if (!emailProof && !suOtpProof) { setSuErr('Please verify your email via the link sent to your inbox first'); return; }
     setSuLoading(true);
     try {
       const fd = new FormData();
@@ -339,7 +397,8 @@ export default function LoginPage() {
       fd.append('password', su.password);
       fd.append('phone', '');
       fd.append('accountType', su.accountType);
-      fd.append('firebaseIdToken', emailProof);
+      if (suOtpProof) fd.append('otpToken', suOtpProof);
+      else fd.append('firebaseIdToken', emailProof);
       if (suPhoto) fd.append('photo', suPhoto);
       const res = await fetch(`${API_URL}/api/v1/auth/signup`, { method: 'POST', body: fd });
       const data = await res.json();
@@ -742,8 +801,22 @@ export default function LoginPage() {
                 ) : (
                   <ZohoIcon />
                 )}
-                {zohoLoading ? 'Connecting to Zoho...' : 'Verify & Sign up with Zoho'}
+                {zohoLoading ? 'Sending Zoho verification...' : 'Verify & Sign up with Zoho'}
               </button>
+              {suZohoSent && !suOtpProof && (
+                <div className="flex items-center gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                  <Loader2 className="h-4 w-4 shrink-0 animate-spin text-emerald-600" />
+                  <p className="text-[12px] font-medium text-emerald-800">
+                    Verification link sent — open <span className="font-semibold">Zoho Mail</span> on your phone and tap the link to approve. This form unlocks automatically.
+                  </p>
+                </div>
+              )}
+              {suZohoDone && (
+                <div className="flex items-center gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+                  <p className="text-[12px] font-semibold text-emerald-800">Approved! Zoho Mail Verified ✓ — set your password below to finish.</p>
+                </div>
+              )}
               <div className="flex items-center gap-3">
                 <span className="h-px flex-1 bg-gray-200" />
                 <span className="text-[11px] font-medium text-gray-400">or use email</span>
@@ -816,7 +889,7 @@ export default function LoginPage() {
                 <label className="text-[13px] font-medium text-gray-700">Work email</label>
                 <div className="flex gap-2">
                   <input required type="email" value={su.email} onChange={(e) => { if (emailLocked) return; setSu({ ...su, email: e.target.value }); resetEmailVerification(); }} readOnly={emailLocked} placeholder="you@company.com" className={`w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40 ${emailLocked ? 'bg-brand-50/50 text-gray-600' : ''}`} />
-                  {!emailProof ? (
+                  {!emailProof && !suOtpProof ? (
                     <button type="button" onClick={sendVerificationEmail} disabled={fbLoading} className="shrink-0 rounded-xl border border-brand-200 bg-brand-50 px-3 text-[12px] font-semibold text-brand-700 hover:bg-brand-100 disabled:opacity-50">
                       {fbLoading ? '...' : fbSent ? 'Resend email' : 'Verify Email'}
                     </button>
@@ -826,7 +899,7 @@ export default function LoginPage() {
                     </span>
                   )}
                 </div>
-                {fbSent && !emailProof && (
+                {fbSent && !emailProof && !suOtpProof && (
                   <button
                     type="button"
                     onClick={confirmVerified}
@@ -858,8 +931,8 @@ export default function LoginPage() {
                   <input required type="password" value={su.confirm} onChange={(e) => setSu({ ...su, confirm: e.target.value })} placeholder="Repeat" className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
                 </div>
               </div>
-              <Button type="submit" disabled={suLoading || !emailProof} className="h-11 w-full gradient-brand-btn rounded-xl border-0 font-medium text-white shadow-md shadow-brand-500/25 disabled:opacity-60">
-                {suLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating...</> : emailProof ? 'Create Account' : 'Verify email to continue'}
+              <Button type="submit" disabled={suLoading || (!emailProof && !suOtpProof)} className="h-11 w-full gradient-brand-btn rounded-xl border-0 font-medium text-white shadow-md shadow-brand-500/25 disabled:opacity-60">
+                {suLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating...</> : (emailProof || suOtpProof) ? 'Create Account' : 'Verify email to continue'}
               </Button>
               <button type="button" onClick={() => setAuthMode('login')} className="w-full text-center text-[13px] font-medium text-brand-600 hover:underline">
                 Already have an account? Sign in

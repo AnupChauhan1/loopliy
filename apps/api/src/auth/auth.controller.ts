@@ -1,4 +1,4 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, Get, UseGuards, Request, UploadedFile, UseInterceptors, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, Get, Query, UseGuards, Request, UploadedFile, UseInterceptors, BadRequestException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname, join } from 'path';
@@ -85,6 +85,29 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   verifyOtp(@Body() body: { email: string; code: string }) {
     return this.authService.verifyOtp(body.email, body.code);
+  }
+
+  @Post('email-link-init')
+  @HttpCode(HttpStatus.OK)
+  emailLinkInit(@Body() body: { email: string; clientToken: string }) {
+    return this.authService.emailLinkInit(body.email, body.clientToken);
+  }
+
+  @Get('email-link-status')
+  emailLinkStatus(@Query() q: any) {
+    return this.authService.emailLinkStatus(q.email, q.clientToken);
+  }
+
+  @Post('email-link-verified')
+  @HttpCode(HttpStatus.OK)
+  emailLinkVerified(@Body() body: { firebaseIdToken: string }) {
+    return this.authService.emailLinkVerified(body.firebaseIdToken);
+  }
+
+  @Post('email-link-claim')
+  @HttpCode(HttpStatus.OK)
+  emailLinkClaim(@Body() body: { email: string; clientToken: string }) {
+    return this.authService.emailLinkClaim(body.email, body.clientToken);
   }
 
   @Post('verify-fallback')

@@ -5,7 +5,7 @@ import { MailService } from '../common/mail.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { HR_ROLES } from '../common/roles';
 import * as bcrypt from 'bcrypt';
-import { randomBytes, createPublicKey, verify as verifySignature } from 'crypto';
+import { randomBytes, createHash, createPublicKey, verify as verifySignature } from 'crypto';
 import { resolveMx } from 'dns/promises';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -114,6 +114,87 @@ export class AuthService {
       await this.prisma.emailOtp.update({ where: { id: otp.id }, data: { verifiedAt: new Date() } });
     }
     return { verified: true, otpToken: otp.verifiedToken };
+  }
+
+  /* ---------- Passwordless email-link verification (Zoho Mail phone approval) ---------- */
+
+  private emailLinkHash(clientToken: string) {
+    return createHash('sha256').update(clientToken).digest('hex');
+  }
+
+  /** Called by the desktop before sending the sign-in link — stores a hashed
+   *  client token so only that browser can later claim the verification. */
+  async emailLinkInit(emailRaw: string, clientToken: string) {
+    const email = emailRaw.trim().toLowerCase();
+    if (!clientToken) throw new BadRequestException('Missing client token');
+    await this.prisma.emailOtp.upsert({
+      where: { email },
+      create: {
+        email,
+        codeHash: this.emailLinkHash(clientToken),
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+      },
+      update: {
+        codeHash: this.emailLinkHash(clientToken),
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+        verifiedAt: null,
+        verifiedToken: null,
+        attempts: 0,
+      },
+    });
+    return { ok: true };
+  }
+
+  /** Desktop poll: is the email verified yet? (client token must match) */
+  async emailLinkStatus(emailRaw: string, clientToken: string) {
+    const email = emailRaw.trim().toLowerCase();
+    const otp = await this.prisma.emailOtp.findUnique({ where: { email } });
+    const verified = !!(
+      otp &&
+      otp.codeHash === this.emailLinkHash(clientToken) &&
+      otp.verifiedAt &&
+      otp.expiresAt > new Date() &&
+      otp.verifiedToken
+    );
+    return { verified };
+  }
+
+  /** Called by the phone after signInWithEmailLink completes — proves inbox ownership. */
+  async emailLinkVerified(firebaseIdToken: string) {
+    const claims = firebaseIdToken ? await verifyFirebaseIdToken(firebaseIdToken) : null;
+    const email = claims?.email?.toLowerCase();
+    if (!claims || !email || claims.email_verified !== true) {
+      throw new UnauthorizedException('Email verification failed — please try the link again');
+    }
+    const verifiedToken = randomBytes(32).toString('hex');
+    await this.prisma.emailOtp.upsert({
+      where: { email },
+      create: {
+        email,
+        codeHash: 'email-link',
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+        verifiedAt: new Date(),
+        verifiedToken,
+      },
+      update: { verifiedAt: new Date(), verifiedToken, expiresAt: new Date(Date.now() + 15 * 60 * 1000) },
+    });
+    return { verified: true };
+  }
+
+  /** Desktop claims the verification → one-time otpToken accepted by /auth/signup. */
+  async emailLinkClaim(emailRaw: string, clientToken: string) {
+    const email = emailRaw.trim().toLowerCase();
+    const otp = await this.prisma.emailOtp.findUnique({ where: { email } });
+    if (
+      !otp ||
+      otp.codeHash !== this.emailLinkHash(clientToken) ||
+      !otp.verifiedAt ||
+      !otp.verifiedToken ||
+      otp.expiresAt < new Date()
+    ) {
+      throw new BadRequestException('Verification not ready or expired — request a new link');
+    }
+    return { otpToken: otp.verifiedToken };
   }
 
   /** Step 2: verify the OTP; returns a one-time token required by signup. */
