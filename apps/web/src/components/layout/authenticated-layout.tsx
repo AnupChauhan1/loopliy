@@ -7,6 +7,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useScroll, useSpring } from 'motion/react';
 import { TimeTrackerProvider } from '@/lib/time-tracker';
+import { NotificationAlarms } from '@/components/notification-alarms';
 import { ClientPortalLayout } from './client-portal-layout';
 
 function AuroraBackground() {
@@ -198,6 +199,7 @@ export function AuthenticatedLayout({ children }: { children: React.ReactNode })
   // If authenticated, show the main layout
   return (
     <TimeTrackerProvider>
+    <NotificationAlarms />
     <div className="relative flex h-dvh min-h-0">
       <AuroraBackground />
 

@@ -18,6 +18,12 @@ export function ReactQueryProvider({ children }: { children: React.ReactNode }) 
             staleTime: 60 * 1000, // 1 minute
             retry: 1,
             refetchOnWindowFocus: false,
+            // Live sync: tasks & notifications poll every 5s while the tab is visible
+            refetchInterval: (query) => {
+              const key = query.queryKey?.[0];
+              if (key !== 'tasks' && key !== 'notifications' && key !== 'projects') return false;
+              return typeof document !== 'undefined' && document.visibilityState === 'visible' ? 5000 : false;
+            },
           },
         },
       })

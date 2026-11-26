@@ -1,6 +1,6 @@
 'use client';
 
-import { Bell, Search, Plus, Menu, Command, CheckCheck, Clock, LogOut, Settings, User as UserIcon, ChevronDown, Download } from 'lucide-react';
+import { Bell, Search, Plus, Menu, Command, CheckCheck, Clock, LogOut, Settings, User as UserIcon, ChevronDown, Download, Volume2, VolumeX } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useAnimationControls } from 'motion/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 import { TimeTrackerButton } from '@/components/time-tracker';
 import { usePwaInstall } from '@/lib/pwa-install-provider';
 import { LooplyLogo } from '@/components/LooplyLogo';
+import { isNotifyMuted, toggleNotifyMuted } from '@/lib/sound';
 
 interface HeaderProps {
   setIsMobileSidebarOpen?: (open: boolean) => void;
@@ -47,7 +48,19 @@ function NotificationsMenu() {
   const toast = useToast();
   const bell = useAnimationControls();
   const prevUnread = useRef<number | undefined>(undefined);
+  const [soundMuted, setSoundMuted] = useState(false);
   useClickOutside(ref, () => setOpen(false));
+
+  useEffect(() => {
+    setSoundMuted(isNotifyMuted());
+    const sync = () => setSoundMuted(isNotifyMuted());
+    window.addEventListener('looply:sound-toggle', sync);
+    window.addEventListener('storage', sync);
+    return () => {
+      window.removeEventListener('looply:sound-toggle', sync);
+      window.removeEventListener('storage', sync);
+    };
+  }, []);
 
   const { data: unread } = useQuery({
     queryKey: ['notifications', 'unread'],
@@ -181,13 +194,23 @@ function NotificationsMenu() {
               )}
             </div>
             <div className="flex items-center justify-between border-t border-gray-100 px-4 py-2.5">
-              <button
-                onClick={() => markAll.mutate()}
-                disabled={!unreadCount || markAll.isPending}
-                className="flex items-center gap-1.5 text-xs font-semibold text-brand-600 transition hover:text-brand-700 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <CheckCheck className="h-3.5 w-3.5" /> Mark all read
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setSoundMuted(toggleNotifyMuted())}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 transition hover:text-gray-700"
+                  title={soundMuted ? 'Unmute notification sound' : 'Mute notification sound'}
+                >
+                  {soundMuted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+                  {soundMuted ? 'Sound off' : 'Sound on'}
+                </button>
+                <button
+                  onClick={() => markAll.mutate()}
+                  disabled={!unreadCount || markAll.isPending}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-brand-600 transition hover:text-brand-700 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <CheckCheck className="h-3.5 w-3.5" /> Mark all read
+                </button>
+              </div>
               <Link href="/notifications" onClick={() => setOpen(false)} className="text-xs font-semibold text-gray-600 hover:text-gray-900">
                 View all →
               </Link>

@@ -233,9 +233,10 @@ export class TasksService {
       await this.notifications.notifyMany(
         effectiveAssigneeIds.filter((id) => id !== user.id),
         'task_assigned',
-        'New task assigned',
-        `You were assigned "${task.title}" (${task.taskNumber})`,
+        'New Task Assigned',
+        `"${task.title}"${task.projectId ? ' • Project task' : ''} • Due ${task.deadline ? new Date(task.deadline).toLocaleDateString() : '—'}`,
         `/tasks/${task.id}`,
+        { taskId: task.id, ...(task.projectId ? { projectId: task.projectId } : {}) },
       );
     }
 
@@ -361,7 +362,7 @@ export class TasksService {
       const toRemove = currentIds.filter((u) => !assigneeIds.includes(u));
       if (toAdd.length) {
         await this.prisma.taskAssignee.createMany({ data: toAdd.map((userId) => ({ taskId: id, userId })), skipDuplicates: true });
-        await this.notifications.notifyMany(toAdd, 'task_assigned', 'Task assigned to you', `"${task.title}" (${task.taskNumber})`, `/tasks/${id}`);
+        await this.notifications.notifyMany(toAdd, 'task_assigned', 'New Task Assigned', `"${task.title}" (${task.taskNumber})`, `/tasks/${id}`, { taskId: id, ...(task.projectId ? { projectId: task.projectId } : {}) });
       }
       if (toRemove.length) {
         await this.prisma.taskAssignee.deleteMany({ where: { taskId: id, userId: { in: toRemove } } });

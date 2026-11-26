@@ -6,6 +6,7 @@ import { SMM_CYCLE_1, SMM_CYCLE_2_PLUS, TemplateTaskSpec, addDays, addTenure, du
 import { hasAnyRole, MANAGER_ROLES, PRIVILEGED_ROLES } from '../common/roles';
 import { projectProgress, projectProgressFromGroups } from '../common/progress';
 import { smartMatch, isManagerCandidate } from '../common/auto-assign';
+import { NotificationsService } from '../notifications/notifications.service';
 
 const TASK_INCLUDE = {
   assignees: {
@@ -42,7 +43,38 @@ function profileText(u: any, memberRole?: string | null): string {
 
 @Injectable()
 export class ProjectsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
+
+  /** Persist "New Task Assigned" notifications for a batch of task→user pairs. */
+  private async notifyTaskAssignments(
+    assignRows: { taskId: string; userId: string }[],
+    projectId: string,
+    projectName?: string,
+  ) {
+    if (!assignRows.length) return;
+    const taskIds = [...new Set(assignRows.map((r) => r.taskId))];
+    const tasks = await this.prisma.task.findMany({
+      where: { id: { in: taskIds } },
+      select: { id: true, title: true, deadline: true },
+    });
+    const tmap = new Map(tasks.map((t) => [t.id, t]));
+    await this.notifications.notifyTaskAssignments(
+      assignRows.map((r) => {
+        const t = tmap.get(r.taskId);
+        return {
+          userId: r.userId,
+          taskId: r.taskId,
+          projectId,
+          title: t?.title ?? 'Task',
+          projectName,
+          dueDate: t?.deadline ?? null,
+        };
+      }),
+    );
+  }
 
   /** Resolve which auto-dated task specs apply for a project/cycle. */
   private specsFor(project: {
@@ -159,6 +191,7 @@ export class ProjectsService {
     cycleStart: Date,
     provided?: TemplateTaskSpec[],
     assignees?: AssigneeProfile[],
+    projectName?: string,
   ) {
     const specs = this.specsFor(project, cycle, provided);
     if (!specs.length) return { count: 0, byRole: {} as Record<string, number> };
@@ -192,6 +225,7 @@ export class ProjectsService {
           skipDuplicates: true,
         });
         for (const r of rows) byRole[r.role] = (byRole[r.role] ?? 0) + 1;
+        await this.notifyTaskAssignments(rows, project.id, projectName);
       }
     }
     return { count: specs.length, byRole };
@@ -306,7 +340,7 @@ export class ProjectsService {
       const approvedProfiles: AssigneeProfile[] = approved.map((u) => ({ id: u.id, text: profileText(u) }));
       taskAssignees = approvedProfiles.length ? approvedProfiles : await this.memberProfiles(project.id);
     }
-    const cycleResult = await this.createCycleTasks(project, 1, cycleStartDate, taskTemplate?.length ? taskTemplate : undefined, taskAssignees);
+    const cycleResult = await this.createCycleTasks(project, 1, cycleStartDate, taskTemplate?.length ? taskTemplate : undefined, taskAssignees, project.name);
 
     // Log to audit
     await this.prisma.auditLog.create({
@@ -587,7 +621,7 @@ export class ProjectsService {
     const nextStart = addTenure(base, project.tenureUnit, project.tenureValue ?? 1);
 
     const assignees = await this.distributionPool(id, organizationId);
-    const cycleResult = await this.createCycleTasks(project, cycle, nextStart, undefined, assignees);
+    const cycleResult = await this.createCycleTasks(project, cycle, nextStart, undefined, assignees, project.name);
     const created = cycleResult.count;
 
     const updated = await this.prisma.project.update({
@@ -629,10 +663,13 @@ export class ProjectsService {
       select: { id: true, title: true },
     });
     if (!unassigned.length) return 0;
+    const rows = this.distribute(unassigned, members);
     await this.prisma.taskAssignee.createMany({
-      data: this.distribute(unassigned, members).map((r) => ({ taskId: r.taskId, userId: r.userId })),
+      data: rows.map((r) => ({ taskId: r.taskId, userId: r.userId })),
       skipDuplicates: true,
     });
+    const project = await this.prisma.project.findUnique({ where: { id: projectId }, select: { name: true } });
+    await this.notifyTaskAssignments(rows, projectId, project?.name);
     return unassigned.length;
   }
 
@@ -665,11 +702,19 @@ export class ProjectsService {
     if (!tasks.length) return { assigned: 0, byRole: {} };
 
     const rows = this.distribute(tasks, members);
+    // Only notify assignees who actually changed (avoid spam on re-balance)
+    const previous = await this.prisma.taskAssignee.findMany({
+      where: { taskId: { in: tasks.map((t) => t.id) } },
+      select: { taskId: true, userId: true },
+    });
+    const prevSet = new Set(previous.map((p) => `${p.taskId}:${p.userId}`));
     await this.prisma.taskAssignee.deleteMany({ where: { taskId: { in: tasks.map((t) => t.id) } } });
     await this.prisma.taskAssignee.createMany({
       data: rows.map((r) => ({ taskId: r.taskId, userId: r.userId })),
       skipDuplicates: true,
     });
+    const changed = rows.filter((r) => !prevSet.has(`${r.taskId}:${r.userId}`));
+    await this.notifyTaskAssignments(changed, projectId, project.name);
     const byRole: Record<string, number> = {};
     for (const r of rows) byRole[r.role] = (byRole[r.role] ?? 0) + 1;
     return { assigned: rows.length, byRole };

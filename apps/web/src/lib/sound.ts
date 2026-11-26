@@ -105,6 +105,47 @@ export function playChime(volume: number, kind: CelebrationKind): Promise<void> 
   });
 }
 
+/** Crisp two-tone emerald notification chime (880Hz → 1174.66Hz) — no audio files needed. */
+export function playNotificationChime(volume = 0.5): void {
+  try {
+    const Ctx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!Ctx) return;
+    const ctx: AudioContext = new Ctx();
+    void ctx.resume().catch(() => {});
+    const t = ctx.currentTime + 0.02;
+    const master = ctx.createGain();
+    master.gain.value = Math.min(1, Math.max(0, volume));
+    master.connect(ctx.destination);
+
+    const send = ctx.createGain();
+    send.gain.value = 0.4;
+    const verb = ctx.createConvolver();
+    verb.buffer = impulse(ctx, 1.2, 2.8);
+    send.connect(verb).connect(master);
+
+    // soft triangle body + sine shimmer partial for a pleasant SaaS "ding-dong"
+    bell(ctx, master, 880.0, t, 0.5);
+    bell(ctx, send, 1174.66, t + 0.14, 0.55);
+    bell(ctx, master, 1760.0, t + 0.14, 0.12);
+
+    setTimeout(() => ctx.close().catch(() => {}), 2200);
+  } catch {
+    /* audio unavailable — stay silent */
+  }
+}
+
+/* ---------------- Sound mute toggle (notification alarms) ---------------- */
+const MUTE_KEY = 'looply_notify_muted';
+export function isNotifyMuted(): boolean {
+  try { return typeof localStorage !== 'undefined' && localStorage.getItem(MUTE_KEY) === '1'; } catch { return false; }
+}
+export function toggleNotifyMuted(): boolean {
+  const next = !isNotifyMuted();
+  try { localStorage.setItem(MUTE_KEY, next ? '1' : '0'); } catch { /* ignore */ }
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event('looply:sound-toggle'));
+  return next;
+}
+
 export interface SoundPrefs {
   soundEnabled: boolean;
   soundVolume: number;
