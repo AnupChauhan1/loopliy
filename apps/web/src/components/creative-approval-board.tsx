@@ -18,6 +18,7 @@ import {
   Plus,
   RotateCcw,
   Search,
+  ClipboardPaste,
   Upload,
   X,
 } from 'lucide-react';
@@ -241,10 +242,11 @@ function isSupportedCreativeFile(file: File) {
   return SUPPORTED_CREATIVE_EXTENSIONS.has(extension);
 }
 
-function SelectedCreativeFile({ file, previewUrl, onRemove }: { file: File; previewUrl: string; onRemove: () => void }) {
+function SelectedCreativeFile({ file, previewUrl, onRemove, pasted }: { file: File; previewUrl: string; onRemove: () => void; pasted?: boolean }) {
   const extension = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
   const image = file.type.startsWith('image/') || ['.jpg', '.jpeg', '.png', '.webp', '.gif'].includes(extension);
   const video = file.type.startsWith('video/') || ['.mp4', '.mov', '.webm'].includes(extension);
+  const sizeKb = file.size > 1024 * 1024 ? `${(file.size / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(file.size / 1024))} KB`;
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
       {image ? (
@@ -255,7 +257,13 @@ function SelectedCreativeFile({ file, previewUrl, onRemove }: { file: File; prev
         <div className="flex h-24 items-center justify-center text-sm text-gray-500">{file.name}</div>
       )}
       <div className="flex items-center justify-between gap-3 border-t border-gray-100 px-3 py-2">
-        <span className="min-w-0 truncate text-xs font-medium text-gray-700">{file.name}</span>
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="truncate text-xs font-medium text-gray-700">{file.name}</span>
+          <span className="shrink-0 text-[10px] text-gray-400">{sizeKb}</span>
+          {pasted && (
+            <span className="shrink-0 rounded-full bg-emerald-100 px-1.5 py-px text-[9px] font-bold text-emerald-700 ring-1 ring-emerald-300">Pasted via Ctrl+V ✓</span>
+          )}
+        </span>
         <button type="button" onClick={onRemove} className="shrink-0 text-xs font-semibold text-rose-600 hover:text-rose-700">Remove</button>
       </div>
     </div>
@@ -339,6 +347,8 @@ export function CreativeApprovalBoard() {
   const revisionPreviewRef = useRef<string | null>(null);
   const [submissionDragOver, setSubmissionDragOver] = useState(false);
   const [revisionDragOver, setRevisionDragOver] = useState(false);
+  const [pastedKind, setPastedKind] = useState<'submission' | 'revision' | null>(null);
+  const [pasteFlash, setPasteFlash] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [revisionUploadProgress, setRevisionUploadProgress] = useState(0);
   const [revisionLink, setRevisionLink] = useState('');
@@ -368,12 +378,13 @@ export function CreativeApprovalBoard() {
     if (revisionPreviewRef.current) URL.revokeObjectURL(revisionPreviewRef.current);
   }, []);
 
-  const selectFile = (file: File | null, revision = false) => {
+  const selectFile = (file: File | null, revision = false, viaPaste = false) => {
     if (file && !isSupportedCreativeFile(file)) {
       setFormError('Choose a JPG, PNG, WebP, GIF, MP4, MOV, WebM, or PDF file.');
       return;
     }
     setFormError('');
+    setPastedKind(viaPaste ? (revision ? 'revision' : 'submission') : null);
     const previewRef = revision ? revisionPreviewRef : submissionPreviewRef;
     const setPreview = revision ? setRevisionPreview : setSubmissionPreview;
     if (previewRef.current) URL.revokeObjectURL(previewRef.current);
@@ -383,6 +394,67 @@ export function CreativeApprovalBoard() {
     if (revision) setRevisionFile(file);
     else setSubmissionFile(file);
   };
+
+  // Extract an image/file blob from a ClipboardEvent or ClipboardItemList
+  const fileFromClipboardItems = (items: any): File | null => {
+    if (!items) return null;
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.kind !== 'file') continue;
+      const f = item.getAsFile?.() ?? (item instanceof File ? item : null);
+      if (!f) continue;
+      const mime = f.type || 'image/png';
+      const ext = mime.includes('/') ? mime.split('/')[1].replace('jpeg', 'jpg') : 'png';
+      const name = f.name && /\.[a-z0-9]+$/i.test(f.name) ? f.name : `pasted-${Date.now()}.${ext}`;
+      return new File([f], name, { type: mime });
+    }
+    return null;
+  };
+
+  const handleClipboardPaste = (file: File | null) => {
+    if (!file) return;
+    if (showCreate) {
+      selectFile(file, false, true);
+      setPasteFlash(true);
+      setTimeout(() => setPasteFlash(false), 3000);
+    } else if (selectedId) {
+      selectFile(file, true, true);
+      setPasteFlash(true);
+      setTimeout(() => setPasteFlash(false), 3000);
+    }
+  };
+
+  const pasteFromClipboardButton = async () => {
+    try {
+      const items = await navigator.clipboard.read();
+      for (const item of items) {
+        for (const type of item.types) {
+          if (type.startsWith('image/')) {
+            const blob = await item.getType(type);
+            handleClipboardPaste(new File([blob], `pasted-${Date.now()}.${type.split('/')[1]}`, { type }));
+            return;
+          }
+        }
+      }
+      setFormError('No image found on the clipboard — copy a screenshot first (Win+Shift+S).');
+    } catch {
+      setFormError('Clipboard access was blocked — press Ctrl+V inside this window instead.');
+    }
+  };
+
+  // Global Ctrl+V listener: active whenever the submission modal or detail drawer is open
+  useEffect(() => {
+    if (!showCreate && !selectedId) return;
+    const onPaste = (e: ClipboardEvent) => {
+      const file = fileFromClipboardItems(e.clipboardData?.items) ?? fileFromClipboardItems(e.clipboardData?.files);
+      if (!file) return; // let normal text pasting through untouched
+      e.preventDefault();
+      handleClipboardPaste(file);
+    };
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showCreate, selectedId]);
 
   const { data: dashboard } = useQuery<CreativeDashboard>({
     queryKey: ['creative-approval-dashboard'],
@@ -625,6 +697,10 @@ export function CreativeApprovalBoard() {
                       setSubmissionDragOver(false);
                       selectFile(event.dataTransfer.files[0] ?? null);
                     }}
+                    onPaste={(event) => {
+                      const file = fileFromClipboardItems(event.clipboardData?.items) ?? fileFromClipboardItems(event.clipboardData?.files);
+                      if (file) { event.preventDefault(); handleClipboardPaste(file); }
+                    }}
                     className={`rounded-xl border border-dashed p-3 transition ${submissionDragOver ? 'border-brand-400 bg-brand-50' : 'border-gray-300 bg-gray-50/60'}`}
                   >
                     <input
@@ -639,14 +715,25 @@ export function CreativeApprovalBoard() {
                     />
                     {submissionFile && submissionPreview ? (
                       <div className="space-y-2">
-                        <SelectedCreativeFile file={submissionFile} previewUrl={submissionPreview} onRemove={() => selectFile(null)} />
-                        <label htmlFor="creative-submission-file" className="inline-flex cursor-pointer items-center gap-1 text-xs font-semibold text-brand-700"><Upload className="h-3.5 w-3.5" />Replace file</label>
+                        <SelectedCreativeFile file={submissionFile} previewUrl={submissionPreview} pasted={pastedKind === 'submission'} onRemove={() => selectFile(null)} />
+                        <div className="flex items-center justify-between">
+                          <label htmlFor="creative-submission-file" className="inline-flex cursor-pointer items-center gap-1 text-xs font-semibold text-brand-700"><Upload className="h-3.5 w-3.5" />Replace file</label>
+                          {pasteFlash && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 ring-1 ring-emerald-300">Pasted via Ctrl+V ✓</span>}
+                        </div>
                       </div>
                     ) : (
                       <label htmlFor="creative-submission-file" className="flex cursor-pointer flex-col items-center justify-center gap-2 py-5 text-center">
                         <Upload className="h-5 w-5 text-gray-400" />
-                        <span className="text-xs font-medium text-gray-700">Drop a file here or click to browse</span>
+                        <span className="text-xs font-medium text-gray-700">Drop a file here, click to browse, or press <kbd className="rounded border border-gray-300 bg-white px-1 py-px font-mono text-[10px]">Ctrl</kbd>+<kbd className="rounded border border-gray-300 bg-white px-1 py-px font-mono text-[10px]">V</kbd> to paste screenshot</span>
                         <span className="text-[10px] text-gray-400">JPG, JPEG, PNG, WebP, GIF, MP4, MOV, WebM, PDF</span>
+                        <button
+                          type="button"
+                          onClick={(event) => { event.preventDefault(); event.stopPropagation(); void pasteFromClipboardButton(); }}
+                          className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-700 transition hover:bg-emerald-100"
+                        >
+                          <ClipboardPaste className="h-3.5 w-3.5" /> Paste from Clipboard
+                        </button>
+                        {pasteFlash && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 ring-1 ring-emerald-300">Pasted via Ctrl+V ✓</span>}
                       </label>
                     )}
                   </div>
@@ -756,6 +843,10 @@ export function CreativeApprovalBoard() {
                             setRevisionDragOver(false);
                             selectFile(event.dataTransfer.files[0] ?? null, true);
                           }}
+                          onPaste={(event) => {
+                            const file = fileFromClipboardItems(event.clipboardData?.items) ?? fileFromClipboardItems(event.clipboardData?.files);
+                            if (file) { event.preventDefault(); handleClipboardPaste(file); }
+                          }}
                           className={`rounded-xl border border-dashed p-3 transition ${revisionDragOver ? 'border-brand-400 bg-brand-50' : 'border-gray-300 bg-gray-50/60'}`}
                         >
                           <input
@@ -770,14 +861,24 @@ export function CreativeApprovalBoard() {
                           />
                           {revisionFile && revisionPreview ? (
                             <div className="space-y-2">
-                              <SelectedCreativeFile file={revisionFile} previewUrl={revisionPreview} onRemove={() => selectFile(null, true)} />
-                              <label htmlFor="creative-revision-file" className="inline-flex cursor-pointer items-center gap-1 text-xs font-semibold text-brand-700"><Upload className="h-3.5 w-3.5" />Replace file</label>
+                              <SelectedCreativeFile file={revisionFile} previewUrl={revisionPreview} pasted={pastedKind === 'revision'} onRemove={() => selectFile(null, true)} />
+                              <div className="flex items-center justify-between">
+                                <label htmlFor="creative-revision-file" className="inline-flex cursor-pointer items-center gap-1 text-xs font-semibold text-brand-700"><Upload className="h-3.5 w-3.5" />Replace file</label>
+                                {pasteFlash && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 ring-1 ring-emerald-300">Pasted via Ctrl+V ✓</span>}
+                              </div>
                             </div>
                           ) : (
                             <label htmlFor="creative-revision-file" className="flex cursor-pointer flex-col items-center justify-center gap-2 py-4 text-center">
                               <Upload className="h-5 w-5 text-gray-400" />
-                              <span className="text-xs font-medium text-gray-700">Drop the revised file here or click to browse</span>
+                              <span className="text-xs font-medium text-gray-700">Drop the revised file here, click to browse, or press Ctrl+V to paste screenshot</span>
                               <span className="text-[10px] text-gray-400">JPG, JPEG, PNG, WebP, GIF, MP4, MOV, WebM, PDF</span>
+                              <button
+                                type="button"
+                                onClick={(event) => { event.preventDefault(); event.stopPropagation(); void pasteFromClipboardButton(); }}
+                                className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-700 transition hover:bg-emerald-100"
+                              >
+                                <ClipboardPaste className="h-3.5 w-3.5" /> Paste from Clipboard
+                              </button>
                             </label>
                           )}
                         </div>
