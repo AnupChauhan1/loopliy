@@ -263,6 +263,7 @@ function TasksPageInner() {
           <select value={status} onChange={(e) => setStatus(e.target.value)} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm smooth-transition hover:border-brand-300 focus:ring-2 focus:ring-brand-500/40">
             <option value="all">All statuses</option>
             {Object.entries(COLUMN_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            <option value="client_review">Client Review</option>
             <option value="on_hold">On Hold</option>
             <option value="cancelled">Cancelled</option>
           </select>
@@ -296,7 +297,12 @@ function TasksPageInner() {
       )}
 
       {/* Graphical task progress & delivery overview */}
-      {!isLoading && tasks.length > 0 && <TaskProgressOverview tasks={tasks} />}
+      {!isLoading && tasks.length > 0 && (
+        <TaskProgressOverview
+          tasks={tasks}
+          onSelectStage={(s) => setStatus(s ?? 'all')}
+        />
+      )}
 
       {isLoading ? (
         <div className="flex h-48 items-center justify-center"><div className="h-5 w-5 rounded-full border-2 border-gray-300 border-t-brand-500 animate-spin" /></div>
