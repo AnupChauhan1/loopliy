@@ -440,6 +440,7 @@ export default function SignupPage() {
                   <option value="client">Client</option>
                   <option value="hr">HR Manager</option>
                   <option value="manager">Manager</option>
+                  <option value="admin">Admin</option>
                 </select>
                 <p className="text-[11px] text-slate-400">Activates after HR &amp; admin approval.</p>
               </div>

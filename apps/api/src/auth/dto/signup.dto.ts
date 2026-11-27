@@ -21,8 +21,8 @@ export class SignupDto {
   phone?: string;
 
   @IsOptional()
-  @IsIn(['employee', 'client', 'hr', 'manager'])
-  accountType?: 'employee' | 'client' | 'hr' | 'manager';
+  @IsIn(['employee', 'client', 'hr', 'manager', 'admin'])
+  accountType?: 'employee' | 'client' | 'hr' | 'manager' | 'admin';
 
   @IsOptional()
   @IsString()

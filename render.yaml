@@ -48,6 +48,8 @@ services:
       - key: NODE_ENV
         value: production
       - key: NEXT_PUBLIC_API_URL
-        value: https://loopliii-crm-api-ehu7.onrender.com
+        sync: false
+      - key: NEXT_PUBLIC_SHOW_LOGIN_HELPER
+        value: "true"
       - key: NEXT_PUBLIC_APP_URL
         value: https://loopliii-crm-web.onrender.com

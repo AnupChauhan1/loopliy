@@ -34,19 +34,10 @@ async function fetchWithTimeout(url: string, init: RequestInit = {}, ms = 15000)
   }
 }
 
-// Public workspace credentials — these accounts are provisioned on the
-// backend via the BOOTSTRAP_*_PASSWORD env vars and verified against the
-// live auth endpoint. Temporary testing credentials for the designated
-// bootstrap accounts only; set NEXT_PUBLIC_SHOW_LOGIN_CREDENTIALS=false
-// (or remove this panel) before real production go-live.
-const SHOW_CREDENTIALS = process.env.NEXT_PUBLIC_SHOW_LOGIN_CREDENTIALS !== 'false';
-const loginCredentials: { role: string; email: string; password: string }[] = SHOW_CREDENTIALS ? [
-  { role: 'Admin', email: 'admin@epatang.com', password: 'Admin@Looply2026' },
-  { role: 'Manager', email: 'pm@epatang.com', password: 'Manager@Looply2026' },
-  { role: 'HR', email: 'hr@epatang.com', password: 'HR@Looply2026' },
-  { role: 'Employee', email: 'employee@epatang.com', password: 'Employee@Looply2026' },
-  { role: 'Client', email: 'client@acme.com', password: 'Client@Looply2026' },
-] : [];
+// "Registered Workspace Accounts" helper card — lists real accounts from the
+// API (email + role only, never passwords). Hidden unless the flag is on;
+// set NEXT_PUBLIC_SHOW_LOGIN_HELPER=false to remove it entirely.
+const SHOW_LOGIN_HELPER = process.env.NEXT_PUBLIC_SHOW_LOGIN_HELPER !== 'false';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -71,6 +62,7 @@ export default function LoginPage() {
   const [extraCreds, setExtraCreds] = useState<{ role: string; email: string; password: string }[]>(() => {
     try { return JSON.parse(localStorage.getItem('looply_extra_creds') || '[]'); } catch { return []; }
   });
+  const [registeredAccounts, setRegisteredAccounts] = useState<{ role: string; email: string; password?: string }[]>([]);
   const [fpEmail, setFpEmail] = useState('');
   const [fpStep, setFpStep] = useState<1 | 2>(1);
   const [fpToken, setFpToken] = useState('');
@@ -167,7 +159,26 @@ export default function LoginPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fbSent, emailProof]);
 
-  const allCredentials = [...loginCredentials, ...extraCreds];
+  // Fetch real registered accounts for the helper card (email + role only)
+  useEffect(() => {
+    if (!SHOW_LOGIN_HELPER) return;
+    let cancelled = false;
+    fetchWithTimeout(`${API_URL}/api/v1/auth/registered-accounts`, {}, 10000)
+      .then(({ ok, data }) => {
+        if (cancelled || !ok || !Array.isArray(data)) return;
+        setRegisteredAccounts(data.map((a: any) => ({ role: a.role ?? 'User', email: a.email })));
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  // Merge API accounts with locally-registered creds (which include passwords)
+  const allCredentials = (() => {
+    const byEmail = new Map<string, { role: string; email: string; password?: string }>();
+    for (const a of registeredAccounts) byEmail.set(a.email.toLowerCase(), a);
+    for (const c of extraCreds) byEmail.set(c.email.toLowerCase(), c);
+    return [...byEmail.values()];
+  })();
 
   const applyGoogleCred = (cred: any) => {
     setEmailProof(''); // replaced below once token resolves
@@ -367,7 +378,7 @@ export default function LoginPage() {
       const { ok, data } = await fetchWithTimeout(`${API_URL}/api/v1/auth/signup`, { method: 'POST', body: fd }, 45000);
       if (!ok) throw new Error(Array.isArray(data?.message) ? data.message[0] : data?.message || 'Registration failed');
       // Store the new account in the demo credentials list (localStorage)
-      const roleLabel = { employee: 'Employee', client: 'Client', hr: 'HR', manager: 'Manager' }[su.accountType as 'employee'];
+      const roleLabel = { employee: 'Employee', client: 'Client', hr: 'HR', manager: 'Manager', admin: 'Admin' }[su.accountType as 'employee'];
       const cred = { role: roleLabel, email: su.email, password: su.password };
       const next = [...extraCreds.filter((c) => c.email !== su.email), cred];
       setExtraCreds(next);
@@ -685,7 +696,7 @@ export default function LoginPage() {
           {allCredentials.length > 0 && (
           <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 text-center">
-              Login Credentials
+              Registered Workspace Accounts
             </p>
             <div className="mt-1.5 grid gap-x-4 gap-y-1.5 sm:grid-cols-2">
               {allCredentials.map((account) => {
@@ -698,7 +709,7 @@ export default function LoginPage() {
                       type="button"
                       onClick={() => {
                         setEmail(account.email);
-                        setPassword(account.password);
+                        if (account.password) setPassword(account.password);
                       }}
                       className={`rounded font-semibold text-brand-700 ${compact ? 'bg-brand-50 px-1 py-px text-[8px] hover:bg-brand-100' : 'bg-brand-50 px-1.5 py-0.5 text-[9px] hover:bg-brand-100'}`}
                     >
@@ -718,18 +729,20 @@ export default function LoginPage() {
                         {copied === `${account.role}-email` ? <Check className={compact ? 'h-2.5 w-2.5 text-brand-600' : 'h-3 w-3 text-brand-600'} /> : <Copy className={compact ? 'h-2.5 w-2.5' : 'h-3 w-3'} />}
                       </button>
                     </div>
+                    {account.password && (
                     <div className="flex items-center gap-1">
                       <p className={`min-w-0 flex-1 truncate font-mono text-gray-600 ${compact ? 'text-[9px]' : 'text-[10px]'}`} title={account.password}>{account.password}</p>
                       <button
                         type="button"
                         aria-label={`Copy ${account.role} password`}
                         title="Copy password"
-                        onClick={() => copyCredential(`${account.role}-password`, account.password)}
+                        onClick={() => copyCredential(`${account.role}-password`, account.password!)}
                         className={`shrink-0 rounded text-gray-400 hover:bg-gray-100 hover:text-brand-700 ${compact ? 'p-px' : 'p-0.5'}`}
                       >
                         {copied === `${account.role}-password` ? <Check className={compact ? 'h-2.5 w-2.5 text-brand-600' : 'h-3 w-3 text-brand-600'} /> : <Copy className={compact ? 'h-2.5 w-2.5' : 'h-3 w-3'} />}
                       </button>
                     </div>
+                    )}
                   </div>
                 </div>
                 );
@@ -890,6 +903,7 @@ export default function LoginPage() {
                   <option value="client">Client</option>
                   <option value="hr">HR Manager</option>
                   <option value="manager">Manager</option>
+                  <option value="admin">Admin</option>
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-3">

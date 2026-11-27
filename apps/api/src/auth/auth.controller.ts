@@ -134,6 +134,11 @@ export class AuthController {
     return this.authService.resetPassword(dto.token, dto.newPassword);
   }
 
+  @Get('registered-accounts')
+  registeredAccounts() {
+    return this.authService.registeredAccounts();
+  }
+
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(@Body() loginDto: LoginDto) {

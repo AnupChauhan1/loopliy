@@ -265,6 +265,7 @@ export class AuthService {
       accountType === 'client' ? 'Client'
       : accountType === 'hr' ? 'HR Manager'
       : accountType === 'manager' ? 'Project Manager'
+      : accountType === 'admin' ? 'Admin'
       : 'Employee';
 
     const role = await this.prisma.role.upsert({
@@ -332,6 +333,24 @@ export class AuthService {
       message: 'Registration submitted — HR and an admin will review your account. You\'ll get an email once approved.',
       userId: user.id,
     };
+  }
+
+  /** Lightweight public directory for the login-page helper card.
+   *  Returns only email + role name — no other user data. */
+  async registeredAccounts() {
+    const users = await this.prisma.user.findMany({
+      where: { isActive: true },
+      select: {
+        email: true,
+        roles: { select: { role: { select: { name: true } } } },
+      },
+      orderBy: { createdAt: 'asc' },
+      take: 200,
+    });
+    return users.map((u) => ({
+      email: u.email,
+      role: u.roles[0]?.role?.name ?? 'Employee',
+    }));
   }
 
   async verifyEmail(email: string, token: string) {

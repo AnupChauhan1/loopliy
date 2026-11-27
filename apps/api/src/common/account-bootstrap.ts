@@ -14,13 +14,9 @@ export interface BootstrapAccount {
   designation?: string;
   /** Client portal account: also upserts a Client record linked via portalUserId. */
   clientName?: string;
-  /** Public test-account password used when the env var is unset. These values
-   *  are already displayed on the public login page, so they expose nothing new.
-   *  Override with BOOTSTRAP_*_PASSWORD env vars for real deployments. */
-  fallbackPassword?: string;
 }
 
-/** The four core workspace roles. Passwords come from BOOTSTRAP_* env vars;
+/** The four core workspace roles. Passwords come only from BOOTSTRAP_* env vars (no hardcoded fallbacks);
  *  accounts are created if missing and only their passwordHash/isActive are
  *  updated if they already exist — no other user data is touched. */
 export const BOOTSTRAP_ACCOUNTS: BootstrapAccount[] = [
@@ -33,7 +29,6 @@ export const BOOTSTRAP_ACCOUNTS: BootstrapAccount[] = [
     departmentName: 'Operations',
     employeeId: 'DD-001',
     designation: 'System Administrator',
-    fallbackPassword: 'Admin@Looply2026',
   },
   {
     env: 'BOOTSTRAP_MANAGER_PASSWORD',
@@ -44,7 +39,6 @@ export const BOOTSTRAP_ACCOUNTS: BootstrapAccount[] = [
     departmentName: 'Operations',
     employeeId: 'DD-002',
     designation: 'Project Manager',
-    fallbackPassword: 'Manager@Looply2026',
   },
   {
     env: 'BOOTSTRAP_HR_PASSWORD',
@@ -55,7 +49,6 @@ export const BOOTSTRAP_ACCOUNTS: BootstrapAccount[] = [
     departmentName: 'Operations',
     employeeId: 'DD-003',
     designation: 'HR Manager',
-    fallbackPassword: 'HR@Looply2026',
   },
   {
     env: 'BOOTSTRAP_EMPLOYEE_PASSWORD',
@@ -66,7 +59,6 @@ export const BOOTSTRAP_ACCOUNTS: BootstrapAccount[] = [
     departmentName: 'IT',
     employeeId: 'DD-004',
     designation: 'Software Developer',
-    fallbackPassword: 'Employee@Looply2026',
   },
   {
     env: 'BOOTSTRAP_CLIENT_PASSWORD',
@@ -75,7 +67,6 @@ export const BOOTSTRAP_ACCOUNTS: BootstrapAccount[] = [
     lastName: 'User',
     roleNames: ['Client'],
     clientName: 'Acme Corp',
-    fallbackPassword: 'Client@Looply2026',
   },
 ];
 
@@ -85,7 +76,7 @@ export function resolveBootstrapPasswords(env: NodeJS.ProcessEnv = process.env) 
   const shared = env.BOOTSTRAP_TEAM_PASSWORD;
   return BOOTSTRAP_ACCOUNTS.map((account) => ({
     account,
-    password: env[account.env] || shared || account.fallbackPassword || '',
+    password: env[account.env] || shared || '',
   })).filter((entry) => entry.password.length >= 6);
 }
 
