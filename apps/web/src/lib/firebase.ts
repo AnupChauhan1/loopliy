@@ -1,16 +1,16 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, OAuthProvider } from 'firebase/auth';
 
-// Production Firebase web config for project looply-crm-2fa19.
-// Hardcoded on purpose: Render does not define NEXT_PUBLIC_FIREBASE_*
-// env vars, and reading them produced auth/api-key-not-valid errors.
+// Firebase web config for project looply-67db8.
+// Reads NEXT_PUBLIC_FIREBASE_* env vars when present (Render/local .env.local),
+// falling back to the production project credentials below.
 const firebaseConfig = {
-  apiKey: 'AIzaSyCota13QQ6-JmVpjihnnp3YtD8hlgYgSZ4',
-  authDomain: 'looply-crm-2fa19.firebaseapp.com',
-  projectId: 'looply-crm-2fa19',
-  storageBucket: 'looply-crm-2fa19.firebasestorage.app',
-  messagingSenderId: '576502210552',
-  appId: '1:576502210552:web:9ae95786aa84ccc2c6000d',
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyAy6Z2LLQW--00hzC0J0gQ605PQHSl5l74',
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || 'looply-67db8.firebaseapp.com',
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'looply-67db8',
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 'looply-67db8.firebasestorage.app',
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '433616898133',
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || '1:433616898133:web:a63ac223af07d2e70fecdc',
 };
 
 export const app = getApps().length ? getApp() : initializeApp(firebaseConfig);

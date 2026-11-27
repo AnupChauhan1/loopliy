@@ -12,7 +12,7 @@ import { LoginDto } from './dto/login.dto';
 import { SignupDto } from './dto/signup.dto';
 
 const DEFAULT_ORG_SLUG = 'epatang-agency';
-const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'looply-crm-2fa19';
+const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'looply-67db8';
 const FIREBASE_JWKS_URL = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
 
 let firebaseKeys: { keys: any[]; expiresAt: number } | null = null;
