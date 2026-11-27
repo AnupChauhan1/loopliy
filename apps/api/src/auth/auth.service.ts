@@ -27,7 +27,7 @@ async function firebaseSigningKey(kid: string) {
 }
 
 /** Verifies a Firebase Auth ID token (signature, issuer, audience, expiry) and returns its claims. */
-async function verifyFirebaseIdToken(token: string): Promise<{ email?: string; email_verified?: boolean } | null> {
+async function verifyFirebaseIdToken(token: string): Promise<{ email?: string; email_verified?: boolean; firebase?: { sign_in_provider?: string } } | null> {
   const [headerB64, payloadB64, signatureB64] = token.split('.');
   if (!headerB64 || !payloadB64 || !signatureB64) return null;
   const header = JSON.parse(Buffer.from(headerB64, 'base64url').toString());
@@ -229,7 +229,9 @@ export class AuthService {
       try {
         const claims = await verifyFirebaseIdToken(fbToken);
         if (claims) {
-          firebaseVerified = claims.email?.toLowerCase() === email && claims.email_verified === true;
+          const provider = claims.firebase?.sign_in_provider ?? '';
+          const verified = claims.email_verified === true || (provider !== '' && provider !== 'password');
+          firebaseVerified = claims.email?.toLowerCase() === email && verified;
         } else {
           const res = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(fbToken)}`);
           if (res.ok) {
@@ -512,7 +514,11 @@ export class AuthService {
   async loginWithFirebase(firebaseIdToken: string) {
     const claims = firebaseIdToken ? await verifyFirebaseIdToken(firebaseIdToken) : null;
     const email = claims?.email?.toLowerCase();
-    if (!claims || !email || claims.email_verified !== true) {
+    // Federated providers (Google, Zoho OIDC) assert the email via their own IdP —
+    // Firebase only guarantees email_verified for password accounts.
+    const provider = claims?.firebase?.sign_in_provider ?? '';
+    const emailVerified = claims?.email_verified === true || (provider !== '' && provider !== 'password');
+    if (!claims || !email || !emailVerified) {
       throw new UnauthorizedException('Email verification failed — please verify your email and try again');
     }
     const user = await this.prisma.user.findUnique({

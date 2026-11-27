@@ -12,6 +12,28 @@ import { ZohoIcon } from '@/components/zoho-icon';
 
 const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/+$/, '');
 
+/** fetch() that can never hang forever — aborts after `ms` and throws a friendly timeout error. */
+async function fetchWithTimeout(url: string, init: RequestInit = {}, ms = 30000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  try {
+    const res = await fetch(url, { ...init, signal: ctrl.signal });
+    const text = await res.text();
+    let data: any = null;
+    try { data = text ? JSON.parse(text) : null; } catch { data = { message: text.slice(0, 200) || `HTTP ${res.status}` }; }
+    return { ok: res.ok, status: res.status, data };
+  } catch (err: any) {
+    if (err?.name === 'AbortError') {
+      const e = new Error('The server is taking too long to respond — it may be waking up. Please try again in a moment.');
+      (e as any).isTimeout = true;
+      throw e;
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // Public workspace credentials — these accounts are provisioned on the
 // backend via the BOOTSTRAP_*_PASSWORD env vars and verified against the
 // live auth endpoint. Temporary testing credentials for the designated
@@ -173,8 +195,13 @@ export default function LoginPage() {
           if (pid.includes('zoho')) {
             // Redirect fallback from "Continue with Zoho" → finish the session exchange
             setLoading(true);
-            await completeFirebaseLogin(cred.user, 'zoho');
-            setLoading(false);
+            try {
+              await completeFirebaseLogin(cred.user, 'zoho');
+            } catch (err: unknown) {
+              setError(err instanceof Error && err.message ? err.message : 'Zoho sign-in failed. Please try again.');
+            } finally {
+              setLoading(false);
+            }
             return;
           }
           setAuthMode('signup');
@@ -184,6 +211,8 @@ export default function LoginPage() {
         if ((err as { code?: string })?.code) {
           setAuthMode('signup');
           setSuErr(await fbError(err, 'Google sign-in failed.'));
+        } else {
+          setError(err instanceof Error ? err.message : 'Sign-in could not be completed. Please try again.');
         }
       }
     })();
@@ -261,14 +290,13 @@ export default function LoginPage() {
   // continue into the verified signup flow instead of erroring out.
   const completeFirebaseLogin = async (firebaseUser: any, provider: 'zoho' | 'google') => {
     const idToken = await firebaseUser.getIdToken();
-    const res = await fetch(`${API_URL}/api/v1/auth/firebase-login`, {
+    const { ok, data } = await fetchWithTimeout(`${API_URL}/api/v1/auth/firebase-login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ firebaseIdToken: idToken }),
     });
-    const data = await res.json();
-    if (!res.ok) {
-      if (/no account found/i.test(data.message || '')) {
+    if (!ok) {
+      if (/no account found/i.test(data?.message || '')) {
         try {
           sessionStorage.setItem('looply_oauth_prefill', JSON.stringify({
             fullName: firebaseUser.displayName ?? '',
@@ -280,7 +308,7 @@ export default function LoginPage() {
         router.push('/signup');
         return;
       }
-      throw new Error(data.message || 'Sign-in failed');
+      throw new Error(data?.message || 'Sign-in failed');
     }
     await login(data.token, data.user);
     router.push(homeFor(panelRoleOf(data.user.roles, data.user.primaryRole)));
@@ -335,9 +363,8 @@ export default function LoginPage() {
       fd.append('accountType', su.accountType);
       fd.append('firebaseIdToken', emailProof);
       if (suPhoto) fd.append('photo', suPhoto);
-      const res = await fetch(`${API_URL}/api/v1/auth/signup`, { method: 'POST', body: fd });
-      const data = await res.json();
-      if (!res.ok) throw new Error(Array.isArray(data.message) ? data.message[0] : data.message || 'Registration failed');
+      const { ok, data } = await fetchWithTimeout(`${API_URL}/api/v1/auth/signup`, { method: 'POST', body: fd }, 45000);
+      if (!ok) throw new Error(Array.isArray(data?.message) ? data.message[0] : data?.message || 'Registration failed');
       // Store the new account in the demo credentials list (localStorage)
       const roleLabel = { employee: 'Employee', client: 'Client', hr: 'HR', manager: 'Manager' }[su.accountType as 'employee'];
       const cred = { role: roleLabel, email: su.email, password: su.password };
@@ -362,13 +389,12 @@ export default function LoginPage() {
     setFpLoading(true);
     try {
       if (fpStep === 1) {
-        const res = await fetch(`${API_URL}/api/v1/auth/forgot-password`, {
+        const { ok, data } = await fetchWithTimeout(`${API_URL}/api/v1/auth/forgot-password`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: fpEmail }),
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message || 'Request failed');
+        if (!ok) throw new Error(data?.message || 'Request failed');
         if (data.devResetToken) {
           setFpToken(data.devResetToken);
           setFpStep(2);
@@ -378,13 +404,12 @@ export default function LoginPage() {
       } else {
         if (fpPw !== fpConfirm) { setFpErr('Passwords do not match'); return; }
         if (fpPw.length < 8) { setFpErr('Password must be at least 8 characters'); return; }
-        const res = await fetch(`${API_URL}/api/v1/auth/reset-password`, {
+        const { ok, data } = await fetchWithTimeout(`${API_URL}/api/v1/auth/reset-password`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token: fpToken, newPassword: fpPw }),
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message || 'Reset failed');
+        if (!ok) throw new Error(data?.message || 'Reset failed');
         setFpMsg('Password updated — sign in with your new password.');
         setTimeout(() => { setAuthMode('login'); setFpStep(1); setFpMsg(''); setFpPw(''); setFpConfirm(''); }, 1200);
       }
@@ -415,18 +440,16 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const response = await fetch(`${API_URL}/api/v1/auth/login`, {
+      const { ok, data } = await fetchWithTimeout(`${API_URL}/api/v1/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ email, password }),
-      });
+      }, 45000); // Render free-tier cold starts can take ~50s
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Login failed');
+      if (!ok) {
+        throw new Error(data?.message || 'Login failed');
       }
 
       await login(data.token, data.user);
@@ -552,13 +575,12 @@ export default function LoginPage() {
                       setResendLoading(true);
                       setResendMsg('');
                       try {
-                        const res = await fetch(`${API_URL}/api/v1/auth/resend-verification`, {
+                        const { ok, data } = await fetchWithTimeout(`${API_URL}/api/v1/auth/resend-verification`, {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ email }),
                         });
-                        const data = await res.json();
-                        setResendToken(data.devVerifyToken ?? '');
+                        setResendToken(data?.devVerifyToken ?? '');
                         setResendMsg('Verification email sent — check your inbox.');
                       } catch {
                         setResendMsg('Could not send right now — try again.');
