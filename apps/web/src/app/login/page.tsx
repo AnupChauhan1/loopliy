@@ -13,7 +13,7 @@ import { ZohoIcon } from '@/components/zoho-icon';
 const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/+$/, '');
 
 /** fetch() that can never hang forever — aborts after `ms` and throws a friendly timeout error. */
-async function fetchWithTimeout(url: string, init: RequestInit = {}, ms = 30000) {
+async function fetchWithTimeout(url: string, init: RequestInit = {}, ms = 15000) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), ms);
   try {
@@ -91,6 +91,7 @@ export default function LoginPage() {
   const [emailLocked, setEmailLocked] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [zohoLoading, setZohoLoading] = useState(false);
+  const [zohoLoginLoading, setZohoLoginLoading] = useState(false);
   const fbUser = useRef<any>(null);
 
   const [googleVerified, setGoogleVerified] = useState(false);
@@ -294,7 +295,7 @@ export default function LoginPage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ firebaseIdToken: idToken }),
-    });
+    }, 15000);
     if (!ok) {
       if (/no account found/i.test(data?.message || '')) {
         try {
@@ -316,7 +317,7 @@ export default function LoginPage() {
 
   // "Continue with Zoho" on the login form: clean Zoho OIDC popup → backend session.
   const continueWithZoho = async () => {
-    setError(''); setLoading(true);
+    setError(''); setZohoLoginLoading(true);
     try {
       const { signInWithPopup, signInWithRedirect } = await import('firebase/auth');
       const { auth, zohoProvider } = await import('@/lib/firebase');
@@ -340,7 +341,7 @@ export default function LoginPage() {
           : await fbError(err, 'Zoho sign-in failed. Please try again.'),
       );
     } finally {
-      setLoading(false);
+      setZohoLoginLoading(false);
     }
   };
 
@@ -446,7 +447,7 @@ export default function LoginPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ email, password }),
-      }, 45000); // Render free-tier cold starts can take ~50s
+      }, 15000); // strict timeout — never spin forever on a cold/unreachable API
 
       if (!ok) {
         throw new Error(data?.message || 'Login failed');
@@ -658,7 +659,7 @@ export default function LoginPage() {
             <Button
               type="submit"
               className="h-12 w-full rounded-xl border-0 bg-gradient-to-b from-emerald-500 to-emerald-600 text-sm font-semibold text-white shadow-[0_8px_20px_-4px_rgba(5,150,105,0.45)] transition-all hover:from-emerald-600 hover:to-emerald-700 active:scale-[0.99]"
-              disabled={loading}
+              disabled={loading || zohoLoginLoading}
             >
               {loading ? (
                 <>
@@ -674,11 +675,11 @@ export default function LoginPage() {
           <button
             type="button"
             onClick={continueWithZoho}
-            disabled={loading}
+            disabled={loading || zohoLoginLoading}
             className="mt-3 flex h-11 w-full items-center justify-center gap-2.5 whitespace-nowrap rounded-xl border border-slate-200/90 bg-slate-50/70 px-4 text-sm font-semibold text-slate-700 transition-all hover:bg-white hover:border-emerald-400/60 hover:shadow-sm disabled:opacity-60"
           >
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ZohoIcon />}
-            {loading ? 'Connecting…' : 'Continue with Zoho'}
+            {zohoLoginLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ZohoIcon />}
+            {zohoLoginLoading ? 'Connecting…' : 'Continue with Zoho'}
           </button>
 
           {allCredentials.length > 0 && (

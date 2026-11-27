@@ -17,6 +17,8 @@ services:
         value: "22"
       - key: DATABASE_URL
         sync: false
+      - key: FIREBASE_PROJECT_ID
+        value: looply-67db8
       - key: JWT_SECRET
         generateValue: true
       - key: NODE_ENV
@@ -46,6 +48,6 @@ services:
       - key: NODE_ENV
         value: production
       - key: NEXT_PUBLIC_API_URL
-        value: https://loopliii-crm-api.onrender.com
+        value: https://loopliii-crm-api-ehu7.onrender.com
       - key: NEXT_PUBLIC_APP_URL
         value: https://loopliii-crm-web.onrender.com
